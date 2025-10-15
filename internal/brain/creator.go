@@ -21,8 +21,15 @@ func NewCreator() *Creator {
 }
 
 func (c *Creator) CreateWithConfig(path string, config Config) error {
-	// Create directory structure
-	if err := c.createDirectories(path); err != nil {
+	return c.CreateCompatible(path, config, BrainTypeEmpty)
+}
+
+// CreateCompatible creates a flip brain structure that's compatible with existing brain systems
+func (c *Creator) CreateCompatible(path string, config Config, existingType BrainType) error {
+	fmt.Printf("🔧 Creating flip structure compatible with %s...\n", existingType)
+
+	// Create directory structure (respectfully)
+	if err := c.createDirectoriesCompatible(path, existingType); err != nil {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
 
@@ -36,8 +43,8 @@ func (c *Creator) CreateWithConfig(path string, config Config) error {
 		return fmt.Errorf("failed to create definitions: %w", err)
 	}
 
-	// Create templates
-	if err := c.createTemplates(path); err != nil {
+	// Create templates compatible with existing system
+	if err := c.createTemplatesCompatible(path, existingType); err != nil {
 		return fmt.Errorf("failed to create templates: %w", err)
 	}
 
@@ -46,25 +53,140 @@ func (c *Creator) CreateWithConfig(path string, config Config) error {
 		return fmt.Errorf("failed to create configuration: %w", err)
 	}
 
-	// Create initial files
-	if err := c.createInitialFiles(path, config); err != nil {
-		return fmt.Errorf("failed to create initial files: %w", err)
+	// Create initial files (if appropriate)
+	if existingType == BrainTypeEmpty || existingType == BrainTypeFlip || existingType == BrainTypeUnknown {
+		if err := c.createInitialFiles(path, config); err != nil {
+			return fmt.Errorf("failed to create initial files: %w", err)
+		}
 	}
 
+	// Create example files tailored to the existing/dialect type
+	if err := c.createExamplesCompatible(path, config, existingType); err != nil {
+		return fmt.Errorf("failed to create example files: %w", err)
+	}
+
+	fmt.Printf("✅ Flip brain initialized successfully!\n")
+	return nil
+}
+
+// createExamplesCompatible adds a few example markdown files to help onboarding
+func (c *Creator) createExamplesCompatible(basePath string, config Config, brainType BrainType) error {
+	today := time.Now().Format("2006-01-02")
+	// Welcome note explaining structure
+	welcomePath := filepath.Join(basePath, "WELCOME.md")
+	if _, err := os.Stat(welcomePath); os.IsNotExist(err) {
+		content := fmt.Sprintf(`# Welcome to Flip
+
+This folder is a 2nd brain workspace managed by Flip.
+
+Key concepts:
+- Workspace: a registered 2nd brain folder (this one)
+- Dialect: the note system style (flip/obsidian/logseq/dendron)
+- Structure: folders and templates matching your chosen dialect
+
+Author: %s
+Date: %s
+`, config.Author, today)
+		if err := c.writeFile(welcomePath, content); err != nil {
+			return err
+		}
+	}
+
+	switch brainType {
+	case BrainTypeObsidian:
+		// Daily note
+		dn := filepath.Join(basePath, "Daily Notes", today+".md")
+		if _, err := os.Stat(dn); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(dn), 0755)
+			_ = c.writeFile(dn, `# {{date:YYYY-MM-DD}}
+
+## Notes
+- Welcome to your Obsidian-compatible Flip workspace.
+`)
+		}
+		// Example note
+		ex := filepath.Join(basePath, "Projects", "Example Note.md")
+		if _, err := os.Stat(ex); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(ex), 0755)
+			_ = c.writeFile(ex, `---
+title: "Example Note"
+date: {{date:YYYY-MM-DD}}
+tags: [example]
+---
+
+# Example Note
+
+This note demonstrates Obsidian frontmatter and headings.`)
+		}
+	case BrainTypeLogseq:
+		// Journal
+		jname := time.Now().Format("2006_01_02") + ".md"
+		jpath := filepath.Join(basePath, "journals", jname)
+		if _, err := os.Stat(jpath); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(jpath), 0755)
+			_ = c.writeFile(jpath, `- # Journal
+- ## Notes
+  - Welcome to your Logseq-compatible Flip workspace.`)
+		}
+		// Page
+		p := filepath.Join(basePath, "pages", "example.md")
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(p), 0755)
+			_ = c.writeFile(p, `title:: Example Page
+tags:: example
+
+- # Example
+  - Demonstrates Logseq properties and bullets.`)
+		}
+	case BrainTypeDendron:
+		// Welcome note in notes/
+		n := filepath.Join(basePath, "notes", "welcome.md")
+		if _, err := os.Stat(n); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(n), 0755)
+			_ = c.writeFile(n, `---
+id: welcome
+title: Welcome
+---
+
+# Welcome
+
+This is a Dendron-compatible workspace scaffolded by Flip.`)
+		}
+	default:
+		// Flip default: journal + example note
+		j := filepath.Join(basePath, "journal", today+".md")
+		if _, err := os.Stat(j); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(j), 0755)
+			_ = c.writeFile(j, `# `+today+`
+
+## Notes
+- First journal entry created by Flip.`)
+		}
+		note := filepath.Join(basePath, "notes", "example.md")
+		if _, err := os.Stat(note); os.IsNotExist(err) {
+			_ = os.MkdirAll(filepath.Dir(note), 0755)
+			_ = c.writeFile(note, `---
+title: "Example"
+date: `+today+`
+tags: [example]
+type: note
+status: active
+---
+
+# Example
+
+This is an example note to get you started.`)
+		}
+	}
 	return nil
 }
 
 func (c *Creator) createDirectories(basePath string) error {
-	directories := []string{
-		"definitions",
-		"journal",
-		"meetings",
-		"notes",
-		"tasks",
-		"templates",
-		"assets/images",
-		"assets/documents",
-	}
+	return c.createDirectoriesCompatible(basePath, BrainTypeEmpty)
+}
+
+func (c *Creator) createDirectoriesCompatible(basePath string, existingType BrainType) error {
+	directories := c.getDirectoriesForType(basePath, existingType)
 
 	for _, dir := range directories {
 		fullPath := filepath.Join(basePath, dir)
@@ -74,6 +196,62 @@ func (c *Creator) createDirectories(basePath string) error {
 	}
 
 	return nil
+}
+
+func (c *Creator) getDirectoriesForType(basePath string, brainType BrainType) []string {
+	baseDirectories := []string{
+		"definitions",
+		"templates",
+		"assets/images",
+		"assets/documents",
+	}
+
+	switch brainType {
+	case BrainTypeObsidian:
+		// Obsidian compatible structure
+		return append(baseDirectories, []string{
+			"Daily Notes", // Obsidian's default daily notes folder
+			"Templates",   // Obsidian templates
+			"Meetings",
+			"Projects",
+			"Tasks",
+		}...)
+
+	case BrainTypeLogseq:
+		// Logseq compatible structure
+		existingJournals := filepath.Join(basePath, "journals")
+		existingPages := filepath.Join(basePath, "pages")
+
+		dirs := baseDirectories
+		if _, err := os.Stat(existingJournals); os.IsNotExist(err) {
+			dirs = append(dirs, "journals")
+		}
+		if _, err := os.Stat(existingPages); os.IsNotExist(err) {
+			dirs = append(dirs, "pages")
+		}
+
+		return append(dirs, []string{
+			"meetings",
+			"tasks",
+		}...)
+
+	case BrainTypeDendron:
+		// Dendron compatible structure - respect existing vault structure
+		return append(baseDirectories, []string{
+			"notes",
+			"meetings",
+			"tasks",
+		}...)
+
+	default:
+		// Default flip structure
+		return append(baseDirectories, []string{
+			"journal",
+			"meetings",
+			"notes",
+			"tasks",
+		}...)
+	}
 }
 
 func (c *Creator) createMarkerFile(basePath string, config Config) error {
@@ -140,8 +318,52 @@ func (c *Creator) createDefinitions(basePath string, config Config) error {
 }
 
 func (c *Creator) createTemplates(basePath string) error {
-	// Journal template
-	journalTemplate := `# {{.Date}}
+	return c.createTemplatesCompatible(basePath, BrainTypeEmpty)
+}
+
+func (c *Creator) createTemplatesCompatible(basePath string, existingType BrainType) error {
+	templateDir := "templates"
+
+	// Adjust template location based on brain type
+	if existingType == BrainTypeObsidian {
+		templateDir = "Templates" // Obsidian's default template folder
+	}
+
+	// Journal template - adapted for different systems
+	journalTemplate := c.getJournalTemplate(existingType)
+	if err := c.writeFile(filepath.Join(basePath, templateDir, "journal-template.md"), journalTemplate); err != nil {
+		return err
+	}
+
+	// Meeting template - adapted for different systems
+	meetingTemplate := c.getMeetingTemplate(existingType)
+	if err := c.writeFile(filepath.Join(basePath, templateDir, "meeting-template.md"), meetingTemplate); err != nil {
+		return err
+	}
+
+	// Note template - adapted for different systems
+	noteTemplate := c.getNoteTemplate(existingType)
+	return c.writeFile(filepath.Join(basePath, templateDir, "note-template.md"), noteTemplate)
+}
+
+func (c *Creator) getJournalTemplate(brainType BrainType) string {
+	switch brainType {
+	case BrainTypeLogseq:
+		// Logseq uses block structure and different date format
+		return `- ## Morning Reflection
+  - 
+- ## Tasks
+  - TODO 
+- ## Notes
+  - 
+- ## Evening Reflection
+  - What went well:
+  - What could be improved:
+  - Tomorrow's priority:`
+
+	case BrainTypeObsidian:
+		// Obsidian template with template variables
+		return `# {{date:YYYY-MM-DD}}
 
 ## Morning Reflection
 - 
@@ -155,14 +377,74 @@ func (c *Creator) createTemplates(basePath string) error {
 ## Evening Reflection
 - What went well:
 - What could be improved:
-- Tomorrow's priority:
-`
-	if err := c.writeFile(filepath.Join(basePath, "templates", "journal-template.md"), journalTemplate); err != nil {
-		return err
-	}
+- Tomorrow's priority:`
 
-	// Meeting template
-	meetingTemplate := `# Meeting: {{.Title}} - {{.Date}}
+	default:
+		// Default flip template
+		return `# {{.Date}}
+
+## Morning Reflection
+- 
+
+## Tasks
+- [ ] 
+
+## Notes
+- 
+
+## Evening Reflection
+- What went well:
+- What could be improved:
+- Tomorrow's priority:`
+	}
+}
+
+func (c *Creator) getMeetingTemplate(brainType BrainType) string {
+	switch brainType {
+	case BrainTypeLogseq:
+		return `- # Meeting: {{.Title}} - {{.Date}}
+- **Date:** {{.Date}}
+- **Time:** [HH:MM - HH:MM]
+- **Organization:** [{{.Organization}}]
+- **Participants:** {{.Participants}}
+- **Type:** [standup|planning|review|retrospective|other]
+- ## Agenda
+  - 
+- ## Discussion
+  - 
+- ## Decisions
+  - 
+- ## Action Items
+  - TODO [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
+- ## Next Steps
+  - `
+
+	case BrainTypeObsidian:
+		return `# Meeting: {{title}} - {{date:YYYY-MM-DD}}
+
+**Date:** {{date:YYYY-MM-DD}}
+**Time:** [HH:MM - HH:MM]
+**Organization:** [{{.Organization}}]
+**Participants:** {{.Participants}}
+**Type:** [standup|planning|review|retrospective|other]
+
+## Agenda
+- 
+
+## Discussion
+- 
+
+## Decisions
+- 
+
+## Action Items
+- [ ] [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
+
+## Next Steps
+- `
+
+	default:
+		return `# Meeting: {{.Title}} - {{.Date}}
 
 **Date:** {{.Date}}
 **Time:** [HH:MM - HH:MM]
@@ -183,14 +465,58 @@ func (c *Creator) createTemplates(basePath string) error {
 - [ ] [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
 
 ## Next Steps
-- 
-`
-	if err := c.writeFile(filepath.Join(basePath, "templates", "meeting-template.md"), meetingTemplate); err != nil {
-		return err
+- `
 	}
+}
 
-	// Note template
-	noteTemplate := `---
+func (c *Creator) getNoteTemplate(brainType BrainType) string {
+	switch brainType {
+	case BrainTypeLogseq:
+		// Logseq uses properties and block structure
+		return `title:: {{.Title}}
+date:: {{.Date}}
+tags:: {{.Tags}}
+type:: note
+status:: active
+
+- # {{.Title}}
+- ## Summary
+  - Brief summary of the note content.
+- ## Content
+  - Main note content here.
+- ## Links
+  - [[Related Note 1]]
+  - [[Related Note 2]]
+- ## References
+  - `
+
+	case BrainTypeObsidian:
+		// Obsidian uses YAML frontmatter
+		return `---
+title: "{{title}}"
+date: {{date:YYYY-MM-DD}}
+tags: [{{.Tags}}]
+type: note
+status: active
+---
+
+# {{title}}
+
+## Summary
+Brief summary of the note content.
+
+## Content
+Main note content here.
+
+## Links
+- [[Related Note 1]]
+- [[Related Note 2]]
+
+## References
+- `
+
+	default:
+		return `---
 title: "{{.Title}}"
 date: {{.Date}}
 tags: [{{.Tags}}]
@@ -211,9 +537,8 @@ Main note content here.
 - [[Related Note 2]]
 
 ## References
-- 
-`
-	return c.writeFile(filepath.Join(basePath, "templates", "note-template.md"), noteTemplate)
+- `
+	}
 }
 
 func (c *Creator) createConfiguration(basePath string, config Config) error {

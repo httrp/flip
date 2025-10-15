@@ -17,8 +17,8 @@ func NewInitCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "init [directory]",
-		Short: "Initialize a new 2nd brain repository",
-		Long:  "Creates a new folder structure with templates and configuration for your 2nd brain.",
+		Short: "Initialize a new brain repository",
+		Long:  "Creates a new folder structure with templates and configuration for your brain.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var targetPath string
@@ -48,35 +48,107 @@ type BrainConfig struct {
 }
 
 func runDirectoryInit(directory, template string, force bool) error {
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(directory, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", directory, err)
-	}
-
+	// Get absolute path
 	absPath, err := filepath.Abs(directory)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	fmt.Printf("🧠 Flip - Initialize your 2nd brain\n\n")
-	fmt.Printf("📁 Target directory: %s\n", absPath)
-
-	// Check if directory is empty
-	if !force && !isDirEmpty(absPath) {
-		fmt.Printf("⚠️  Directory is not empty. Use --force to initialize anyway.\n")
-		return fmt.Errorf("directory not empty")
+	// Prevent initialization in flip source/project folder
+	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
+	for _, marker := range projectMarkers {
+		if _, err := os.Stat(filepath.Join(absPath, marker)); err == nil {
+			return fmt.Errorf("❌ You are trying to initialize in the flip project/source folder. Please choose a different directory.")
+		}
 	}
 
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(absPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", absPath, err)
+	}
+
+	// Detect existing brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to detect brain type: %w", err)
+	}
+
+	fmt.Printf("🧠 Flip - Initialize your brain\n\n")
+	fmt.Printf("📁 Target directory: %s\n", absPath)
+	fmt.Printf("🔍 Detection result: %s\n", detection.Description)
+
+	if len(detection.Indicators) > 0 {
+		fmt.Println("   Indicators found:")
+		for _, indicator := range detection.Indicators {
+			fmt.Printf("   • %s\n", indicator)
+		}
+	}
+
+	fmt.Printf("🔧 Compatibility: %s\n\n", detector.GetCompatibilityInfo(detection.Type))
+
+	// Check if we can proceed
+	if !detection.Compatible && !force {
+		return fmt.Errorf("directory contains incompatible content. Use --force to override")
+	}
+
+	if detection.Type != brain.BrainTypeEmpty && detection.Type != brain.BrainTypeFlip && !force {
+		fmt.Printf("⚠️  This directory already contains a %s setup.\n", detection.Type)
+		fmt.Println("Flip will add its structure while preserving existing files.")
+
+		if !askForConfirmation("Continue with flip initialization?") {
+			fmt.Println("Initialization cancelled.")
+			return nil
+		}
+	}
+
+	return initializeBrainAtPath(absPath, template, detection.Type)
+}
+
+func askForConfirmation(question string) bool {
+	fmt.Printf("%s (y/N): ", question)
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes"
+}
+
+func initializeBrainAtPath(path, template string, existingType brain.BrainType) error {
 	// Use template or interactive config
 	var config BrainConfig
 	if template != "" {
 		config = getTemplateConfig(template)
 		fmt.Printf("📋 Using template: %s\n", template)
 	} else {
-		config = promptForConfig(filepath.Base(absPath))
+		config = promptForConfig(filepath.Base(path))
 	}
 
-	return initializeBrain(absPath, config)
+	// Create brain with compatibility considerations
+	creator := brain.NewCreator()
+	brainConfig := brain.Config{
+		Name:                config.Name,
+		Type:                config.Type,
+		DefaultOrganization: config.DefaultOrganization,
+		Author:              config.Author,
+	}
+
+	// Adapt creation based on existing brain type
+	if err := creator.CreateCompatible(path, brainConfig, existingType); err != nil {
+		return err
+	}
+
+	// Auto-add to default workspace
+	fmt.Println("\n📚 Adding brain to default workspace...")
+	if err := autoAddBrainToDefault(path, filepath.Base(path)); err != nil {
+		fmt.Printf("⚠️  Warning: Could not add to default workspace: %v\n", err)
+	} else {
+		fmt.Println("✅ Brain added to default workspace")
+	}
+
+	return nil
 }
 
 func runInteractiveInit(template string, force bool) error {
@@ -85,7 +157,7 @@ func runInteractiveInit(template string, force bool) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	fmt.Printf("🧠 Flip - Initialize your 2nd brain\n\n")
+	fmt.Printf("🧠 Flip - Initialize your brain\n\n")
 	fmt.Printf("📁 Current directory: %s\n", cwd)
 
 	// Check for existing brain
@@ -95,14 +167,14 @@ func runInteractiveInit(template string, force bool) error {
 	}
 
 	// Ask where to initialize
-	fmt.Printf("\n❓ Where would you like to initialize your 2nd brain?\n")
+	fmt.Printf("\n❓ Where would you like to initialize your brain?\n")
 	fmt.Printf("  1) Here in current directory\n")
 	fmt.Printf("  2) Create new folder\n")
 	choice := promptForInput("Choose (1/2)", "1")
 
 	if choice == "2" || choice == "new" || choice == "folder" {
 		// Create new folder mode
-		folderName := promptForInput("📂 Folder name", "my-second-brain")
+		folderName := promptForInput("📂 Folder name", "my-brain")
 		basePath := promptForInput("📁 Base path", cwd)
 
 		targetPath := filepath.Join(basePath, folderName)
@@ -131,7 +203,7 @@ func runInteractiveInit(template string, force bool) error {
 		}
 		fmt.Printf("\n\n")
 
-		if !promptYesNo("❓ Initialize 2nd brain here?", true) {
+		if !promptYesNo("❓ Initialize brain here?", true) {
 			fmt.Printf("❌ Cancelled\n")
 			return nil
 		}
@@ -258,7 +330,7 @@ func getTemplateConfig(template string) BrainConfig {
 }
 
 func initializeBrain(path string, config BrainConfig) error {
-	fmt.Printf("\n✨ Creating your 2nd brain...\n")
+	fmt.Printf("\n✨ Creating your brain...\n")
 
 	// Convert to brain.Config
 	brainConfig := brain.Config{
@@ -270,12 +342,48 @@ func initializeBrain(path string, config BrainConfig) error {
 
 	creator := brain.NewCreator()
 	if err := creator.CreateWithConfig(path, brainConfig); err != nil {
-		return fmt.Errorf("failed to create 2nd brain: %w", err)
+		return fmt.Errorf("failed to create brain: %w", err)
 	}
 
 	fmt.Printf("📁 Created: definitions/, journal/, meetings/, notes/, tasks/, templates/\n")
 	fmt.Printf("📄 Created: .flip-brain.yaml, .flip.yaml\n")
+
+	// Auto-add to default workspace
+	fmt.Println("\n📚 Adding brain to default workspace...")
+	if err := autoAddBrainToDefault(path, config.Name); err != nil {
+		fmt.Printf("⚠️  Warning: Could not add to default workspace: %v\n", err)
+	} else {
+		fmt.Println("✅ Brain added to default workspace")
+	}
+
 	fmt.Printf("✅ Ready! Try: flip create journal\n")
 
 	return nil
+}
+
+// autoAddBrainToDefault detects brain type and adds it to the default workspace
+func autoAddBrainToDefault(path, name string) error {
+	// Get absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(absPath)
+	if err != nil {
+		return err
+	}
+
+	// Create brain entry
+	newBrain := Brain{
+		Name:        name,
+		Path:        absPath,
+		Type:        string(detection.Type),
+		Description: detection.Description,
+	}
+
+	// Add to default workspace
+	return addBrainToDefaultWorkspace(newBrain)
 }

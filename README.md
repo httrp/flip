@@ -5,16 +5,128 @@ steroids for my 2nd brain
 
 Flip is an intelligent assistant designed to supercharge personal knowledge management workflows.
 
-Flip doesn't store your notes and tasks directly, but connects to your external 2nd brain.
+**Flip doesn't store your notes and tasks directly** - instead, it works with your existing external 2nd brain directories (Obsidian vaults, Logseq graphs, Dendron workspaces, or plain markdown folders).
+
+## Architecture
+
+Flip organizes your brains using a simple two-level structure:
+
+- **Brain**: A single brain directory (e.g., Obsidian vault, Logseq graph, or markdown folder)
+- **Workspace**: A collection of related brains that you work with together
+
+Think of it like VS Code workspaces: one workspace can contain multiple folders. In Flip, one workspace can contain multiple brains.
+
+**The "default" Workspace:**
+- Automatically created when you initialize or create your first brain
+- Contains ALL brains that flip knows about on this machine
+- Perfect for getting a complete overview across all your knowledge bases
+
+Example:
+```
+📚 Workspace: "default"
+├─ 🧠 Brain: personal-notes
+├─ 🧠 Brain: work-notes
+├─ 🧠 Brain: journal
+└─ 🧠 Brain: projects
+
+📚 Workspace: "personal"
+├─ 🧠 Brain: personal-notes (default)
+└─ 🧠 Brain: journal
+
+📚 Workspace: "work"
+├─ 🧠 Brain: work-notes (default)
+└─ 🧠 Brain: projects
+```
+
+## Quick Start
+
+### Check Status
+
+```bash
+# See overview of all workspaces and brains
+flip
+# or
+flip status
+```
+
+### Create Your First Brain
+
+```bash
+# Guided setup - creates new brain
+# Automatically adds to "default" workspace
+flip new
+```
+
+### Or Initialize Existing Directory
+
+```bash
+# Initialize a directory as a brain
+# Automatically adds to "default" workspace
+flip init ~/my-notes
+```
+
+### Organize with Workspaces
+
+```bash
+# Create a workspace for related brains
+flip workspace create personal
+
+# Switch to it
+flip workspace switch personal
+
+# Add brains to the active workspace
+flip brain add ~/Obsidian/MyVault --name my-vault --default
+flip brain add ~/Documents/Journal --name journal
+
+# The "default" workspace always contains ALL brains
+flip workspace switch default
+flip brain list  # shows all brains on this machine
+```
+
+### Switch Between Workspaces
+
+```bash
+# List all workspaces
+flip workspace list
+
+# Switch to different workspace
+flip workspace switch work
+
+# Commands now operate on the active workspace
+flip brain list
+```
+
+### Manage Brains
+
+```bash
+# List brains in active workspace
+flip brain list
+
+# Set which brain is default for new content
+flip brain set-default my-vault
+
+# Remove a brain (files stay intact)
+flip brain remove journal
+```
+
+## What Flip Does
+
+- **🔍 Detect existing systems**: Automatically recognizes Obsidian, Logseq, Dendron, or markdown folders
+- **🧠 Smart initialization**: Creates compatible structure without breaking existing setups  
+- **📝 System-specific templates**: Generates templates using each system's native syntax
+- **🔧 Multi-workspace management**: Connect multiple 2nd brain folders simultaneously
+- **📚 Preserve compatibility**: Maintains full compatibility with your existing tools
 
 ## Scope
 
 Use Flip to
 
-- Create your new 2nd brain (structure and templates for notes and tasks)
-- Track your tasks
-- Summarize your notes
-- Query your 2nd brain using natural language
+- Initialize new 2nd brain structures (compatible with major tools)
+- Connect and manage multiple external knowledge repositories  
+- Generate system-specific templates and structures
+- *[Coming soon]* Track your tasks across workspaces
+- *[Coming soon]* Summarize your notes
+- *[Coming soon]* Query your 2nd brain using natural language
 
 ## Tech
 
@@ -22,6 +134,82 @@ Use Flip to
 - **Format Agnostic**: Flip supports Markdown, plain text, and structured formats
 - **Multi-Source**: You can connect to multiple knowledge repositories simultaneously (e.g. different folders for private and business notes)
 - **LLM-Integration** Flip supports multiple (local) LLMs to query your 2nd brain using natural language
+
+## Supported Systems
+
+## Commands Reference
+
+### Workspace Commands
+
+Workspaces are collections of related brains.
+
+```bash
+flip workspace create <name>           # Create new workspace
+flip workspace list                    # List all workspaces
+flip workspace switch <name>           # Switch active workspace
+flip workspace remove <name>           # Remove workspace (brains stay)
+flip workspace rename <old> <new>      # Rename workspace
+```
+
+### Brain Commands
+
+Brains are individual 2nd brain directories. Commands operate within the active workspace.
+
+```bash
+flip brain add <path> [--name NAME] [--default]  # Add brain to active workspace
+flip brain list                                  # List brains in active workspace
+flip brain set-default <name>                    # Set default brain
+flip brain remove <name>                         # Remove brain (files stay)
+```
+
+### Other Commands
+
+```bash
+flip status              # Show overview (default when running just 'flip')
+flip new                 # Create new brain with guided setup
+flip init <path>         # Initialize existing directory
+flip scan [path]         # Scan for existing brains
+```
+
+## Key Concepts
+
+- **Brain**: A single knowledge base directory (Obsidian vault, Logseq graph, etc.)
+- **Workspace**: A collection of related brains you work with together
+- **Default Workspace**: Automatically created; contains ALL brains flip knows about on this machine
+- **Active Workspace**: The workspace you're currently working in. All brain commands operate within this workspace.
+- **Default Brain**: The brain where new content is created by default (within a workspace).
+- **Auto-Registration**: Every brain you create or initialize is automatically added to the "default" workspace.
+
+Flip automatically detects and works with:
+
+### 🟠 Obsidian Vaults
+- **Detection**: `.obsidian/` folder, `app.json`, `workspace.json`
+- **Compatibility**: Full support for wikilinks, YAML frontmatter, templates
+- **Structure**: Creates `Daily Notes/`, `Templates/`, `Projects/`, `Meetings/`
+- **Templates**: Uses Obsidian template syntax (`{{date:YYYY-MM-DD}}`, `{{title}}`)
+
+### 🔵 Logseq Graphs  
+- **Detection**: `.logseq/` folder, `config.edn`, `journals/`, `pages/`
+- **Compatibility**: Block references, page links, task states
+- **Structure**: Respects existing `journals/` and `pages/`, adds flip organization
+- **Templates**: Block-based structure (`- ## Section`, `TODO` tasks)
+
+### 🟢 Dendron Workspaces
+- **Detection**: `dendron.yml`, `.dendron.cache.json`, vault directories
+- **Compatibility**: Hierarchical structure, schemas
+- **Structure**: Works with vault structure, adds flip definitions
+- **Templates**: Hierarchical naming, schema-compatible
+
+### ⚫ Plain Markdown Folders
+- **Detection**: Contains `.md` files but no specific system markers
+- **Compatibility**: Works with any markdown-based system
+- **Structure**: Creates standard flip structure
+- **Templates**: Generic markdown with flip conventions
+
+### 🎯 Empty Directories
+- **Perfect for**: New 2nd brain setups
+- **Creates**: Full flip structure compatible with migration to other systems
+- **Future-proof**: Easy to migrate to Obsidian, Logseq, or Dendron later
 
 ## Standards & Formats
 
@@ -323,3 +511,113 @@ llm:
   model: "llama2"
   endpoint: "http://localhost:11434"
 ```
+
+## Commands Reference
+
+### Initialization Commands
+
+```bash
+# Initialize new brain in current directory
+flip init
+
+# Initialize new brain in specific directory
+flip init /path/to/new/brain
+
+# Initialize in existing directory (interactive mode)
+flip init /path/to/existing/vault
+
+# Force initialization even if directory contains files
+flip init /path/to/existing/vault --force
+
+# Use predefined template
+flip init /path/to/new/brain --template personal
+flip init /path/to/new/brain --template work
+flip init /path/to/new/brain --template learning
+```
+
+### Workspace Management
+
+```bash
+# Add external workspace
+flip workspace add /path/to/brain
+
+# Add with custom name
+flip workspace add /path/to/obsidian/vault --name "my-vault"
+
+# Add and set as default
+flip workspace add /path/to/brain --name "primary" --default
+
+# List all workspaces
+flip workspace list
+
+# Remove workspace (files stay intact)
+flip workspace remove "workspace-name"
+```
+
+### Configuration
+
+Flip stores workspace configuration in `~/.config/flip/workspaces.json`:
+
+```json
+{
+  "version": "1.0",
+  "workspaces": [
+    {
+      "name": "my-vault",
+      "path": "/Users/you/Documents/Obsidian Vault",
+      "type": "obsidian",
+      "description": "Obsidian Vault detected",
+      "default": true
+    },
+    {
+      "name": "work-notes", 
+      "path": "/Users/you/work/logseq-graph",
+      "type": "logseq",
+      "description": "Logseq Graph detected",
+      "default": false
+    }
+  ]
+}
+```
+
+## Scan for Existing Workspaces
+
+Flip kann dein Home-Verzeichnis oder einen beliebigen Pfad nach existierenden 2nd brain Workspaces durchsuchen:
+
+```bash
+# Scan Home-Verzeichnis (Standard)
+flip scan
+
+# Scan einen bestimmten Ordner
+flip scan ~/Documents
+flip scan /Volumes/ExternalDrive/Notes
+```
+
+**Scan-Erkennungskriterien:**
+- **Obsidian Vault:** `.obsidian/` Ordner + viele `.md`-Dateien
+- **Logseq Graph:** `.logseq/` Ordner + `journals/` oder `pages/` + viele `.md`-Dateien
+- **Dendron Workspace:** `dendron.yml` im Root + viele `.md`-Dateien
+- **Flip Brain:** `.flip-brain.yaml` oder `.flip.yaml` im Root
+
+Systemordner und irrelevante Verzeichnisse werden automatisch übersprungen. Die Scan-Tiefe ist begrenzt, um Performance zu gewährleisten. Treffer werden nur angezeigt, wenn sie die typischen Marker und ausreichend viele Markdown-Dateien enthalten.
+
+---
+
+## Architecture: Flip, Workspaces, and Configuration
+
+- **Flip application (binary):** Installed once and available in your PATH. Runs commands like `flip init`, `flip new`, `flip workspace add`, `flip scan`.
+- **Workspaces (2nd brain folders):** Your note/task directories, living anywhere on your system (e.g., `~/flap`, `~/Documents/WorkBrain`, external drives). Each can be Flip-enabled (via `.flip-brain.yaml`/`.flip.yaml`) or native (Obsidian/Logseq/Dendron).
+- **Workspace registry (workspaces.json):** Central registry listing all connected workspaces. Stored in your user config directory (NOT in the project):
+  - macOS/Linux: `~/.config/flip/workspaces.json` (via `os.UserConfigDir()`)
+  - Windows: `%APPDATA%\flip\workspaces.json`
+
+### How it fits together
+1. Create or initialize a brain:
+   - `flip new` creates a new folder with a chosen structure (flip/dendron/obsidian/logseq) and initializes it.
+   - `flip init /path/to/existing` enables an existing folder and makes it flip-compatible.
+2. Connect it once:
+   - `flip workspace add /path/to/brain` adds it to the central registry (workspaces.json).
+3. Use flip globally:
+   - Run global actions across all connected workspaces (search, summarize, tasks) regardless of their physical locations.
+
+This keeps your data independent and portable (folders live anywhere), while flip provides a central, tool-agnostic control plane.
