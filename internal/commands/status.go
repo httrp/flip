@@ -30,15 +30,14 @@ func runStatus() error {
 		return err
 	}
 
-	// Optional banner
-	banner := `
-  ____ _ _       
- |  __(_) |      
- | |__  _| | __ _
- |  __|| | |/ _` + "`" + ` |
- | |   | | | (_| |
- |_|   |_|_|\__,_|
-`
+	// Optional banner (load from file)
+	banner := ""
+	data, err := os.ReadFile("lang/banner.txt")
+	if err == nil {
+		banner = string(data)
+	} else {
+		banner = "Flip - Your Digital 2nd Brain Assistant"
+	}
 	fmt.Println(banner)
 
 	if len(config.Workspaces) == 0 {
