@@ -53,6 +53,11 @@ func runDirectoryInit(directory, template string, force bool) error {
 
 // runDirectoryInitWithName initializes a directory with an optional predefined name
 func runDirectoryInitWithName(directory, brainName, template string, force bool) error {
+	// Ensure we have an active workspace
+	if _, err := ensureActiveWorkspace(); err != nil {
+		return err
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(directory)
 	if err != nil {

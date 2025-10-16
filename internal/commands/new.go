@@ -183,6 +183,15 @@ func runNewWorkspace() error {
 
 // Brain creation logic (used by 'flip new brain' and menu)
 func runNewBrain() error {
+	// Ensure we have an active workspace
+	config, err := ensureActiveWorkspace()
+	if err != nil {
+		return err
+	}
+	if config == nil {
+		return fmt.Errorf("no active workspace available")
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ Create a new brain")
 	fmt.Println()
@@ -210,7 +219,7 @@ func runNewBrain() error {
 
 	if nameChoice == "2" || strings.ToLower(nameChoice) == "suggestions" {
 		// Step 2a: Show creative suggestions
-		config, _ := loadWorkspaceConfig()
+		// Use config from ensureActiveWorkspace
 		existingBrainNames := make(map[string]bool)
 		for _, ws := range config.Workspaces {
 			for _, b := range ws.Brains {

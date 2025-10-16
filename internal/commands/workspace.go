@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/spf13/cobra"
@@ -381,4 +382,107 @@ func runWorkspaceRepair() error {
 
 	fmt.Printf("[OK] Repair complete: %d brains updated, %d removed\n", totalRepaired, totalRemoved)
 	return nil
+}
+
+// ensureActiveWorkspace checks if an active workspace exists, and if not, prompts user to create or select one
+func ensureActiveWorkspace() (*WorkspaceConfig, error) {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		config = &WorkspaceConfig{
+			Version:    "2.0",
+			Workspaces: []Workspace{},
+		}
+	}
+
+	// Check if we have an active workspace
+	if config.ActiveWorkspace != "" {
+		// Verify it still exists
+		for _, ws := range config.Workspaces {
+			if ws.Name == config.ActiveWorkspace {
+				return config, nil
+			}
+		}
+		// Active workspace was deleted, clear it
+		config.ActiveWorkspace = ""
+	}
+
+	// No active workspace - check if we have any workspaces
+	if len(config.Workspaces) == 0 {
+		fmt.Println("\n⚠️  No workspace found!")
+		fmt.Println("You need a workspace to organize your brains.")
+		fmt.Println()
+		fmt.Println("? Would you like to create a workspace now?")
+		fmt.Println("  1) Yes, create a workspace")
+		fmt.Println("  0) No, cancel")
+		fmt.Printf("Choose (0/1) [default: 1]: ")
+
+		var choice string
+		fmt.Scanln(&choice)
+		choice = strings.TrimSpace(choice)
+
+		if choice == "0" || strings.ToLower(choice) == "no" || strings.ToLower(choice) == "cancel" {
+			return nil, fmt.Errorf("cancelled: no workspace available")
+		}
+
+		// Create a workspace
+		fmt.Println()
+		if err := runNewWorkspace(); err != nil {
+			return nil, err
+		}
+
+		// Reload config after workspace creation
+		config, err = loadWorkspaceConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config after workspace creation: %w", err)
+		}
+
+		return config, nil
+	}
+
+	// We have workspaces but none is active - let user choose
+	fmt.Println("\n⚠️  No active workspace selected!")
+	fmt.Println("Available workspaces:")
+	for i, ws := range config.Workspaces {
+		fmt.Printf("  %d) %s\n", i+1, ws.Name)
+	}
+	fmt.Println("  0) Create a new workspace")
+	fmt.Printf("Choose (0-%d) [default: 1]: ", len(config.Workspaces))
+
+	var choice string
+	fmt.Scanln(&choice)
+	choice = strings.TrimSpace(choice)
+
+	if choice == "0" {
+		// Create new workspace
+		fmt.Println()
+		if err := runNewWorkspace(); err != nil {
+			return nil, err
+		}
+		config, err = loadWorkspaceConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config after workspace creation: %w", err)
+		}
+		return config, nil
+	}
+
+	// Parse selection
+	idx := 0
+	if choice == "" {
+		idx = 1
+	} else {
+		fmt.Sscanf(choice, "%d", &idx)
+	}
+
+	if idx < 1 || idx > len(config.Workspaces) {
+		return nil, fmt.Errorf("invalid workspace selection")
+	}
+
+	// Set as active
+	config.ActiveWorkspace = config.Workspaces[idx-1].Name
+	if err := saveWorkspaceConfig(config); err != nil {
+		return nil, fmt.Errorf("failed to save active workspace: %w", err)
+	}
+
+	fmt.Printf("\n✓ Set '%s' as active workspace\n\n", config.ActiveWorkspace)
+	return config, nil
 }
