@@ -53,6 +53,7 @@ func runNewMenu(args []string) error {
 func runNewWorkspace() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ Create a new workspace")
+	fmt.Println()
 
 	// Check if 'default' is already taken
 	config, _ := loadWorkspaceConfig()
@@ -70,23 +71,51 @@ func runNewWorkspace() error {
 		defaultName = "workspace"
 	}
 
-	fmt.Printf("? Name for your new workspace [default: %s]: ", defaultName)
+	// Step 1: Get workspace name
+	fmt.Printf("? Name for your new workspace [default: %s]\n", defaultName)
+	fmt.Printf("  (or enter '0' to cancel): ")
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
+	
+	// Handle cancellation
+	if name == "0" || strings.ToLower(name) == "cancel" {
+		fmt.Println("\n✗ Cancelled")
+		return nil
+	}
+	
 	if name == "" {
 		name = defaultName
 	}
+	
+	// Check if workspace already exists
+	for _, ws := range config.Workspaces {
+		if ws.Name == name {
+			fmt.Printf("\n✗ Workspace '%s' already exists\n", name)
+			return nil
+		}
+	}
+	
 	// Prevent 'flap' as workspace name
 	if strings.ToLower(name) == "flap" {
-		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
+		fmt.Println("\n✗ 'flap' is reserved for the main folder. Please choose another name.")
 		return nil
 	}
-	// Default path: $HOME/flap/workspaces/<name>, but allow any custom path
+	
+	// Step 2: Get workspace path (optional, just for information)
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, "flap", "workspaces", name)
-	fmt.Printf("? Path for your workspace [default: %s]: ", recommended)
+	fmt.Printf("\n→ Workspace name: %s\n", name)
+	fmt.Printf("? Path for workspace metadata [default: %s]\n", recommended)
+	fmt.Printf("  (or enter '0' to cancel): ")
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
+	
+	// Handle cancellation
+	if path == "0" || strings.ToLower(path) == "cancel" {
+		fmt.Println("\n✗ Cancelled")
+		return nil
+	}
+	
 	if path == "" {
 		path = recommended
 	}
@@ -100,12 +129,55 @@ func runNewWorkspace() error {
 		}
 	}
 
-	// Create workspace directory
+	// Now create everything (after all inputs are validated)
+	// Create workspace directory (optional, for metadata/organization)
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
 	}
 
-	fmt.Printf("[OK] Workspace '%s' created at %s\n", name, target)
+	// Add to config
+	newWS := Workspace{
+		Name:   name,
+		Brains: []Brain{},
+	}
+
+	config.Workspaces = append(config.Workspaces, newWS)
+
+	// Set as active if it's the first workspace
+	if len(config.Workspaces) == 1 {
+		config.ActiveWorkspace = name
+	}
+
+	if err := saveWorkspaceConfig(config); err != nil {
+		return fmt.Errorf("failed to save workspace config: %w", err)
+	}
+
+	fmt.Printf("\n✓ Workspace '%s' created\n", name)
+	if config.ActiveWorkspace == name {
+		fmt.Printf("✓ Set as active workspace\n")
+	}
+	
+	// Ask if user wants to add a brain now
+	fmt.Println()
+	fmt.Println("? Would you like to add a brain to this workspace now?")
+	fmt.Println("  1) Yes, create a new brain")
+	fmt.Println("  2) Yes, add an existing brain")
+	fmt.Println("  0) No, finish")
+	fmt.Printf("Choose (0/1/2) [default: 0]: ")
+	
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+	
+	if choice == "1" {
+		fmt.Println()
+		return runNewBrain()
+	} else if choice == "2" {
+		fmt.Println()
+		// TODO: Implement add existing brain flow
+		fmt.Println("→ Add existing brain (not yet implemented)")
+		return nil
+	}
+	
 	return nil
 }
 
@@ -280,18 +352,52 @@ func runNewBrain() error {
 		dialect = "flip"
 	}
 
-	fmt.Printf("\n> Creating new brain '%s' at %s with '%s' structure...\n", name, target, dialect)
+	// ALL INPUTS COLLECTED - Now create everything
+	fmt.Printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Printf("→ Brain name: %s\n", name)
+	fmt.Printf("→ Path: %s\n", target)
+	fmt.Printf("→ Structure: %s\n", dialect)
+	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println("\n> Creating brain structure...")
 
+	// Create the brain structure
 	if err := createBrainStructure(target, dialect); err != nil {
+		// Cleanup on error
+		os.RemoveAll(target)
 		return fmt.Errorf("failed to create structure: %w", err)
 	}
 
 	// Initialize with flip (pass the name to avoid asking again)
+	fmt.Println("> Initializing brain...")
 	if err := runDirectoryInitWithName(target, name, "", true); err != nil {
+		// Cleanup on error
+		os.RemoveAll(target)
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 
-	fmt.Println("[OK] New brain created and initialized!")
+	fmt.Println("\n✓ New brain created and initialized successfully!")
+	
+	// Ask if user wants to create another brain
+	fmt.Println()
+	fmt.Println("? Would you like to create or add another brain?")
+	fmt.Println("  1) Yes, create another new brain")
+	fmt.Println("  2) Yes, add an existing brain")
+	fmt.Println("  0) No, finish")
+	fmt.Printf("Choose (0/1/2) [default: 0]: ")
+	
+	followUp, _ := reader.ReadString('\n')
+	followUp = strings.TrimSpace(followUp)
+	
+	if followUp == "1" {
+		fmt.Println()
+		return runNewBrain()
+	} else if followUp == "2" {
+		fmt.Println()
+		// TODO: Implement add existing brain flow
+		fmt.Println("→ Add existing brain (not yet implemented)")
+		return nil
+	}
+	
 	return nil
 }
 
