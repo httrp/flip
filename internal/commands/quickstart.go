@@ -91,7 +91,7 @@ func runQuickstart() error {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
 	}
 	fmt.Println()
-	fmt.Printf("✓ " + getText("workspace_created")+"\n", wsName, wsPath)
+	fmt.Printf("✓ "+getText("workspace_created")+"\n", wsName, wsPath)
 	fmt.Println()
 
 	// Step 2: Add a brain

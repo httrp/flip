@@ -54,21 +54,29 @@ func runNewWorkspace() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ Create a new workspace")
 
-	// Creative name selection
-	creativeNames := []string{
-		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany", "noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+	// Check if 'default' is already taken
+	config, _ := loadWorkspaceConfig()
+	defaultTaken := false
+	for _, ws := range config.Workspaces {
+		if ws.Name == "default" {
+			defaultTaken = true
+			break
+		}
 	}
-	fmt.Println("? Choose a name for your new brain:")
-	for i, n := range creativeNames {
-		fmt.Printf("  %d) %s\n", i+1, n)
+
+	// Suggest 'default' if available, otherwise 'workspace'
+	defaultName := "default"
+	if defaultTaken {
+		defaultName = "workspace"
 	}
-	fmt.Printf("Or enter your own name [default: %s]: ", creativeNames[0])
+
+	fmt.Printf("? Name for your new workspace [default: %s]: ", defaultName)
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = creativeNames[0]
+		name = defaultName
 	}
-	// Prevent 'flap' as brain name
+	// Prevent 'flap' as workspace name
 	if strings.ToLower(name) == "flap" {
 		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
 		return nil
@@ -106,14 +114,52 @@ func runNewBrain() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ Create a new brain")
 
-	// Name (default: 'default')
-	fmt.Printf("? Name for your new workspace [default: default]: ")
+	// Check which brain names are already taken
+	config, _ := loadWorkspaceConfig()
+	existingBrainNames := make(map[string]bool)
+	for _, ws := range config.Workspaces {
+		for _, b := range ws.Brains {
+			existingBrainNames[b.Name] = true
+		}
+	}
+
+	// Creative name selection
+	creativeNames := []string{
+		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany", 
+		"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+		// Classic PKM names
+		"zettelkasten", "memex", "roam", "second-brain", "pkm", "garden", "vault", "archive", "library", "index",
+	}
+	
+	// Filter out already used names
+	var availableNames []string
+	for _, n := range creativeNames {
+		if !existingBrainNames[n] {
+			availableNames = append(availableNames, n)
+		}
+	}
+
+	// Default suggestion
+	defaultName := "default"
+	if existingBrainNames["default"] && len(availableNames) > 0 {
+		defaultName = availableNames[0]
+	}
+
+	fmt.Println("? Choose a name for your new brain:")
+	fmt.Printf("  1) Custom name (enter your own)\n")
+	for i, n := range availableNames {
+		if i >= 19 { // Limit display to 20 options (1 custom + 19 creative)
+			break
+		}
+		fmt.Printf("  %d) %s\n", i+2, n)
+	}
+	fmt.Printf("Enter number or your own name [default: %s]: ", defaultName)
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = "default"
+		name = defaultName
 	}
-	// Prevent 'flap' as workspace name
+	// Prevent 'flap' as brain name
 	if strings.ToLower(name) == "flap" {
 		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
 		return nil

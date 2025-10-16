@@ -28,7 +28,7 @@ func runInteractiveMenu() error {
 	} else {
 		banner = "Flip - Your Intelligent Assistant"
 	}
-	
+
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println(banner)
@@ -158,7 +158,7 @@ func runCreateAddMenu() error {
 	fmt.Println()
 	fmt.Println("━━━ Create New / Add ━━━")
 	fmt.Println()
-	
+
 	menuItems := []struct {
 		Label       string
 		Description string
@@ -252,7 +252,7 @@ func runBrainMenu() error {
 	fmt.Println()
 	fmt.Println("━━━ Brain Options ━━━")
 	fmt.Println()
-	
+
 	menuItems := []struct {
 		Label       string
 		Description string
@@ -353,7 +353,7 @@ func runSwitchWorkspaceMenu() error {
 	fmt.Println()
 	fmt.Println("━━━ Switch Workspace ━━━")
 	fmt.Println()
-	
+
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		fmt.Printf("Error loading workspaces: %v\n", err)
