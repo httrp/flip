@@ -28,15 +28,19 @@ func runInteractiveMenu() error {
 	} else {
 		banner = "Flip - Your Intelligent Assistant"
 	}
-	fmt.Println("\n" + banner)
-	fmt.Println("\n" + getText("welcome_banner"))
+	
+	fmt.Println()
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println(banner)
+	fmt.Println(getText("welcome_banner"))
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 
 	// Show current status
 	config, err := loadWorkspaceConfig()
 	if err == nil && len(config.Workspaces) > 0 {
 		if config.ActiveWorkspace != "" {
-			fmt.Printf("📂 Active Workspace: %s\n", config.ActiveWorkspace)
+			fmt.Printf("📂 Active Workspace: %s\n\n", config.ActiveWorkspace)
 		}
 	}
 
@@ -151,6 +155,10 @@ func runInteractiveMenu() error {
 
 // runCreateAddMenu shows submenu for creating/adding resources
 func runCreateAddMenu() error {
+	fmt.Println()
+	fmt.Println("━━━ Create New / Add ━━━")
+	fmt.Println()
+	
 	menuItems := []struct {
 		Label       string
 		Description string
@@ -241,6 +249,10 @@ func runCreateAddMenu() error {
 
 // runBrainMenu shows submenu for brain operations
 func runBrainMenu() error {
+	fmt.Println()
+	fmt.Println("━━━ Brain Options ━━━")
+	fmt.Println()
+	
 	menuItems := []struct {
 		Label       string
 		Description string
@@ -338,16 +350,20 @@ func runBrainMenu() error {
 
 // runSwitchWorkspaceMenu shows menu to switch workspace
 func runSwitchWorkspaceMenu() error {
+	fmt.Println()
+	fmt.Println("━━━ Switch Workspace ━━━")
+	fmt.Println()
+	
 	config, err := loadWorkspaceConfig()
 	if err != nil {
-		fmt.Printf("\nError loading workspaces: %v\n", err)
+		fmt.Printf("Error loading workspaces: %v\n", err)
 		fmt.Println("\nPress Enter to return to menu...")
 		fmt.Scanln()
 		return runInteractiveMenu()
 	}
 
 	if len(config.Workspaces) == 0 {
-		fmt.Println("\n📭 No workspaces found. Create one first!")
+		fmt.Println("📭 No workspaces found. Create one first!")
 		fmt.Println("\nPress Enter to return to menu...")
 		fmt.Scanln()
 		return runInteractiveMenu()

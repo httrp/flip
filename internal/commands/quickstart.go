@@ -40,13 +40,19 @@ func NewQuickstartCommand() *cobra.Command {
 }
 
 func runQuickstart() error {
-	fmt.Println("\n" + getText("welcome_banner"))
+	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("  " + getText("welcome_banner"))
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
 	fmt.Println(getText("intro_workspace"))
 	fmt.Println(getText("intro_brain"))
 	fmt.Println()
+	fmt.Println("💡 " + getText("flap_folder_info"))
+	fmt.Println()
 
 	// Step 1: Create workspace
-	fmt.Println(getText("step_workspace"))
+	fmt.Println("━━━ " + getText("step_workspace") + " ━━━")
+	fmt.Println()
 
 	validate := func(input string) error {
 		if strings.ToLower(input) == "flap" {
@@ -84,10 +90,13 @@ func runQuickstart() error {
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
 	}
-	fmt.Printf(getText("workspace_created")+"\n\n", wsName, wsPath)
+	fmt.Println()
+	fmt.Printf("✓ " + getText("workspace_created")+"\n", wsName, wsPath)
+	fmt.Println()
 
 	// Step 2: Add a brain
-	fmt.Println("\n" + getText("step_brain"))
+	fmt.Println("━━━ " + getText("step_brain") + " ━━━")
+	fmt.Println()
 
 	selectBrainType := promptui.Select{
 		Label: getText("brain_options"),
