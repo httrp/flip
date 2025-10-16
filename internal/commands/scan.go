@@ -29,8 +29,8 @@ func NewScanCommand() *cobra.Command {
 				scanPath = home
 			}
 			// Always show and allow to change path interactively
-			fmt.Printf("🔍 Current scan path: %s\n", scanPath)
-			fmt.Printf("❓ Enter new path to scan or press Enter to use this: ")
+			fmt.Printf("> Current scan path: %s\n", scanPath)
+			fmt.Printf("? Enter new path to scan or press Enter to use this: ")
 			var input string
 			fmt.Scanln(&input)
 			input = strings.TrimSpace(input)
@@ -44,7 +44,7 @@ func NewScanCommand() *cobra.Command {
 }
 
 func runScan(scanPath string) error {
-	fmt.Printf("🔍 Scanning %s for 2nd brain workspaces...\n\n", scanPath)
+	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n\n", scanPath)
 	found := 0
 	maxDepth := 5
 	excludeDirs := []string{".vscode", ".oh-my-zsh", "Library", "AppData", "Program Files", "node_modules", "Applications"}

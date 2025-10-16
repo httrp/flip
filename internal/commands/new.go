@@ -24,20 +24,20 @@ func NewNewCommand() *cobra.Command {
 
 func runNew() error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("🧠 Create a new brain")
+	fmt.Println("+ Create a new brain")
 
 	// Name
-	fmt.Printf("❓ Name for your new brain [default: flap]: ")
+	fmt.Printf("? Name for your new brain [default: flap]: ")
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "flap"
 	}
 
-	// Empfohlener Standardpfad
+	// Suggested default path
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, name)
-	fmt.Printf("❓ Where to create it? [default: %s]: ", recommended)
+	fmt.Printf("? Where to create it? [default: %s]: ", recommended)
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -45,25 +45,25 @@ func runNew() error {
 	}
 	target := path
 
-	fmt.Printf("⚠️  Selected path: %s\n", target)
+	fmt.Printf("! Selected path: %s\n", target)
 	fmt.Printf("Do you want to create your brain here? (y/N): ")
 	confirm, _ := reader.ReadString('\n')
 	confirm = strings.TrimSpace(strings.ToLower(confirm))
 	if confirm != "y" && confirm != "yes" {
-		fmt.Println("❌ Cancelled by user.")
+		fmt.Println("[X] Cancelled by user.")
 		return nil
 	}
 
-	// Schutz: Flip-Projektordner darf nicht Ziel sein
+	// Safety: Prevent using the flip project/source folder as the target
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
 	for _, marker := range projectMarkers {
 		if _, err := os.Stat(filepath.Join(target, marker)); err == nil {
-			return fmt.Errorf("❌ You cannot use the flip project/source folder as your brain. Please choose a different directory.")
+			return fmt.Errorf("you cannot use the flip project/source folder as your brain; please choose a different directory")
 		}
 	}
 
-	// Dialekt
-	fmt.Println("❓ Choose structure:")
+	// Choose dialect/structure
+	fmt.Println("? Choose structure:")
 	fmt.Println("  1) flip (recommended)")
 	fmt.Println("  2) dendron")
 	fmt.Println("  3) obsidian")
@@ -87,7 +87,7 @@ func runNew() error {
 		dialect = "flip"
 	}
 
-	fmt.Printf("\n🚀 Creating new brain '%s' at %s with '%s' structure...\n", name, target, dialect)
+	fmt.Printf("\n> Creating new brain '%s' at %s with '%s' structure...\n", name, target, dialect)
 
 	if err := createBrainStructure(target, dialect); err != nil {
 		return fmt.Errorf("failed to create structure: %w", err)
@@ -98,8 +98,8 @@ func runNew() error {
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 
-	// Ask if user wants to add to additional workspace
-	fmt.Printf("\n⭐ Add to another workspace? (y/N): ")
+	// Ask if user wants to add to an additional workspace
+	fmt.Printf("\n# Add to another workspace? (y/N): ")
 	yn, _ := reader.ReadString('\n')
 	yn = strings.TrimSpace(strings.ToLower(yn))
 	if yn == "y" || yn == "yes" {
@@ -118,7 +118,7 @@ func runNew() error {
 			}
 			// Create new workspace
 			if err := runWorkspaceCreate(workspaceName); err != nil {
-				fmt.Printf("⚠️  Could not create workspace: %v\n", err)
+				fmt.Printf("%s Could not create workspace: %v\n", IconWarning, err)
 				return nil
 			}
 		} else {
@@ -128,21 +128,22 @@ func runNew() error {
 		}
 
 		if workspaceName != "" && workspaceName != "default" {
-			// Switch to workspace
-			config, _ := loadWorkspaceConfig()
-			config.ActiveWorkspace = workspaceName
-			saveWorkspaceConfig(config)
+			// Verify workspace exists and switch to it
+			if err := runWorkspaceSwitch(workspaceName); err != nil {
+				fmt.Printf("%s Workspace '%s' not found or cannot switch: %v\n", IconWarning, workspaceName, err)
+				return nil
+			}
 
-			// Add brain
+			// Add brain to the now-active workspace
 			if err := runBrainAdd(target, name, true); err != nil {
-				fmt.Printf("⚠️  Could not add brain: %v\n", err)
+				fmt.Printf("%s Could not add brain: %v\n", IconWarning, err)
 			} else {
-				fmt.Printf("✅ Brain '%s' added to workspace '%s'\n", name, workspaceName)
+				fmt.Printf("%s Brain '%s' added to workspace '%s'\n", IconCheck, name, workspaceName)
 			}
 		}
 	}
 
-	fmt.Println("✅ New brain created and initialized!")
+	fmt.Println("[OK] New brain created and initialized!")
 	return nil
 }
 

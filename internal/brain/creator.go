@@ -26,7 +26,7 @@ func (c *Creator) CreateWithConfig(path string, config Config) error {
 
 // CreateCompatible creates a flip brain structure that's compatible with existing brain systems
 func (c *Creator) CreateCompatible(path string, config Config, existingType BrainType) error {
-	fmt.Printf("🔧 Creating flip structure compatible with %s...\n", existingType)
+	fmt.Printf("> Creating flip structure compatible with %s...\n", existingType)
 
 	// Create directory structure (respectfully)
 	if err := c.createDirectoriesCompatible(path, existingType); err != nil {
@@ -65,7 +65,7 @@ func (c *Creator) CreateCompatible(path string, config Config, existingType Brai
 		return fmt.Errorf("failed to create example files: %w", err)
 	}
 
-	fmt.Printf("✅ Flip brain initialized successfully!\n")
+	fmt.Printf("[OK] Flip brain initialized successfully!\n")
 	return nil
 }
 
@@ -607,7 +607,7 @@ Welcome to your personal knowledge management system powered by Flip!
 - templates/ - Note templates
 - assets/ - Images and documents
 
-Happy note-taking! 🚀
+Happy note-taking!
 `
 	return c.writeFile(filepath.Join(basePath, "README.md"), readmeContent)
 }

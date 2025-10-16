@@ -98,18 +98,18 @@ func runBrainAdd(path, name string, setDefault bool) error {
 		return fmt.Errorf("failed to detect brain type: %w", err)
 	}
 
-	fmt.Printf("🔍 Detecting brain at: %s\n", absPath)
-	fmt.Printf("🧠 Brain type: %s\n", detection.Description)
+	fmt.Printf("%s Detecting brain at: %s\n", IconArrow, absPath)
+	fmt.Printf("%s Brain type: %s\n", IconBrain, detection.Description)
 
 	if len(detection.Indicators) > 0 {
 		fmt.Println("   Indicators:")
 		for _, indicator := range detection.Indicators {
-			fmt.Printf("   • %s\n", indicator)
+			fmt.Printf("   - %s\n", indicator)
 		}
 	}
 
 	if !detection.Compatible {
-		fmt.Printf("❌ This directory is not compatible with flip.\n")
+		fmt.Printf("%s This directory is not compatible with flip.\n", IconError)
 		fmt.Printf("   Use 'flip init %s --force' to initialize it.\n", absPath)
 		return fmt.Errorf("incompatible brain")
 	}
@@ -133,7 +133,7 @@ func runBrainAdd(path, name string, setDefault bool) error {
 	// Check if brain already exists in this workspace
 	for _, b := range ws.Brains {
 		if b.Path == absPath {
-			fmt.Printf("✅ Brain already in workspace: %s\n", b.Name)
+			fmt.Printf("%s Brain already in workspace: %s\n", IconCheck, b.Name)
 			return nil
 		}
 		if b.Name == name {
@@ -167,9 +167,9 @@ func runBrainAdd(path, name string, setDefault bool) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("✅ Brain '%s' added to workspace '%s'\n", name, ws.Name)
+	fmt.Printf("%s Brain '%s' added to workspace '%s'\n", IconCheck, name, ws.Name)
 	if setDefault || len(ws.Brains) == 0 {
-		fmt.Printf("⭐ Set as default brain\n")
+		fmt.Printf("%s Set as default brain\n", IconDefault)
 	}
 
 	return nil
@@ -181,7 +181,7 @@ func runBrainList() error {
 		return err
 	}
 
-	fmt.Printf("🧠 Brains in workspace '%s':\n\n", ws.Name)
+	fmt.Printf("%s Brains in workspace '%s':\n\n", IconBrain, ws.Name)
 
 	if len(ws.Brains) == 0 {
 		fmt.Println("No brains in this workspace.")
@@ -192,7 +192,7 @@ func runBrainList() error {
 	for _, brain := range ws.Brains {
 		marker := "  "
 		if brain.Name == ws.DefaultBrain {
-			marker = "⭐"
+			marker = IconDefault
 		}
 
 		fmt.Printf("%s %s\n", marker, brain.Name)
@@ -201,9 +201,9 @@ func runBrainList() error {
 
 		// Check if path still exists
 		if _, err := os.Stat(brain.Path); os.IsNotExist(err) {
-			fmt.Printf("   ❌ Path no longer exists\n")
+			fmt.Printf("   %s Path no longer exists\n", IconError)
 		} else {
-			fmt.Printf("   ✅ Available\n")
+			fmt.Printf("   %s Available\n", IconCheck)
 		}
 		fmt.Println()
 	}
@@ -231,7 +231,7 @@ func runBrainRemove(name string) error {
 			for _, b := range config.Workspaces[i].Brains {
 				if b.Name == name {
 					found = true
-					fmt.Printf("🗑️  Removing brain '%s' from workspace '%s'\n", name, ws.Name)
+					fmt.Printf("%s Removing brain '%s' from workspace '%s'\n", IconWarning, name, ws.Name)
 					fmt.Printf("   (Files at %s stay intact)\n", b.Path)
 				} else {
 					newBrains = append(newBrains, b)
@@ -244,7 +244,7 @@ func runBrainRemove(name string) error {
 			if config.Workspaces[i].DefaultBrain == name {
 				if len(newBrains) > 0 {
 					config.Workspaces[i].DefaultBrain = newBrains[0].Name
-					fmt.Printf("⭐ Set '%s' as new default brain\n", newBrains[0].Name)
+					fmt.Printf("%s Set '%s' as new default brain\n", IconDefault, newBrains[0].Name)
 				} else {
 					config.Workspaces[i].DefaultBrain = ""
 				}
@@ -262,7 +262,7 @@ func runBrainRemove(name string) error {
 		return err
 	}
 
-	fmt.Printf("✅ Brain '%s' removed\n", name)
+	fmt.Printf("%s Brain '%s' removed\n", IconCheck, name)
 	return nil
 }
 
@@ -302,7 +302,7 @@ func runBrainSetDefault(name string) error {
 		return err
 	}
 
-	fmt.Printf("# '%s' set as default brain in workspace '%s'\n", name, ws.Name)
+	fmt.Printf("%s '%s' set as default brain in workspace '%s'\n", IconDefault, name, ws.Name)
 	return nil
 }
 

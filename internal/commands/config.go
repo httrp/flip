@@ -91,7 +91,7 @@ func loadWorkspaceConfig() (*WorkspaceConfig, error) {
 	}
 
 	// Migrate from v1.0 to v2.0
-	fmt.Println("🔄 Migrating config from v1.0 to v2.0...")
+	fmt.Println("> Migrating config from v1.0 to v2.0...")
 	newConfig := &WorkspaceConfig{
 		Version:    "2.0",
 		Workspaces: []Workspace{},
@@ -122,9 +122,9 @@ func loadWorkspaceConfig() (*WorkspaceConfig, error) {
 
 	// Save migrated config
 	if err := saveWorkspaceConfig(newConfig); err != nil {
-		fmt.Printf("⚠️  Warning: Could not save migrated config: %v\n", err)
+		fmt.Printf("%s Warning: Could not save migrated config: %v\n", IconWarning, err)
 	} else {
-		fmt.Println("✅ Config migration complete")
+		fmt.Println("[OK] Config migration complete")
 	}
 
 	return newConfig, nil
@@ -244,8 +244,17 @@ func ensureDefaultWorkspace() (*Workspace, error) {
 		return nil, err
 	}
 
-	// Return the newly created workspace
-	return &defaultWS, nil
+	// Reload and return pointer to stored workspace
+	config, err = loadWorkspaceConfig()
+	if err != nil {
+		return nil, err
+	}
+	for i := range config.Workspaces {
+		if config.Workspaces[i].Name == "default" {
+			return &config.Workspaces[i], nil
+		}
+	}
+	return nil, fmt.Errorf("default workspace not found after creation")
 }
 
 // addBrainToDefaultWorkspace adds a brain to the default workspace if not already present

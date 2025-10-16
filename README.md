@@ -23,19 +23,19 @@ Think of it like VS Code workspaces: one workspace can contain multiple folders.
 
 Example:
 ```
-📚 Workspace: "default"
-├─ 🧠 Brain: personal-notes
-├─ 🧠 Brain: work-notes
-├─ 🧠 Brain: journal
-└─ 🧠 Brain: projects
+~ Workspace: "default"
+|- + Brain: personal-notes
+|- + Brain: work-notes
+|- + Brain: journal
+`- + Brain: projects
 
-📚 Workspace: "personal"
-├─ 🧠 Brain: personal-notes (default)
-└─ 🧠 Brain: journal
+~ Workspace: "personal"
+|- + Brain: personal-notes #
+`- + Brain: journal
 
-📚 Workspace: "work"
-├─ 🧠 Brain: work-notes (default)
-└─ 🧠 Brain: projects
+~ Workspace: "work"
+|- + Brain: work-notes #
+`- + Brain: projects
 ```
 
 ## Quick Start
@@ -111,11 +111,11 @@ flip brain remove journal
 
 ## What Flip Does
 
-- **🔍 Detect existing systems**: Automatically recognizes Obsidian, Logseq, Dendron, or markdown folders
-- **🧠 Smart initialization**: Creates compatible structure without breaking existing setups  
-- **📝 System-specific templates**: Generates templates using each system's native syntax
-- **🔧 Multi-workspace management**: Connect multiple 2nd brain folders simultaneously
-- **📚 Preserve compatibility**: Maintains full compatibility with your existing tools
+- Detect existing systems: Automatically recognizes Obsidian, Logseq, Dendron, or markdown folders
+- Smart initialization: Creates compatible structure without breaking existing setups  
+- System-specific templates: Generates templates using each system's native syntax
+- Multi-workspace management: Connect multiple 2nd brain folders simultaneously
+- Preserve compatibility: Maintains full compatibility with your existing tools
 
 ## Scope
 
@@ -206,7 +206,7 @@ Flip automatically detects and works with:
 - **Structure**: Creates standard flip structure
 - **Templates**: Generic markdown with flip conventions
 
-### 🎯 Empty Directories
+### Empty Directories
 - **Perfect for**: New 2nd brain setups
 - **Creates**: Full flip structure compatible with migration to other systems
 - **Future-proof**: Easy to migrate to Obsidian, Logseq, or Dendron later
@@ -300,8 +300,8 @@ Tasks use standardized markdown checkboxes with metadata:
 ```markdown
 - [ ] Task description [ORG] #tag1 #tag2 @[PER] due:2025-08-15 priority:high
 - [ ] Context task [ORG]/[CTX] @[PER] due:2025-08-15 context:meeting
-- [x] Completed task [ORG] ✅ 2025-08-12
-- [~] Cancelled task [ORG]/[CTX] ❌ 2025-08-12
+- [x] Completed task [ORG] [OK] 2025-08-12
+- [~] Cancelled task [ORG]/[CTX] [X] 2025-08-12
 ```
 
 #### Task Metadata
@@ -419,33 +419,33 @@ people:
 ### Folder Structure
 
 ```
-📁 your-second-brain/
-├── 📁 definitions/
+your-second-brain/
+├── definitions/
 │   ├── organizations.yaml
 │   ├── contexts.yaml
 │   └── people.yaml
-├── 📁 journal/
+├── journal/
 │   ├── 2025-08-12.md
 │   ├── 2025-08-13.md
 │   └── ...
-├── 📁 meetings/
+├── meetings/
 │   ├── 2025-08-12-WORK-weekly-standup.md
 │   ├── 2025-08-12-WORK-PROJECTS-design-review.md
 │   └── ...
-├── 📁 notes/
+├── notes/
 │   ├── WORK-processes.md
 │   ├── PERSONAL-goals.md
 │   └── ...
-├── 📁 tasks/
+├── tasks/
 │   ├── inbox.md
 │   ├── WORK-tasks.md
 │   ├── PERSONAL-tasks.md
 │   └── LEARNING-tasks.md
-├── 📁 templates/
+├── templates/
 │   ├── journal-template.md
 │   ├── meeting-template.md
 │   └── note-template.md
-└── 📁 assets/
+└── assets/
     ├── images/
     └── documents/
 ```

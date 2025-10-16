@@ -58,7 +58,7 @@ func runDirectoryInit(directory, template string, force bool) error {
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
 	for _, marker := range projectMarkers {
 		if _, err := os.Stat(filepath.Join(absPath, marker)); err == nil {
-			return fmt.Errorf("❌ You are trying to initialize in the flip project/source folder. Please choose a different directory.")
+			return fmt.Errorf("you are trying to initialize in the flip project/source folder; please choose a different directory")
 		}
 	}
 
@@ -74,18 +74,18 @@ func runDirectoryInit(directory, template string, force bool) error {
 		return fmt.Errorf("failed to detect brain type: %w", err)
 	}
 
-	fmt.Printf("🧠 Flip - Initialize your brain\n\n")
-	fmt.Printf("📁 Target directory: %s\n", absPath)
-	fmt.Printf("🔍 Detection result: %s\n", detection.Description)
+	fmt.Printf("%s Flip - Initialize your brain\n\n", IconBrain)
+	fmt.Printf("Target directory: %s\n", absPath)
+	fmt.Printf("%s Detection result: %s\n", IconArrow, detection.Description)
 
 	if len(detection.Indicators) > 0 {
 		fmt.Println("   Indicators found:")
 		for _, indicator := range detection.Indicators {
-			fmt.Printf("   • %s\n", indicator)
+			fmt.Printf("   - %s\n", indicator)
 		}
 	}
 
-	fmt.Printf("🔧 Compatibility: %s\n\n", detector.GetCompatibilityInfo(detection.Type))
+	fmt.Printf("%s Compatibility: %s\n\n", IconSuccess, detector.GetCompatibilityInfo(detection.Type))
 
 	// Check if we can proceed
 	if !detection.Compatible && !force {
@@ -93,7 +93,7 @@ func runDirectoryInit(directory, template string, force bool) error {
 	}
 
 	if detection.Type != brain.BrainTypeEmpty && detection.Type != brain.BrainTypeFlip && !force {
-		fmt.Printf("⚠️  This directory already contains a %s setup.\n", detection.Type)
+		fmt.Printf("%s This directory already contains a %s setup.\n", IconWarning, detection.Type)
 		fmt.Println("Flip will add its structure while preserving existing files.")
 
 		if !askForConfirmation("Continue with flip initialization?") {
@@ -121,7 +121,7 @@ func initializeBrainAtPath(path, template string, existingType brain.BrainType) 
 	var config BrainConfig
 	if template != "" {
 		config = getTemplateConfig(template)
-		fmt.Printf("📋 Using template: %s\n", template)
+		fmt.Printf("i Using template: %s\n", template)
 	} else {
 		config = promptForConfig(filepath.Base(path))
 	}
@@ -141,11 +141,11 @@ func initializeBrainAtPath(path, template string, existingType brain.BrainType) 
 	}
 
 	// Auto-add to default workspace
-	fmt.Println("\n📚 Adding brain to default workspace...")
+	fmt.Println("\n~ Adding brain to default workspace...")
 	if err := autoAddBrainToDefault(path, filepath.Base(path)); err != nil {
-		fmt.Printf("⚠️  Warning: Could not add to default workspace: %v\n", err)
+		fmt.Printf("%s Warning: Could not add to default workspace: %v\n", IconWarning, err)
 	} else {
-		fmt.Println("✅ Brain added to default workspace")
+		fmt.Println("[OK] Brain added to default workspace")
 	}
 
 	return nil
@@ -157,25 +157,25 @@ func runInteractiveInit(template string, force bool) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	fmt.Printf("🧠 Flip - Initialize your brain\n\n")
-	fmt.Printf("📁 Current directory: %s\n", cwd)
+	fmt.Printf("%s Flip - Initialize your brain\n\n", IconBrain)
+	fmt.Printf("Current directory: %s\n", cwd)
 
 	// Check for existing brain
 	if isBrainInitialized(cwd) {
-		fmt.Printf("✅ Brain already initialized in this directory\n")
+		fmt.Printf("%s Brain already initialized in this directory\n", IconCheck)
 		return nil
 	}
 
 	// Ask where to initialize
-	fmt.Printf("\n❓ Where would you like to initialize your brain?\n")
+	fmt.Printf("\n? Where would you like to initialize your brain?\n")
 	fmt.Printf("  1) Here in current directory\n")
 	fmt.Printf("  2) Create new folder\n")
 	choice := promptForInput("Choose (1/2)", "1")
 
 	if choice == "2" || choice == "new" || choice == "folder" {
 		// Create new folder mode
-		folderName := promptForInput("📂 Folder name", "my-brain")
-		basePath := promptForInput("📁 Base path", cwd)
+		folderName := promptForInput("Folder name", "my-brain")
+		basePath := promptForInput("Base path", cwd)
 
 		targetPath := filepath.Join(basePath, folderName)
 		return runDirectoryInit(targetPath, template, force)
@@ -189,7 +189,7 @@ func runInteractiveInit(template string, force bool) error {
 	}
 
 	if len(files) > 0 && !force {
-		fmt.Printf("📄 Found files: ")
+		fmt.Printf("Found files: ")
 		for i, file := range files {
 			if i < 3 {
 				fmt.Printf("%s", file.Name())
@@ -203,8 +203,8 @@ func runInteractiveInit(template string, force bool) error {
 		}
 		fmt.Printf("\n\n")
 
-		if !promptYesNo("❓ Initialize brain here?", true) {
-			fmt.Printf("❌ Cancelled\n")
+		if !promptYesNo("? Initialize brain here?", true) {
+			fmt.Printf("%s Cancelled\n", IconError)
 			return nil
 		}
 	}
@@ -213,7 +213,7 @@ func runInteractiveInit(template string, force bool) error {
 	var config BrainConfig
 	if template != "" {
 		config = getTemplateConfig(template)
-		fmt.Printf("📋 Using template: %s\n", template)
+		fmt.Printf("i Using template: %s\n", template)
 	} else {
 		config = promptForConfig(filepath.Base(cwd))
 	}
@@ -270,11 +270,11 @@ func promptForInput(question, defaultValue string) string {
 }
 
 func promptForConfig(defaultName string) BrainConfig {
-	fmt.Printf("\n📝 Configuration:\n")
+	fmt.Printf("\nConfiguration:\n")
 
-	name := promptForInput("❓ Brain name", defaultName)
+	name := promptForInput("Brain name", defaultName)
 
-	fmt.Printf("❓ Type:\n")
+	fmt.Printf("Type:\n")
 	fmt.Printf("  1) personal - Personal knowledge and tasks\n")
 	fmt.Printf("  2) work - Professional work and projects\n")
 	fmt.Printf("  3) learning - Learning and skill development\n")
@@ -293,7 +293,7 @@ func promptForConfig(defaultName string) BrainConfig {
 		defaultOrg = "PERSONAL"
 	}
 
-	author := promptForInput("❓ Author name", "Your Name")
+	author := promptForInput("Author name", "Your Name")
 
 	return BrainConfig{
 		Name:                name,
@@ -330,7 +330,7 @@ func getTemplateConfig(template string) BrainConfig {
 }
 
 func initializeBrain(path string, config BrainConfig) error {
-	fmt.Printf("\n✨ Creating your brain...\n")
+	fmt.Printf("\n> Creating your brain...\n")
 
 	// Convert to brain.Config
 	brainConfig := brain.Config{
@@ -345,18 +345,18 @@ func initializeBrain(path string, config BrainConfig) error {
 		return fmt.Errorf("failed to create brain: %w", err)
 	}
 
-	fmt.Printf("📁 Created: definitions/, journal/, meetings/, notes/, tasks/, templates/\n")
-	fmt.Printf("📄 Created: .flip-brain.yaml, .flip.yaml\n")
+	fmt.Printf("[OK] Created: definitions/, journal/, meetings/, notes/, tasks/, templates/\n")
+	fmt.Printf("[OK] Created: .flip-brain.yaml, .flip.yaml\n")
 
 	// Auto-add to default workspace
-	fmt.Println("\n📚 Adding brain to default workspace...")
+	fmt.Println("\n~ Adding brain to default workspace...")
 	if err := autoAddBrainToDefault(path, config.Name); err != nil {
-		fmt.Printf("⚠️  Warning: Could not add to default workspace: %v\n", err)
+		fmt.Printf("%s Warning: Could not add to default workspace: %v\n", IconWarning, err)
 	} else {
-		fmt.Println("✅ Brain added to default workspace")
+		fmt.Println("[OK] Brain added to default workspace")
 	}
 
-	fmt.Printf("✅ Ready! Try: flip create journal\n")
+	fmt.Printf("%s Ready! Try: flip create journal\n", IconCheck)
 
 	return nil
 }

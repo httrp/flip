@@ -8,14 +8,20 @@ import (
 )
 
 func NewStatusCommand() *cobra.Command {
-	return &cobra.Command{
+	var theme string
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show overview of workspaces and brains",
 		Long:  "Display all configured workspaces, active workspace, and their brains",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if theme != "" {
+				SetIconTheme(theme)
+			}
 			return runStatus()
 		},
 	}
+	cmd.Flags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed")
+	return cmd
 }
 
 func runStatus() error {
@@ -23,6 +29,17 @@ func runStatus() error {
 	if err != nil {
 		return err
 	}
+
+	// Optional banner
+	banner := `
+  ____ _ _       
+ |  __(_) |      
+ | |__  _| | __ _
+ |  __|| | |/ _` + "`" + ` |
+ | |   | | | (_| |
+ |_|   |_|_|\__,_|
+`
+	fmt.Println(banner)
 
 	if len(config.Workspaces) == 0 {
 		fmt.Println("[ ] No workspaces configured yet.")
@@ -39,75 +56,66 @@ func runStatus() error {
 	fmt.Println("===============================================================")
 	fmt.Println()
 
-	// Show active workspace prominently
+	// Active workspace + default brain line
 	if config.ActiveWorkspace != "" {
 		fmt.Printf("%s Active Workspace: %s\n", IconActive, config.ActiveWorkspace)
-
-		// Show default brain
-		ws, err := getActiveWorkspace()
-		if err == nil && ws.DefaultBrain != "" {
+		if ws, err := getActiveWorkspace(); err == nil && ws.DefaultBrain != "" {
 			fmt.Printf("%s Default Brain: %s\n", IconDefault, ws.DefaultBrain)
 		}
 		fmt.Println()
 	}
 
-	// List all workspaces
-	fmt.Printf("~ Workspaces (%d):\n\n", len(config.Workspaces))
-
+	// Table: Workspaces overview
+	fmt.Printf("%s All Workspaces\n\n", IconWorkspace)
+	wsHeaders := []string{"Active", "Workspace", "Brains", "Default Brain", "Description"}
+	wsRows := [][]string{}
 	for _, ws := range config.Workspaces {
-		activeMarker := "  "
+		active := ""
 		if ws.Name == config.ActiveWorkspace {
-			activeMarker = IconActive + " "
+			active = IconActive
 		}
+		def := ws.DefaultBrain
+		wsRows = append(wsRows, []string{active, ws.Name, fmt.Sprintf("%d", len(ws.Brains)), def, ws.Description})
+	}
+	renderTableStdout(wsHeaders, wsRows)
+	fmt.Println()
 
-		fmt.Printf("%s%s", activeMarker, ws.Name)
-		if ws.Description != "" {
-			fmt.Printf(" - %s", ws.Description)
-		}
-		fmt.Println()
-
-		if len(ws.Brains) == 0 {
-			fmt.Println("   `- (empty)")
-		} else {
-			for i, brain := range ws.Brains {
-				isLast := i == len(ws.Brains)-1
-				connector := "+-"
-				if isLast {
-					connector = "`-"
-				}
-
-				brainMarker := ""
-				if brain.Name == ws.DefaultBrain {
-					brainMarker = " " + IconDefault
-				}
-
-				// Check if path exists
-				status := IconCheck
-				if _, err := os.Stat(brain.Path); os.IsNotExist(err) {
-					status = IconError
-				}
-
-				fmt.Printf("   %s %s %s (%s)%s\n", connector, status, brain.Name, brain.Type, brainMarker)
-
-				// Show path indented
-				indent := "   "
-				if !isLast {
-					indent = "   |  "
-				} else {
-					indent = "      "
-				}
-				fmt.Printf("%s%s\n", indent, brain.Path)
+	// Table: Brains in active workspace
+	if ws, err := getActiveWorkspace(); err == nil {
+		fmt.Printf("%s Brains in '%s'\n\n", IconBrain, ws.Name)
+		bHeaders := []string{"Default", "Name", "Type", "Status", "Path"}
+		bRows := [][]string{}
+		for _, b := range ws.Brains {
+			def := ""
+			if b.Name == ws.DefaultBrain {
+				def = IconDefault
 			}
+			status := IconCheck
+			if _, err := os.Stat(b.Path); os.IsNotExist(err) {
+				status = IconError
+			}
+			bRows = append(bRows, []string{def, b.Name, b.Type, status, b.Path})
 		}
+		renderTableStdout(bHeaders, bRows)
 		fmt.Println()
 	}
 
-	// Quick stats
+	// Quick menu
+	fmt.Println("Menu:")
+	fmt.Println("  intro          Short introduction to Flip")
+	fmt.Println("  quickstart     Guided onboarding")
+	fmt.Println("  workspace      Manage workspaces (create/list/switch/remove/rename/repair)")
+	fmt.Println("  brain          Manage brains (add/list/remove/set-default/rename/repair)")
+	fmt.Println("  brain init     Initialize a brain in a directory")
+	fmt.Println("  brain new      Create a new brain with a chosen dialect")
+	fmt.Println("  brain scan     Find existing brain folders")
+	fmt.Println()
+
+	// Stats
 	totalBrains := 0
 	for _, ws := range config.Workspaces {
 		totalBrains += len(ws.Brains)
 	}
-
 	fmt.Println("---------------------------------------------------------------")
 	fmt.Printf("Total: %d workspaces, %d brains\n", len(config.Workspaces), totalBrains)
 

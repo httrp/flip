@@ -112,9 +112,9 @@ func runWorkspaceCreate(name string) error {
 		return err
 	}
 
-	fmt.Printf("✅ Workspace '%s' created\n", name)
+	fmt.Printf("%s Workspace '%s' created\n", IconCheck, name)
 	if config.ActiveWorkspace == name {
-		fmt.Printf("🌟 Set as active workspace\n")
+		fmt.Printf("%s Set as active workspace\n", IconDefault)
 	}
 
 	return nil
@@ -132,12 +132,12 @@ func runWorkspaceList() error {
 		return nil
 	}
 
-	fmt.Printf("📚 Workspaces:\n\n")
+	fmt.Printf("%s Workspaces:\n\n", IconWorkspace)
 
 	for _, ws := range config.Workspaces {
 		activeMarker := "  "
 		if ws.Name == config.ActiveWorkspace {
-			activeMarker = "🎯"
+			activeMarker = IconActive
 		}
 
 		fmt.Printf("%s %s\n", activeMarker, ws.Name)
@@ -151,15 +151,15 @@ func runWorkspaceList() error {
 		fmt.Println()
 
 		for _, brain := range ws.Brains {
-			marker := "   •"
+			marker := "   -"
 			if brain.Name == ws.DefaultBrain {
-				marker = "   ⭐"
+				marker = "   " + IconDefault
 			}
 
 			// Check if path exists
-			status := "✅"
+			status := IconCheck
 			if _, err := os.Stat(brain.Path); os.IsNotExist(err) {
-				status = "❌"
+				status = IconError
 			}
 
 			fmt.Printf("%s %s (%s) %s\n", marker, brain.Name, brain.Type, status)
@@ -196,7 +196,7 @@ func runWorkspaceSwitch(name string) error {
 		return err
 	}
 
-	fmt.Printf("🎯 Switched to workspace '%s'\n", name)
+	fmt.Printf("%s Switched to workspace '%s'\n", IconActive, name)
 	return nil
 }
 
@@ -213,7 +213,7 @@ func runWorkspaceRemove(name string) error {
 	for _, ws := range config.Workspaces {
 		if ws.Name == name {
 			found = true
-			fmt.Printf("🗑️  Removing workspace '%s' (brains stay intact)\n", ws.Name)
+			fmt.Printf("%s Removing workspace '%s' (brains stay intact)\n", IconWarning, ws.Name)
 		} else {
 			newWorkspaces = append(newWorkspaces, ws)
 		}
@@ -229,7 +229,7 @@ func runWorkspaceRemove(name string) error {
 	if config.ActiveWorkspace == name {
 		if len(config.Workspaces) > 0 {
 			config.ActiveWorkspace = config.Workspaces[0].Name
-			fmt.Printf("🎯 Switched to workspace '%s'\n", config.ActiveWorkspace)
+			fmt.Printf("%s Switched to workspace '%s'\n", IconActive, config.ActiveWorkspace)
 		} else {
 			config.ActiveWorkspace = ""
 		}
@@ -239,7 +239,7 @@ func runWorkspaceRemove(name string) error {
 		return err
 	}
 
-	fmt.Printf("✅ Workspace '%s' removed\n", name)
+	fmt.Printf("%s Workspace '%s' removed\n", IconCheck, name)
 	return nil
 }
 
