@@ -156,10 +156,32 @@ func runQuickstart() error {
 	}
 
 	// Create new brain
-	creativeNames := []string{
-		"[Enter custom name]",
-		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany",
+	allCreativeNames := []string{
+		// Classic second brain concepts
+		"zettelkasten", "memex", "commonplace-book", "digital-garden", "knowledge-base", "wiki",
+		"personal-wiki", "pkm", "slipbox", "exobrain", "antinet",
+		// Creative/poetic names
+		"atlas", "odyssey", "aurora", "echo", "zenith", "muse", "oracle", "serendipity", "epiphany",
 		"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+		"nexus", "vault", "archive", "library", "repository", "codex", "compendium",
+	}
+
+	// Filter out already-used brain names
+	config, err := loadWorkspaceConfig()
+	var usedNames map[string]bool
+	if err == nil {
+		usedNames = make(map[string]bool)
+		for _, ws := range config.Workspaces {
+			usedNames[strings.ToLower(ws.Name)] = true
+		}
+	}
+
+	var creativeNames []string
+	creativeNames = append(creativeNames, "[Enter custom name]")
+	for _, name := range allCreativeNames {
+		if !usedNames[strings.ToLower(name)] {
+			creativeNames = append(creativeNames, name)
+		}
 	}
 
 	selectBrainName := promptui.Select{
