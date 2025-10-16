@@ -113,63 +113,127 @@ func runNewWorkspace() error {
 func runNewBrain() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ Create a new brain")
+	fmt.Println()
 
-	// Check which brain names are already taken
-	config, _ := loadWorkspaceConfig()
-	existingBrainNames := make(map[string]bool)
-	for _, ws := range config.Workspaces {
-		for _, b := range ws.Brains {
-			existingBrainNames[b.Name] = true
-		}
-	}
-
-	// Creative name selection
-	creativeNames := []string{
-		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany", 
-		"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
-		// Classic PKM names
-		"zettelkasten", "memex", "roam", "second-brain", "pkm", "garden", "vault", "archive", "library", "index",
+	// Step 1: Ask how to choose the name
+	fmt.Println("? How would you like to name your brain?")
+	fmt.Println("  1) Enter a custom name")
+	fmt.Println("  2) Choose from creative suggestions")
+	fmt.Println("  0) Cancel")
+	fmt.Printf("Choose (0/1/2) [default: 1]: ")
+	
+	nameChoice, _ := reader.ReadString('\n')
+	nameChoice = strings.TrimSpace(nameChoice)
+	if nameChoice == "" {
+		nameChoice = "1"
 	}
 	
-	// Filter out already used names
-	var availableNames []string
-	for _, n := range creativeNames {
-		if !existingBrainNames[n] {
-			availableNames = append(availableNames, n)
-		}
-	}
-
-	// Default suggestion
-	defaultName := "default"
-	if existingBrainNames["default"] && len(availableNames) > 0 {
-		defaultName = availableNames[0]
-	}
-
-	fmt.Println("? Choose a name for your new brain:")
-	fmt.Printf("  1) Custom name (enter your own)\n")
-	for i, n := range availableNames {
-		if i >= 19 { // Limit display to 20 options (1 custom + 19 creative)
-			break
-		}
-		fmt.Printf("  %d) %s\n", i+2, n)
-	}
-	fmt.Printf("Enter number or your own name [default: %s]: ", defaultName)
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = defaultName
-	}
-	// Prevent 'flap' as brain name
-	if strings.ToLower(name) == "flap" {
-		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
+	// Handle cancellation
+	if nameChoice == "0" || strings.ToLower(nameChoice) == "cancel" || strings.ToLower(nameChoice) == "abort" {
+		fmt.Println("\n✗ Cancelled")
 		return nil
 	}
-	// Default path: $HOME/flap/brains/<name>, but allow any custom path
+
+	var name string
+	
+	if nameChoice == "2" || strings.ToLower(nameChoice) == "suggestions" {
+		// Step 2a: Show creative suggestions
+		config, _ := loadWorkspaceConfig()
+		existingBrainNames := make(map[string]bool)
+		for _, ws := range config.Workspaces {
+			for _, b := range ws.Brains {
+				existingBrainNames[b.Name] = true
+			}
+		}
+
+		// Creative name selection
+		creativeNames := []string{
+			"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany",
+			"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+			// Classic PKM names
+			"zettelkasten", "memex", "roam", "second-brain", "pkm", "garden", "vault", "archive", "library", "index",
+		}
+
+		// Filter out already used names
+		var availableNames []string
+		for _, n := range creativeNames {
+			if !existingBrainNames[n] {
+				availableNames = append(availableNames, n)
+			}
+		}
+
+		if len(availableNames) == 0 {
+			fmt.Println("\n✗ All suggested names are already in use. Please enter a custom name.")
+			nameChoice = "1"
+		} else {
+			fmt.Println("\n? Choose a name from suggestions:")
+			for i, n := range availableNames {
+				if i >= 20 { // Limit display to 20 options
+					break
+				}
+				fmt.Printf("  %d) %s\n", i+1, n)
+			}
+			fmt.Println("  0) Back (enter custom name instead)")
+			fmt.Printf("Choose (0-%d): ", min(len(availableNames), 20))
+			
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(choice)
+			
+			// Handle back/cancel
+			if choice == "0" || strings.ToLower(choice) == "back" || strings.ToLower(choice) == "custom" {
+				nameChoice = "1" // Switch to custom name entry
+			} else if choice != "" {
+				// Parse number choice
+				idx := 0
+				fmt.Sscanf(choice, "%d", &idx)
+				if idx > 0 && idx <= len(availableNames) && idx <= 20 {
+					name = availableNames[idx-1]
+				} else {
+					fmt.Println("\n✗ Invalid choice. Please try again.")
+					return runNewBrain()
+				}
+			} else {
+				// Default to first suggestion
+				name = availableNames[0]
+			}
+		}
+	}
+	
+	// Step 2b: Custom name entry
+	if nameChoice == "1" || name == "" {
+		fmt.Println("\n? Enter a custom name for your brain:")
+		fmt.Printf("Brain name: ")
+		name, _ = reader.ReadString('\n')
+		name = strings.TrimSpace(name)
+		
+		if name == "" {
+			fmt.Println("\n✗ No name provided. Cancelled.")
+			return nil
+		}
+		
+		// Prevent 'flap' as brain name
+		if strings.ToLower(name) == "flap" {
+			fmt.Println("\n✗ 'flap' is reserved for the main folder. Please choose another name.")
+			return runNewBrain()
+		}
+	}
+
+	fmt.Printf("\n→ Brain name: %s\n", name)
+	
+	// Step 3: Ask for path
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, "flap", "brains", name)
-	fmt.Printf("? Path for your brain [default: %s]: ", recommended)
+	fmt.Printf("\n? Path for your brain [default: %s]\n", recommended)
+	fmt.Printf("  (or enter '0' to cancel): ")
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
+	
+	// Handle cancellation
+	if path == "0" || strings.ToLower(path) == "cancel" || strings.ToLower(path) == "abort" {
+		fmt.Println("\n✗ Cancelled")
+		return nil
+	}
+	
 	if path == "" {
 		path = recommended
 	}
@@ -184,14 +248,22 @@ func runNewBrain() error {
 	}
 
 	// Choose dialect/structure
-	fmt.Println("? Choose structure:")
+	fmt.Println("\n? Choose structure:")
 	fmt.Println("  1) flip (recommended)")
 	fmt.Println("  2) dendron")
 	fmt.Println("  3) obsidian")
 	fmt.Println("  4) logseq")
-	fmt.Printf("Choose (1/2/3/4) [default: 1]: ")
+	fmt.Println("  0) Cancel")
+	fmt.Printf("Choose (0/1/2/3/4) [default: 1]: ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
+	
+	// Handle cancellation
+	if choice == "0" || strings.ToLower(choice) == "cancel" || strings.ToLower(choice) == "abort" {
+		fmt.Println("\n✗ Cancelled")
+		return nil
+	}
+	
 	if choice == "" {
 		choice = "1"
 	}
@@ -214,8 +286,8 @@ func runNewBrain() error {
 		return fmt.Errorf("failed to create structure: %w", err)
 	}
 
-	// Initialize with flip (this will auto-add to default workspace)
-	if err := runDirectoryInit(target, "", true); err != nil {
+	// Initialize with flip (pass the name to avoid asking again)
+	if err := runDirectoryInitWithName(target, name, "", true); err != nil {
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 
@@ -251,4 +323,12 @@ func createBrainStructure(target, dialect string) error {
 		}
 	}
 	return nil
+}
+
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -48,6 +48,11 @@ type BrainConfig struct {
 }
 
 func runDirectoryInit(directory, template string, force bool) error {
+	return runDirectoryInitWithName(directory, "", template, force)
+}
+
+// runDirectoryInitWithName initializes a directory with an optional predefined name
+func runDirectoryInitWithName(directory, brainName, template string, force bool) error {
 	// Get absolute path
 	absPath, err := filepath.Abs(directory)
 	if err != nil {
@@ -102,7 +107,7 @@ func runDirectoryInit(directory, template string, force bool) error {
 		}
 	}
 
-	return initializeBrainAtPath(absPath, template, detection.Type)
+	return initializeBrainAtPathWithName(absPath, brainName, template, detection.Type)
 }
 
 func askForConfirmation(question string) bool {
@@ -117,13 +122,27 @@ func askForConfirmation(question string) bool {
 }
 
 func initializeBrainAtPath(path, template string, existingType brain.BrainType) error {
+	return initializeBrainAtPathWithName(path, "", template, existingType)
+}
+
+func initializeBrainAtPathWithName(path, brainName, template string, existingType brain.BrainType) error {
 	// Use template or interactive config
 	var config BrainConfig
 	if template != "" {
 		config = getTemplateConfig(template)
 		fmt.Printf("i Using template: %s\n", template)
 	} else {
-		config = promptForConfig(filepath.Base(path))
+		// If brainName is provided, use it; otherwise prompt
+		if brainName != "" {
+			config = BrainConfig{
+				Name:                brainName,
+				Type:                "personal", // Default type
+				DefaultOrganization: "PERSONAL",
+				Author:              "Your Name",
+			}
+		} else {
+			config = promptForConfig(filepath.Base(path))
+		}
 	}
 
 	// Create brain with compatibility considerations
@@ -142,7 +161,7 @@ func initializeBrainAtPath(path, template string, existingType brain.BrainType) 
 
 	// Auto-add to default workspace
 	fmt.Println("\n~ Adding brain to default workspace...")
-	if err := autoAddBrainToDefault(path, filepath.Base(path)); err != nil {
+	if err := autoAddBrainToDefault(path, config.Name); err != nil {
 		fmt.Printf("%s Warning: Could not add to default workspace: %v\n", IconWarning, err)
 	} else {
 		fmt.Println("[OK] Brain added to default workspace")
