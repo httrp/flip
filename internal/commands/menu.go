@@ -41,19 +41,38 @@ func runInteractiveMenu() error {
 		{
 			Label:       "🚀 Quickstart (Guided Setup)",
 			Description: "First time? Walk through creating your first workspace and brain",
-			Action:      runQuickstart,
+			Action: func() error {
+				if err := runQuickstart(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
 		},
 		{
 			Label:       "✨ Create New Brain",
 			Description: "Quickly create a new knowledge base",
 			Action: func() error {
-				return runNewBrain()
+				if err := runNewBrain(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
 			},
 		},
 		{
 			Label:       "📊 View Status",
 			Description: "Show all workspaces and brains",
-			Action:      runStatus,
+			Action: func() error {
+				if err := runStatus(); err != nil {
+					return err
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
 		},
 		{
 			Label:       "❓ Help & Documentation",
@@ -79,8 +98,9 @@ func runInteractiveMenu() error {
 				fmt.Println("  flip brain remove <name>       # Remove brain")
 				fmt.Println()
 				fmt.Println("For detailed help on any command, use: flip <command> --help")
-				fmt.Println()
-				return nil
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
 			},
 		},
 		{

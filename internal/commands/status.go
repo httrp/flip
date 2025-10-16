@@ -42,12 +42,7 @@ func runStatus() error {
 
 	if len(config.Workspaces) == 0 {
 		fmt.Println("[ ] No workspaces configured yet.")
-		fmt.Println()
-		fmt.Println("Get started:")
-		fmt.Println("  flip quickstart       # Guided onboarding")
-		fmt.Println("  flip new              # Create a new brain")
-		fmt.Println("  flip workspace create personal    # Create empty workspace")
-		fmt.Println("  flip brain add <path> # Add existing brain to workspace")
+		fmt.Println("\n💡 Tip: Use the main menu to get started with Quickstart or create a new brain.")
 		return nil
 	}
 
