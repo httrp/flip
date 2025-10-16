@@ -122,10 +122,10 @@ func runQuickstart() error {
 			Brains: []Brain{},
 		}
 		config.Workspaces = append(config.Workspaces, newWS)
-		
+
 		// Set as active workspace
 		config.ActiveWorkspace = wsName
-		
+
 		// Save config
 		if err := saveWorkspaceConfig(config); err != nil {
 			return fmt.Errorf("failed to save workspace config: %w", err)

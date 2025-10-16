@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -274,6 +275,18 @@ func runBrainMenu() error {
 			Label:       "📂 Init/Add Existing Brain",
 			Description: "Initialize or add an existing brain to workspace",
 			Action: func() error {
+				home, _ := os.UserHomeDir()
+				examples := []string{
+					filepath.Join(home, "Documents", "Obsidian"),
+					filepath.Join(home, "Notes"),
+					filepath.Join(home, "Logseq"),
+				}
+				fmt.Println("\n💡 Example paths:")
+				for _, ex := range examples {
+					fmt.Printf("   %s\n", ex)
+				}
+				fmt.Println()
+				
 				promptPath := promptui.Prompt{
 					Label: "Path to existing brain directory",
 				}

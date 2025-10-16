@@ -45,7 +45,18 @@ func NewScanCommand() *cobra.Command {
 
 func runScan(scanPath string) error {
 	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n\n", scanPath)
-	found := 0
+	
+	type FoundBrain struct {
+		Number      int
+		Description string
+		Type        brain.BrainType
+		Path        string
+		MdCount     int
+		LastMod     string
+		Indicators  []string
+	}
+	
+	var foundBrains []FoundBrain
 	maxDepth := 5
 	excludeDirs := []string{".vscode", ".oh-my-zsh", "Library", "AppData", "Program Files", "node_modules", "Applications"}
 
@@ -90,9 +101,16 @@ func runScan(scanPath string) error {
 		}
 
 		if isValid {
-			found++
 			lastMod := getLastModified(path)
-			fmt.Printf("%d) %s\n   Type: %s\n   Path: %s\n   Markdown files: %d\n   Last updated: %s\n   Indicators: %s\n\n", found, result.Description, result.Type, result.Path, mdCount, lastMod, strings.Join(result.Indicators, ", "))
+			foundBrains = append(foundBrains, FoundBrain{
+				Number:      len(foundBrains) + 1,
+				Description: result.Description,
+				Type:        result.Type,
+				Path:        path,
+				MdCount:     mdCount,
+				LastMod:     lastMod,
+				Indicators:  result.Indicators,
+			})
 		}
 		return nil
 	})
@@ -101,10 +119,119 @@ func runScan(scanPath string) error {
 		return fmt.Errorf("scan error: %w", err)
 	}
 
-	if found == 0 {
+	if len(foundBrains) == 0 {
 		fmt.Println("No 2nd brain workspaces found.")
+		return nil
 	}
-	return nil
+
+	// Display found brains
+	fmt.Printf("✓ Found %d brain(s):\n\n", len(foundBrains))
+	for _, fb := range foundBrains {
+		fmt.Printf("%d) %s\n", fb.Number, fb.Description)
+		fmt.Printf("   Type: %s | Files: %d | Updated: %s\n", fb.Type, fb.MdCount, fb.LastMod)
+		fmt.Printf("   Path: %s\n\n", fb.Path)
+	}
+
+	// Interactive selection
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+	fmt.Println("? What would you like to do?")
+	
+	for {
+		fmt.Println()
+		fmt.Println("  1) Add one or more brains to workspace")
+		fmt.Println("  2) View details of a brain")
+		fmt.Println("  0) Exit")
+		fmt.Printf("Choose (0/1/2): ")
+		
+		var choice string
+		fmt.Scanln(&choice)
+		choice = strings.TrimSpace(choice)
+		
+		if choice == "0" || strings.ToLower(choice) == "exit" || strings.ToLower(choice) == "quit" {
+			fmt.Println("\n✓ Done")
+			return nil
+		}
+		
+		if choice == "2" {
+			// View details
+			fmt.Printf("\nEnter brain number to view details (1-%d): ", len(foundBrains))
+			var num int
+			fmt.Scanln(&num)
+			
+			if num < 1 || num > len(foundBrains) {
+				fmt.Println("✗ Invalid number")
+				continue
+			}
+			
+			fb := foundBrains[num-1]
+			fmt.Println("\n━━━ Brain Details ━━━")
+			fmt.Printf("Name: %s\n", fb.Description)
+			fmt.Printf("Type: %s\n", fb.Type)
+			fmt.Printf("Path: %s\n", fb.Path)
+			fmt.Printf("Markdown files: %d\n", fb.MdCount)
+			fmt.Printf("Last updated: %s\n", fb.LastMod)
+			fmt.Printf("Indicators: %s\n", strings.Join(fb.Indicators, ", "))
+			fmt.Println()
+			continue
+		}
+		
+		if choice == "1" {
+			// Add brains
+			fmt.Println()
+			fmt.Printf("Enter brain numbers to add (comma-separated, e.g. '1,3,5' or 'all'): ")
+			var input string
+			fmt.Scanln(&input)
+			input = strings.TrimSpace(input)
+			
+			var toAdd []int
+			if strings.ToLower(input) == "all" {
+				for i := range foundBrains {
+					toAdd = append(toAdd, i)
+				}
+			} else {
+				parts := strings.Split(input, ",")
+				for _, p := range parts {
+					var num int
+					fmt.Sscanf(strings.TrimSpace(p), "%d", &num)
+					if num >= 1 && num <= len(foundBrains) {
+						toAdd = append(toAdd, num-1)
+					}
+				}
+			}
+			
+			if len(toAdd) == 0 {
+				fmt.Println("✗ No valid brains selected")
+				continue
+			}
+			
+			// Ensure workspace exists
+			config, err := ensureActiveWorkspace()
+			if err != nil {
+				return err
+			}
+			
+			// Add each brain
+			added := 0
+			for _, idx := range toAdd {
+				fb := foundBrains[idx]
+				brainName := filepath.Base(fb.Path)
+				
+				// Initialize the brain
+				fmt.Printf("\n→ Adding '%s'...\n", brainName)
+				if err := runDirectoryInitWithName(fb.Path, brainName, "", false); err != nil {
+					fmt.Printf("  ✗ Failed: %v\n", err)
+					continue
+				}
+				added++
+			}
+			
+			fmt.Printf("\n✓ Added %d brain(s) to workspace '%s'\n", added, config.ActiveWorkspace)
+			return nil
+		}
+		
+		fmt.Println("✗ Invalid choice")
+	}
 }
 
 // getLastModified returns the last modification time of any file in the directory (recursive)
