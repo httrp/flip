@@ -73,26 +73,68 @@ func runQuickstart() error {
 	}
 	wsName = strings.TrimSpace(wsName)
 
-	home, _ := os.UserHomeDir()
-	wsPath := filepath.Join(home, "flap", "workspaces", wsName)
-
-	promptPath := promptui.Prompt{
-		Label:   getText("prompt_workspace_path"),
-		Default: wsPath,
-	}
-
-	wsPath, err = promptPath.Run()
+	// Load config to add workspace
+	config, err := loadWorkspaceConfig()
 	if err != nil {
-		return fmt.Errorf("path prompt failed: %w", err)
+		config = &WorkspaceConfig{
+			Version:    "2.0",
+			Workspaces: []Workspace{},
+		}
 	}
-	wsPath = strings.TrimSpace(wsPath)
 
-	if err := os.MkdirAll(wsPath, 0755); err != nil {
-		return fmt.Errorf("failed to create workspace directory: %w", err)
+	// Check if workspace already exists
+	workspaceExists := false
+	for _, ws := range config.Workspaces {
+		if ws.Name == wsName {
+			workspaceExists = true
+			fmt.Printf("\n✓ Workspace '%s' already exists, using it\n\n", wsName)
+			config.ActiveWorkspace = wsName
+			if err := saveWorkspaceConfig(config); err != nil {
+				return fmt.Errorf("failed to save config: %w", err)
+			}
+			break
+		}
 	}
-	fmt.Println()
-	fmt.Printf("✓ "+getText("workspace_created")+"\n", wsName, wsPath)
-	fmt.Println()
+
+	if !workspaceExists {
+		home, _ := os.UserHomeDir()
+		wsPath := filepath.Join(home, "flap", "workspaces", wsName)
+
+		promptPath := promptui.Prompt{
+			Label:   getText("prompt_workspace_path"),
+			Default: wsPath,
+		}
+
+		wsPath, err = promptPath.Run()
+		if err != nil {
+			return fmt.Errorf("path prompt failed: %w", err)
+		}
+		wsPath = strings.TrimSpace(wsPath)
+
+		// Create workspace directory
+		if err := os.MkdirAll(wsPath, 0755); err != nil {
+			return fmt.Errorf("failed to create workspace directory: %w", err)
+		}
+
+		// Add workspace to config
+		newWS := Workspace{
+			Name:   wsName,
+			Brains: []Brain{},
+		}
+		config.Workspaces = append(config.Workspaces, newWS)
+		
+		// Set as active workspace
+		config.ActiveWorkspace = wsName
+		
+		// Save config
+		if err := saveWorkspaceConfig(config); err != nil {
+			return fmt.Errorf("failed to save workspace config: %w", err)
+		}
+
+		fmt.Println()
+		fmt.Printf("✓ "+getText("workspace_created")+"\n", wsName, wsPath)
+		fmt.Println()
+	}
 
 	// Step 2: Add a brain
 	fmt.Println("━━━ " + getText("step_brain") + " ━━━")
@@ -154,9 +196,9 @@ func runQuickstart() error {
 			return fmt.Errorf("brain name prompt failed: %w", err)
 		}
 
-		// Initialize if not already a brain
+		// Initialize if not already a brain (pass brainName to avoid asking again)
 		fmt.Printf(getText("initializing_brain")+"\n", brainName, brainTarget)
-		if err := runDirectoryInit(brainTarget, "", false); err != nil {
+		if err := runDirectoryInitWithName(brainTarget, brainName, "", false); err != nil {
 			fmt.Printf("! Warning: %v\n", err)
 		}
 		fmt.Printf(getText("brain_added")+"\n", brainName, wsName)
@@ -175,10 +217,9 @@ func runQuickstart() error {
 		"nexus", "vault", "archive", "library", "repository", "codex", "compendium",
 	}
 
-	// Filter out already-used brain names
-	config, err := loadWorkspaceConfig()
+	// Filter out already-used brain names (reuse config from above)
 	var usedNames map[string]bool
-	if err == nil {
+	if config != nil {
 		usedNames = make(map[string]bool)
 		for _, ws := range config.Workspaces {
 			usedNames[strings.ToLower(ws.Name)] = true
@@ -231,6 +272,7 @@ func runQuickstart() error {
 		}
 	}
 
+	home, _ := os.UserHomeDir()
 	brainPath := filepath.Join(home, "flap", "brains", brainName)
 
 	promptBrainPath := promptui.Prompt{
@@ -248,7 +290,8 @@ func runQuickstart() error {
 	if err := createBrainStructure(brainPath, "flip"); err != nil {
 		return fmt.Errorf("failed to create structure: %w", err)
 	}
-	if err := runDirectoryInit(brainPath, "", true); err != nil {
+	// Pass brainName to avoid asking for it again
+	if err := runDirectoryInitWithName(brainPath, brainName, "", true); err != nil {
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 	fmt.Printf(getText("brain_created")+"\n", brainName, wsName)

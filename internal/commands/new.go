@@ -76,17 +76,17 @@ func runNewWorkspace() error {
 	fmt.Printf("  (or enter '0' to cancel): ")
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
-	
+
 	// Handle cancellation
 	if name == "0" || strings.ToLower(name) == "cancel" {
 		fmt.Println("\n✗ Cancelled")
 		return nil
 	}
-	
+
 	if name == "" {
 		name = defaultName
 	}
-	
+
 	// Check if workspace already exists
 	for _, ws := range config.Workspaces {
 		if ws.Name == name {
@@ -94,13 +94,13 @@ func runNewWorkspace() error {
 			return nil
 		}
 	}
-	
+
 	// Prevent 'flap' as workspace name
 	if strings.ToLower(name) == "flap" {
 		fmt.Println("\n✗ 'flap' is reserved for the main folder. Please choose another name.")
 		return nil
 	}
-	
+
 	// Step 2: Get workspace path (optional, just for information)
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, "flap", "workspaces", name)
@@ -109,13 +109,13 @@ func runNewWorkspace() error {
 	fmt.Printf("  (or enter '0' to cancel): ")
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
-	
+
 	// Handle cancellation
 	if path == "0" || strings.ToLower(path) == "cancel" {
 		fmt.Println("\n✗ Cancelled")
 		return nil
 	}
-	
+
 	if path == "" {
 		path = recommended
 	}
@@ -156,7 +156,7 @@ func runNewWorkspace() error {
 	if config.ActiveWorkspace == name {
 		fmt.Printf("✓ Set as active workspace\n")
 	}
-	
+
 	// Ask if user wants to add a brain now
 	fmt.Println()
 	fmt.Println("? Would you like to add a brain to this workspace now?")
@@ -164,10 +164,10 @@ func runNewWorkspace() error {
 	fmt.Println("  2) Yes, add an existing brain")
 	fmt.Println("  0) No, finish")
 	fmt.Printf("Choose (0/1/2) [default: 0]: ")
-	
+
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
-	
+
 	if choice == "1" {
 		fmt.Println()
 		return runNewBrain()
@@ -177,7 +177,7 @@ func runNewWorkspace() error {
 		fmt.Println("→ Add existing brain (not yet implemented)")
 		return nil
 	}
-	
+
 	return nil
 }
 
@@ -193,13 +193,13 @@ func runNewBrain() error {
 	fmt.Println("  2) Choose from creative suggestions")
 	fmt.Println("  0) Cancel")
 	fmt.Printf("Choose (0/1/2) [default: 1]: ")
-	
+
 	nameChoice, _ := reader.ReadString('\n')
 	nameChoice = strings.TrimSpace(nameChoice)
 	if nameChoice == "" {
 		nameChoice = "1"
 	}
-	
+
 	// Handle cancellation
 	if nameChoice == "0" || strings.ToLower(nameChoice) == "cancel" || strings.ToLower(nameChoice) == "abort" {
 		fmt.Println("\n✗ Cancelled")
@@ -207,7 +207,7 @@ func runNewBrain() error {
 	}
 
 	var name string
-	
+
 	if nameChoice == "2" || strings.ToLower(nameChoice) == "suggestions" {
 		// Step 2a: Show creative suggestions
 		config, _ := loadWorkspaceConfig()
@@ -247,10 +247,10 @@ func runNewBrain() error {
 			}
 			fmt.Println("  0) Back (enter custom name instead)")
 			fmt.Printf("Choose (0-%d): ", min(len(availableNames), 20))
-			
+
 			choice, _ := reader.ReadString('\n')
 			choice = strings.TrimSpace(choice)
-			
+
 			// Handle back/cancel
 			if choice == "0" || strings.ToLower(choice) == "back" || strings.ToLower(choice) == "custom" {
 				nameChoice = "1" // Switch to custom name entry
@@ -270,19 +270,19 @@ func runNewBrain() error {
 			}
 		}
 	}
-	
+
 	// Step 2b: Custom name entry
 	if nameChoice == "1" || name == "" {
 		fmt.Println("\n? Enter a custom name for your brain:")
 		fmt.Printf("Brain name: ")
 		name, _ = reader.ReadString('\n')
 		name = strings.TrimSpace(name)
-		
+
 		if name == "" {
 			fmt.Println("\n✗ No name provided. Cancelled.")
 			return nil
 		}
-		
+
 		// Prevent 'flap' as brain name
 		if strings.ToLower(name) == "flap" {
 			fmt.Println("\n✗ 'flap' is reserved for the main folder. Please choose another name.")
@@ -291,7 +291,7 @@ func runNewBrain() error {
 	}
 
 	fmt.Printf("\n→ Brain name: %s\n", name)
-	
+
 	// Step 3: Ask for path
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, "flap", "brains", name)
@@ -299,13 +299,13 @@ func runNewBrain() error {
 	fmt.Printf("  (or enter '0' to cancel): ")
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
-	
+
 	// Handle cancellation
 	if path == "0" || strings.ToLower(path) == "cancel" || strings.ToLower(path) == "abort" {
 		fmt.Println("\n✗ Cancelled")
 		return nil
 	}
-	
+
 	if path == "" {
 		path = recommended
 	}
@@ -329,13 +329,13 @@ func runNewBrain() error {
 	fmt.Printf("Choose (0/1/2/3/4) [default: 1]: ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
-	
+
 	// Handle cancellation
 	if choice == "0" || strings.ToLower(choice) == "cancel" || strings.ToLower(choice) == "abort" {
 		fmt.Println("\n✗ Cancelled")
 		return nil
 	}
-	
+
 	if choice == "" {
 		choice = "1"
 	}
@@ -376,7 +376,7 @@ func runNewBrain() error {
 	}
 
 	fmt.Println("\n✓ New brain created and initialized successfully!")
-	
+
 	// Ask if user wants to create another brain
 	fmt.Println()
 	fmt.Println("? Would you like to create or add another brain?")
@@ -384,10 +384,10 @@ func runNewBrain() error {
 	fmt.Println("  2) Yes, add an existing brain")
 	fmt.Println("  0) No, finish")
 	fmt.Printf("Choose (0/1/2) [default: 0]: ")
-	
+
 	followUp, _ := reader.ReadString('\n')
 	followUp = strings.TrimSpace(followUp)
-	
+
 	if followUp == "1" {
 		fmt.Println()
 		return runNewBrain()
@@ -397,7 +397,7 @@ func runNewBrain() error {
 		fmt.Println("→ Add existing brain (not yet implemented)")
 		return nil
 	}
-	
+
 	return nil
 }
 
