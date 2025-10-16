@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +46,7 @@ func NewScanCommand() *cobra.Command {
 
 func runScan(scanPath string) error {
 	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n\n", scanPath)
-	
+
 	type FoundBrain struct {
 		Number      int
 		Description string
@@ -55,7 +56,7 @@ func runScan(scanPath string) error {
 		LastMod     string
 		Indicators  []string
 	}
-	
+
 	var foundBrains []FoundBrain
 	maxDepth := 5
 	excludeDirs := []string{".vscode", ".oh-my-zsh", "Library", "AppData", "Program Files", "node_modules", "Applications"}
@@ -120,117 +121,117 @@ func runScan(scanPath string) error {
 	}
 
 	if len(foundBrains) == 0 {
-		fmt.Println("No 2nd brain workspaces found.")
+		fmt.Println("\n✗ No 2nd brain workspaces found.")
 		return nil
 	}
 
-	// Display found brains
-	fmt.Printf("✓ Found %d brain(s):\n\n", len(foundBrains))
-	for _, fb := range foundBrains {
-		fmt.Printf("%d) %s\n", fb.Number, fb.Description)
-		fmt.Printf("   Type: %s | Files: %d | Updated: %s\n", fb.Type, fb.MdCount, fb.LastMod)
-		fmt.Printf("   Path: %s\n\n", fb.Path)
-	}
-
-	// Interactive selection
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	// Display found brains with summary
 	fmt.Println()
-	fmt.Println("? What would you like to do?")
-	
+	displayStatusHeader()
+	fmt.Println()
+	fmt.Printf("✓ Found %d brain(s)\n\n", len(foundBrains))
+
+	// Interactive loop to browse and add brains
 	for {
-		fmt.Println()
-		fmt.Println("  1) Add one or more brains to workspace")
-		fmt.Println("  2) View details of a brain")
-		fmt.Println("  0) Exit")
-		fmt.Printf("Choose (0/1/2): ")
-		
-		var choice string
-		fmt.Scanln(&choice)
-		choice = strings.TrimSpace(choice)
-		
-		if choice == "0" || strings.ToLower(choice) == "exit" || strings.ToLower(choice) == "quit" {
+		// Create list items for promptui
+		type BrainListItem struct {
+			Display string
+			Index   int
+		}
+
+		var items []BrainListItem
+		for i, fb := range foundBrains {
+			display := fmt.Sprintf("%s (%s) - %d files", fb.Description, fb.Type, fb.MdCount)
+			items = append(items, BrainListItem{Display: display, Index: i})
+		}
+		items = append(items, BrainListItem{Display: "◀️  Exit", Index: -1})
+
+		// Select a brain to view details
+		templates := &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "▸ {{ .Display | cyan | bold }}",
+			Inactive: "  {{ .Display }}",
+			Selected: "{{ .Display | green | bold }}",
+		}
+
+		prompt := promptui.Select{
+			Label:     "Select a brain to view details",
+			Items:     items,
+			Templates: templates,
+			Size:      10,
+		}
+
+		idx, _, err := prompt.Run()
+		if err != nil {
+			return nil
+		}
+
+		selectedIdx := items[idx].Index
+
+		// Exit option selected
+		if selectedIdx == -1 {
 			fmt.Println("\n✓ Done")
 			return nil
 		}
-		
-		if choice == "2" {
-			// View details
-			fmt.Printf("\nEnter brain number to view details (1-%d): ", len(foundBrains))
-			var num int
-			fmt.Scanln(&num)
-			
-			if num < 1 || num > len(foundBrains) {
-				fmt.Println("✗ Invalid number")
-				continue
-			}
-			
-			fb := foundBrains[num-1]
-			fmt.Println("\n━━━ Brain Details ━━━")
-			fmt.Printf("Name: %s\n", fb.Description)
-			fmt.Printf("Type: %s\n", fb.Type)
-			fmt.Printf("Path: %s\n", fb.Path)
-			fmt.Printf("Markdown files: %d\n", fb.MdCount)
-			fmt.Printf("Last updated: %s\n", fb.LastMod)
-			fmt.Printf("Indicators: %s\n", strings.Join(fb.Indicators, ", "))
-			fmt.Println()
-			continue
+
+		// Show brain details
+		fb := foundBrains[selectedIdx]
+		fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("Brain Details")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("Name:         %s\n", fb.Description)
+		fmt.Printf("Type:         %s\n", fb.Type)
+		fmt.Printf("Path:         %s\n", fb.Path)
+		fmt.Printf("Files:        %d markdown files\n", fb.MdCount)
+		fmt.Printf("Last updated: %s\n", fb.LastMod)
+		fmt.Printf("Indicators:   %s\n", strings.Join(fb.Indicators, ", "))
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println()
+
+		// Ask what to do with this brain
+		actionPrompt := promptui.Select{
+			Label: "What would you like to do?",
+			Items: []string{
+				"✨ Initialize and add to workspace",
+				"◀️  Back to brain list",
+			},
 		}
-		
-		if choice == "1" {
-			// Add brains
-			fmt.Println()
-			fmt.Printf("Enter brain numbers to add (comma-separated, e.g. '1,3,5' or 'all'): ")
-			var input string
-			fmt.Scanln(&input)
-			input = strings.TrimSpace(input)
-			
-			var toAdd []int
-			if strings.ToLower(input) == "all" {
-				for i := range foundBrains {
-					toAdd = append(toAdd, i)
-				}
-			} else {
-				parts := strings.Split(input, ",")
-				for _, p := range parts {
-					var num int
-					fmt.Sscanf(strings.TrimSpace(p), "%d", &num)
-					if num >= 1 && num <= len(foundBrains) {
-						toAdd = append(toAdd, num-1)
-					}
-				}
-			}
-			
-			if len(toAdd) == 0 {
-				fmt.Println("✗ No valid brains selected")
-				continue
-			}
-			
-			// Ensure workspace exists
+
+		actionIdx, _, err := actionPrompt.Run()
+		if err != nil {
+			return nil
+		}
+
+		if actionIdx == 0 {
+			// Initialize and add brain
 			config, err := ensureActiveWorkspace()
 			if err != nil {
 				return err
 			}
-			
-			// Add each brain
-			added := 0
-			for _, idx := range toAdd {
-				fb := foundBrains[idx]
-				brainName := filepath.Base(fb.Path)
-				
-				// Initialize the brain
-				fmt.Printf("\n→ Adding '%s'...\n", brainName)
-				if err := runDirectoryInitWithName(fb.Path, brainName, "", false); err != nil {
-					fmt.Printf("  ✗ Failed: %v\n", err)
-					continue
-				}
-				added++
+
+			brainName := filepath.Base(fb.Path)
+			fmt.Printf("\n→ Adding '%s' to workspace '%s'...\n", brainName, config.ActiveWorkspace)
+
+			if err := runDirectoryInitWithName(fb.Path, brainName, "", false); err != nil {
+				fmt.Printf("✗ Failed: %v\n\n", err)
+				continue
 			}
-			
-			fmt.Printf("\n✓ Added %d brain(s) to workspace '%s'\n", added, config.ActiveWorkspace)
-			return nil
+
+			fmt.Printf("✓ Brain '%s' added successfully!\n\n", brainName)
+
+			// Ask if user wants to continue
+			continuePrompt := promptui.Select{
+				Label: "Continue browsing?",
+				Items: []string{"Yes, show brain list", "No, exit"},
+			}
+
+			contIdx, _, err := continuePrompt.Run()
+			if err != nil || contIdx == 1 {
+				fmt.Println("\n✓ Done")
+				return nil
+			}
 		}
-		
-		fmt.Println("✗ Invalid choice")
+		// If "Back to brain list" selected (actionIdx == 1), loop continues
 	}
 }
 

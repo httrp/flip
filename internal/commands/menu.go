@@ -37,13 +37,9 @@ func runInteractiveMenu() error {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 
-	// Show current status
-	config, err := loadWorkspaceConfig()
-	if err == nil && len(config.Workspaces) > 0 {
-		if config.ActiveWorkspace != "" {
-			fmt.Printf("📂 Active Workspace: %s\n\n", config.ActiveWorkspace)
-		}
-	}
+	// Show status header
+	displayStatusHeader()
+	fmt.Println()
 
 	// Main menu options
 	menuItems := []struct {
@@ -286,7 +282,7 @@ func runBrainMenu() error {
 					fmt.Printf("   %s\n", ex)
 				}
 				fmt.Println()
-				
+
 				promptPath := promptui.Prompt{
 					Label: "Path to existing brain directory",
 				}
