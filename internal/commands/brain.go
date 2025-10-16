@@ -17,6 +17,15 @@ func NewBrainCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(newBrainAddCommand())
+	// Alias: 'flip brain new' calls the same logic as 'flip new brain'
+	newCmd := &cobra.Command{
+		Use:   "new",
+		Short: "Create a new brain (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runNewBrain()
+		},
+	}
+	cmd.AddCommand(newCmd)
 	cmd.AddCommand(newBrainListCommand())
 	cmd.AddCommand(newBrainRemoveCommand())
 	cmd.AddCommand(newBrainSetDefaultCommand())

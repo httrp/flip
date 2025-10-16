@@ -13,31 +13,70 @@ import (
 func NewNewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new",
-		Short: "Create a new brain with compatible structure",
-		Long:  "Creates a new brain folder with a structure compatible to Obsidian, Logseq, Dendron, or Flip.",
+		Short: "Create something new (brain/workspace)",
+		Long:  "Interactive menu to create a new brain or workspace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runNew()
+			return runNewMenu(args)
 		},
 	}
+	// Alias: flip new brain
+	brainCmd := &cobra.Command{
+		Use:   "brain",
+		Short: "Create a new brain (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runNewBrain()
+		},
+	}
+	cmd.AddCommand(brainCmd)
 	return cmd
 }
 
-func runNew() error {
+// Interactive menu for 'flip new'
+func runNewMenu(args []string) error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("+ Create a new brain")
+	fmt.Println("+ What do you want to create?")
+	fmt.Println("  1) Brain")
+	fmt.Println("  2) Workspace")
+	fmt.Printf("Choose (1/2) [default: 1]: ")
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+	if choice == "" || choice == "1" {
+		return runNewBrain()
+	} else if choice == "2" {
+		return runNewWorkspace()
+	}
+	fmt.Println("[X] Cancelled.")
+	return nil
+}
 
-	// Name
-	fmt.Printf("? Name for your new brain [default: flap]: ")
+// Workspace creation logic (same UX as brain)
+func runNewWorkspace() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("+ Create a new workspace")
+
+	// Creative name selection
+	creativeNames := []string{
+		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany", "noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+	}
+	fmt.Println("? Choose a name for your new brain:")
+	for i, n := range creativeNames {
+		fmt.Printf("  %d) %s\n", i+1, n)
+	}
+	fmt.Printf("Or enter your own name [default: %s]: ", creativeNames[0])
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = "flap"
+		name = creativeNames[0]
 	}
-
-	// Suggested default path
+	// Prevent 'flap' as brain name
+	if strings.ToLower(name) == "flap" {
+		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
+		return nil
+	}
+	// Default path: $HOME/flap/workspaces/<name>, but allow any custom path
 	home, _ := os.UserHomeDir()
-	recommended := filepath.Join(home, name)
-	fmt.Printf("? Where to create it? [default: %s]: ", recommended)
+	recommended := filepath.Join(home, "flap", "workspaces", name)
+	fmt.Printf("? Path for your workspace [default: %s]: ", recommended)
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -45,14 +84,50 @@ func runNew() error {
 	}
 	target := path
 
-	fmt.Printf("! Selected path: %s\n", target)
-	fmt.Printf("Do you want to create your brain here? (y/N): ")
-	confirm, _ := reader.ReadString('\n')
-	confirm = strings.TrimSpace(strings.ToLower(confirm))
-	if confirm != "y" && confirm != "yes" {
-		fmt.Println("[X] Cancelled by user.")
+	// Safety: Prevent using the flip project/source folder as the target
+	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
+	for _, marker := range projectMarkers {
+		if _, err := os.Stat(filepath.Join(target, marker)); err == nil {
+			return fmt.Errorf("you cannot use the flip project/source folder as your workspace; please choose a different directory")
+		}
+	}
+
+	// Create workspace directory
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	fmt.Printf("[OK] Workspace '%s' created at %s\n", name, target)
+	return nil
+}
+
+// Brain creation logic (used by 'flip new brain' and menu)
+func runNewBrain() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("+ Create a new brain")
+
+	// Name (default: 'default')
+	fmt.Printf("? Name for your new workspace [default: default]: ")
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "default"
+	}
+	// Prevent 'flap' as workspace name
+	if strings.ToLower(name) == "flap" {
+		fmt.Println("[X] 'flap' is reserved for the main folder. Please choose another name.")
 		return nil
 	}
+	// Default path: $HOME/flap/brains/<name>, but allow any custom path
+	home, _ := os.UserHomeDir()
+	recommended := filepath.Join(home, "flap", "brains", name)
+	fmt.Printf("? Path for your brain [default: %s]: ", recommended)
+	path, _ := reader.ReadString('\n')
+	path = strings.TrimSpace(path)
+	if path == "" {
+		path = recommended
+	}
+	target := path
 
 	// Safety: Prevent using the flip project/source folder as the target
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
@@ -96,51 +171,6 @@ func runNew() error {
 	// Initialize with flip (this will auto-add to default workspace)
 	if err := runDirectoryInit(target, "", true); err != nil {
 		return fmt.Errorf("failed to initialize: %w", err)
-	}
-
-	// Ask if user wants to add to an additional workspace
-	fmt.Printf("\n# Add to another workspace? (y/N): ")
-	yn, _ := reader.ReadString('\n')
-	yn = strings.TrimSpace(strings.ToLower(yn))
-	if yn == "y" || yn == "yes" {
-		// Ask for workspace name
-		fmt.Printf("Add to existing workspace or create new? (existing/new) [default: existing]: ")
-		choice, _ := reader.ReadString('\n')
-		choice = strings.TrimSpace(strings.ToLower(choice))
-
-		workspaceName := ""
-		if choice == "new" {
-			fmt.Printf("New workspace name: ")
-			wsInput, _ := reader.ReadString('\n')
-			workspaceName = strings.TrimSpace(wsInput)
-			if workspaceName == "" {
-				workspaceName = name
-			}
-			// Create new workspace
-			if err := runWorkspaceCreate(workspaceName); err != nil {
-				fmt.Printf("%s Could not create workspace: %v\n", IconWarning, err)
-				return nil
-			}
-		} else {
-			fmt.Printf("Workspace name: ")
-			wsInput, _ := reader.ReadString('\n')
-			workspaceName = strings.TrimSpace(wsInput)
-		}
-
-		if workspaceName != "" && workspaceName != "default" {
-			// Verify workspace exists and switch to it
-			if err := runWorkspaceSwitch(workspaceName); err != nil {
-				fmt.Printf("%s Workspace '%s' not found or cannot switch: %v\n", IconWarning, workspaceName, err)
-				return nil
-			}
-
-			// Add brain to the now-active workspace
-			if err := runBrainAdd(target, name, true); err != nil {
-				fmt.Printf("%s Could not add brain: %v\n", IconWarning, err)
-			} else {
-				fmt.Printf("%s Brain '%s' added to workspace '%s'\n", IconCheck, name, workspaceName)
-			}
-		}
 	}
 
 	fmt.Println("[OK] New brain created and initialized!")
