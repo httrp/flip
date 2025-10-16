@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -40,8 +40,6 @@ func NewQuickstartCommand() *cobra.Command {
 }
 
 func runQuickstart() error {
-	reader := bufio.NewReader(os.Stdin)
-
 	fmt.Println("\n" + getText("welcome_banner"))
 	fmt.Println(getText("intro_workspace"))
 	fmt.Println(getText("intro_brain"))
@@ -49,25 +47,39 @@ func runQuickstart() error {
 
 	// Step 1: Create workspace
 	fmt.Println(getText("step_workspace"))
-	fmt.Print(getText("prompt_workspace_name"))
-	wsName, _ := reader.ReadString('\n')
-	wsName = strings.TrimSpace(wsName)
-	if wsName == "" {
-		wsName = "default"
-	}
-	if strings.ToLower(wsName) == "flap" {
-		fmt.Println(getText("reserved_flap"))
+
+	validate := func(input string) error {
+		if strings.ToLower(input) == "flap" {
+			return fmt.Errorf(getText("reserved_flap"))
+		}
 		return nil
 	}
 
+	promptWorkspace := promptui.Prompt{
+		Label:    getText("prompt_workspace_name"),
+		Default:  "default",
+		Validate: validate,
+	}
+
+	wsName, err := promptWorkspace.Run()
+	if err != nil {
+		return fmt.Errorf("workspace prompt failed: %w", err)
+	}
+	wsName = strings.TrimSpace(wsName)
+
 	home, _ := os.UserHomeDir()
 	wsPath := filepath.Join(home, "flap", "workspaces", wsName)
-	fmt.Printf(getText("prompt_workspace_path"), wsPath)
-	wsPathInput, _ := reader.ReadString('\n')
-	wsPathInput = strings.TrimSpace(wsPathInput)
-	if wsPathInput != "" {
-		wsPath = wsPathInput
+
+	promptPath := promptui.Prompt{
+		Label:   getText("prompt_workspace_path"),
+		Default: wsPath,
 	}
+
+	wsPath, err = promptPath.Run()
+	if err != nil {
+		return fmt.Errorf("path prompt failed: %w", err)
+	}
+	wsPath = strings.TrimSpace(wsPath)
 
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
@@ -75,38 +87,64 @@ func runQuickstart() error {
 	fmt.Printf(getText("workspace_created")+"\n\n", wsName, wsPath)
 
 	// Step 2: Add a brain
-	fmt.Println(getText("step_brain"))
-	fmt.Println(getText("brain_options"))
-	fmt.Print(getText("choose_option"))
-	choice, _ := reader.ReadString('\n')
-	choice = strings.TrimSpace(choice)
+	fmt.Println("\n" + getText("step_brain"))
 
-	if choice == "2" {
+	selectBrainType := promptui.Select{
+		Label: getText("brain_options"),
+		Items: []string{
+			"Create a new brain (knowledge base)",
+			"Connect an existing brain (Obsidian, Logseq, Markdown, Dendron, ...)",
+		},
+	}
+
+	brainTypeIdx, _, err := selectBrainType.Run()
+	if err != nil {
+		return fmt.Errorf("brain type selection failed: %w", err)
+	}
+
+	if brainTypeIdx == 1 {
 		// Connect existing brain
-		fmt.Print(getText("prompt_existing_brain_path"))
-		brainPathInput, _ := reader.ReadString('\n')
-		brainPathInput = strings.TrimSpace(brainPathInput)
-		if brainPathInput == "" {
-			fmt.Println(getText("no_path_provided"))
-			return nil
+		promptBrainPath := promptui.Prompt{
+			Label: getText("prompt_existing_brain_path"),
+			Validate: func(input string) error {
+				if input == "" {
+					return fmt.Errorf(getText("no_path_provided"))
+				}
+				absPath, err := filepath.Abs(input)
+				if err != nil {
+					return fmt.Errorf(getText("invalid_path"), err)
+				}
+				if _, err := os.Stat(absPath); os.IsNotExist(err) {
+					return fmt.Errorf(getText("path_not_exist"), absPath)
+				}
+				return nil
+			},
 		}
-		brainTarget, err := filepath.Abs(brainPathInput)
+
+		brainPathInput, err := promptBrainPath.Run()
 		if err != nil {
-			return fmt.Errorf(getText("invalid_path"), err)
+			return fmt.Errorf("brain path prompt failed: %w", err)
 		}
-		if _, err := os.Stat(brainTarget); os.IsNotExist(err) {
-			return fmt.Errorf(getText("path_not_exist"), brainTarget)
+
+		brainTarget, _ := filepath.Abs(brainPathInput)
+		defaultName := filepath.Base(brainTarget)
+
+		promptBrainName := promptui.Prompt{
+			Label:   getText("prompt_existing_brain_name"),
+			Default: defaultName,
+			Validate: func(input string) error {
+				if strings.ToLower(input) == "flap" {
+					return fmt.Errorf(getText("reserved_flap"))
+				}
+				return nil
+			},
 		}
-		fmt.Print(getText("prompt_existing_brain_name"))
-		brainName, _ := reader.ReadString('\n')
-		brainName = strings.TrimSpace(brainName)
-		if brainName == "" {
-			brainName = filepath.Base(brainTarget)
+
+		brainName, err := promptBrainName.Run()
+		if err != nil {
+			return fmt.Errorf("brain name prompt failed: %w", err)
 		}
-		if strings.ToLower(brainName) == "flap" {
-			fmt.Println(getText("reserved_flap"))
-			return nil
-		}
+
 		// Initialize if not already a brain
 		fmt.Printf(getText("initializing_brain")+"\n", brainName, brainTarget)
 		if err := runDirectoryInit(brainTarget, "", false); err != nil {
@@ -121,29 +159,59 @@ func runQuickstart() error {
 	creativeNames := []string{
 		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany",
 		"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+		"[Enter custom name]",
 	}
-	fmt.Println(getText("choose_brain_name"))
-	for i, n := range creativeNames {
-		fmt.Printf(getText("brain_name_option"), i+1, n)
+
+	selectBrainName := promptui.Select{
+		Label: getText("choose_brain_name"),
+		Items: creativeNames,
+		Size:  10,
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "▸ {{ . | cyan | bold }}",
+			Inactive: "  {{ . }}",
+			Selected: "{{ . | green | bold }}",
+		},
 	}
-	fmt.Printf(getText("prompt_brain_name"), creativeNames[0])
-	brainName, _ := reader.ReadString('\n')
-	brainName = strings.TrimSpace(brainName)
-	if brainName == "" {
-		brainName = creativeNames[0]
+
+	idx, brainName, err := selectBrainName.Run()
+	if err != nil {
+		return fmt.Errorf("brain name selection failed: %w", err)
 	}
-	if strings.ToLower(brainName) == "flap" {
-		fmt.Println(getText("reserved_flap"))
-		return nil
+
+	// If custom name was selected, prompt for it
+	if idx == len(creativeNames)-1 {
+		promptCustomName := promptui.Prompt{
+			Label:   "Enter custom brain name",
+			Default: "my-brain",
+			Validate: func(input string) error {
+				if strings.ToLower(input) == "flap" {
+					return fmt.Errorf(getText("reserved_flap"))
+				}
+				if input == "" {
+					return fmt.Errorf("brain name cannot be empty")
+				}
+				return nil
+			},
+		}
+		brainName, err = promptCustomName.Run()
+		if err != nil {
+			return fmt.Errorf("custom name prompt failed: %w", err)
+		}
 	}
 
 	brainPath := filepath.Join(home, "flap", "brains", brainName)
-	fmt.Printf(getText("prompt_brain_path"), brainPath)
-	brainPathInput, _ := reader.ReadString('\n')
-	brainPathInput = strings.TrimSpace(brainPathInput)
-	if brainPathInput != "" {
-		brainPath = brainPathInput
+
+	promptBrainPath := promptui.Prompt{
+		Label:   getText("prompt_brain_path"),
+		Default: brainPath,
 	}
+
+	brainPath, err = promptBrainPath.Run()
+	if err != nil {
+		return fmt.Errorf("brain path prompt failed: %w", err)
+	}
+	brainPath = strings.TrimSpace(brainPath)
 
 	fmt.Printf(getText("creating_brain")+"\n", brainName, brainPath)
 	if err := createBrainStructure(brainPath, "flip"); err != nil {
