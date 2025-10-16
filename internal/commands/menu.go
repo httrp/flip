@@ -160,9 +160,9 @@ func runCreateAddMenu() error {
 			Label:       "📁 Workspace",
 			Description: "Create a new workspace",
 			Action: func() error {
-				// TODO: Implement workspace creation
-				fmt.Println("\n🚧 Workspace creation coming soon!")
-				fmt.Println("For now, use: flip workspace create <name>")
+				if err := runNewWorkspace(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
@@ -283,9 +283,21 @@ func runBrainMenu() error {
 			Label:       "🔍 Scan for Brains",
 			Description: "Scan directories for existing brains",
 			Action: func() error {
-				// TODO: Implement scan
-				fmt.Println("\n🚧 Brain scanning coming soon!")
-				fmt.Println("For now, use: flip brain scan [path]")
+				promptPath := promptui.Prompt{
+					Label:   "Path to scan (leave empty for home directory)",
+					Default: "",
+				}
+				path, err := promptPath.Run()
+				if err != nil {
+					return runInteractiveMenu()
+				}
+				if path == "" {
+					home, _ := os.UserHomeDir()
+					path = home
+				}
+				if err := runScan(path); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
