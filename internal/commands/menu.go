@@ -153,7 +153,7 @@ func runInteractiveMenu() error {
 // runCreateAddMenu shows submenu for creating/adding resources
 func runCreateAddMenu() error {
 	fmt.Println()
-	fmt.Println("━━━ Create New / Add ━━━")
+	displayStatusHeader()
 	fmt.Println()
 
 	menuItems := []struct {
@@ -247,7 +247,7 @@ func runCreateAddMenu() error {
 // runBrainMenu shows submenu for brain operations
 func runBrainMenu() error {
 	fmt.Println()
-	fmt.Println("━━━ Brain Options ━━━")
+	displayStatusHeader()
 	fmt.Println()
 
 	menuItems := []struct {
@@ -360,7 +360,7 @@ func runBrainMenu() error {
 // runSwitchWorkspaceMenu shows menu to switch workspace
 func runSwitchWorkspaceMenu() error {
 	fmt.Println()
-	fmt.Println("━━━ Switch Workspace ━━━")
+	displayStatusHeader()
 	fmt.Println()
 
 	config, err := loadWorkspaceConfig()
