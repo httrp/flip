@@ -1,8 +1,30 @@
+import (
+       "encoding/json"
+       "io/ioutil"
+)
+
+var langTexts map[string]string
+
+func getText(key string) string {
+       if langTexts == nil {
+	       langTexts = make(map[string]string)
+	       data, err := ioutil.ReadFile("lang/en.json")
+	       if err == nil {
+		       json.Unmarshal(data, &langTexts)
+	       }
+       }
+       if val, ok := langTexts[key]; ok {
+	       return val
+       }
+       return key
+}
 package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,256 +47,117 @@ func runQuickstart() error {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("===============================================================")
-	fmt.Println("===  Welcome to Flip - Your Brain Management Assistant  ===")
+	fmt.Println(getText("welcome_banner"))
 	fmt.Println("===============================================================")
 	fmt.Println()
-	fmt.Println("Flip helps you manage your knowledge bases (brains) efficiently.")
+	fmt.Println(getText("intro_workspace"))
 	fmt.Println()
-	fmt.Println("Key Concepts:")
-	fmt.Println("  + BRAIN: A single knowledge base directory")
-	fmt.Println("            (Obsidian vault, Logseq graph, markdown folder, etc.)")
-	fmt.Println()
-	fmt.Println("  ~ WORKSPACE: A collection of related brains")
-	fmt.Println("                (like VS Code workspaces with multiple folders)")
-	fmt.Println()
-	fmt.Println("  # DEFAULT WORKSPACE: Automatically contains ALL brains")
-	fmt.Println("                        flip knows about on this machine")
+	fmt.Println(getText("intro_brain"))
 	fmt.Println()
 	fmt.Println("---------------------------------------------------------------")
 	fmt.Println()
 
-	// Check existing setup
-	config, err := loadWorkspaceConfig()
-	if err != nil {
-		return err
-	}
+	// Step 1: Workspace creation
+       fmt.Println(getText("step_workspace"))
+       fmt.Printf(getText("prompt_workspace_name"))
+       wsName, _ := reader.ReadString('\n')
+       wsName = strings.TrimSpace(wsName)
+       if wsName == "" {
+	       wsName = "default"
+       }
+       if strings.ToLower(wsName) == "flap" {
+	       fmt.Println(getText("reserved_flap"))
+	       return nil
+       }
+       home, _ := os.UserHomeDir()
+       wsPath := filepath.Join(home, "flap", "workspaces", wsName)
+       fmt.Printf(getText("prompt_workspace_path"), wsPath)
+       wsPathInput, _ := reader.ReadString('\n')
+       wsPathInput = strings.TrimSpace(wsPathInput)
+       if wsPathInput != "" {
+	       wsPath = wsPathInput
+       }
+       if err := os.MkdirAll(wsPath, 0755); err != nil {
+	       return fmt.Errorf("failed to create workspace directory: %w", err)
+       }
+       fmt.Printf(getText("workspace_created")+"\n\n", wsName, wsPath)
 
-	hasWorkspaces := len(config.Workspaces) > 0
-	hasBrains := false
-	totalBrains := 0
-	for _, ws := range config.Workspaces {
-		totalBrains += len(ws.Brains)
-		if len(ws.Brains) > 0 {
-			hasBrains = true
-		}
-	}
-
-	if hasWorkspaces && hasBrains {
-		fmt.Printf("[OK] You already have %d workspace(s) with %d brain(s)!\n\n", len(config.Workspaces), totalBrains)
-		fmt.Println("Current setup:")
-		runStatus()
-		fmt.Println()
-
-		fmt.Print("? Would you like to add another brain? (y/N): ")
-		response, _ := reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
-
-		if response != "y" && response != "yes" {
-			fmt.Println()
-			fmt.Println("[OK] All set! Use 'flip status' anytime to see your setup.")
-			return nil
-		}
-
-		return guideAddBrain(reader)
-	}
-
-	// No setup yet - guide through first brain creation
-	fmt.Println("! No brains configured yet. Let's create your first one!")
-	fmt.Println()
-
-	return guideFirstBrain(reader)
-}
-
-func guideFirstBrain(reader *bufio.Reader) error {
-	fmt.Println("=== Creating Your First Brain ===")
-	fmt.Println()
-	fmt.Println("We'll create a new brain directory with a flip-compatible structure.")
-	fmt.Println("This brain will be automatically added to the 'default' workspace.")
-	fmt.Println()
-
-	// Ask for name
-	fmt.Print("? What should we call your brain? [default: flap]: ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = "flap"
-	}
-
-	// Ask for location
-	home, _ := os.UserHomeDir()
-	suggestedPath := filepath.Join(home, name)
-
-	fmt.Printf("? Where should we create it? [default: %s]: ", suggestedPath)
-	pathInput, _ := reader.ReadString('\n')
-	pathInput = strings.TrimSpace(pathInput)
-	if pathInput == "" {
-		pathInput = suggestedPath
-	}
-
-	target, err := filepath.Abs(pathInput)
-	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	// Check if path exists
-	if _, err := os.Stat(target); err == nil {
-		fmt.Println()
-		fmt.Printf("! Directory '%s' already exists.\n", target)
-		fmt.Print("? Initialize it as a brain? (y/N): ")
-		confirm, _ := reader.ReadString('\n')
-		confirm = strings.TrimSpace(strings.ToLower(confirm))
-		if confirm != "y" && confirm != "yes" {
-			fmt.Println("[X] Cancelled.")
-			return nil
-		}
-	}
-
-	fmt.Println()
-	fmt.Printf("> Creating brain '%s' at: %s\n", name, target)
-	fmt.Println()
-
-	// Create structure
-	if err := createBrainStructure(target, "flip"); err != nil {
-		return fmt.Errorf("failed to create structure: %w", err)
-	}
-
-	// Initialize
-	if err := runDirectoryInit(target, "", true); err != nil {
-		return fmt.Errorf("failed to initialize: %w", err)
-	}
-
-	fmt.Println()
-	fmt.Println("===============================================================")
-	fmt.Println("===  Brain Created Successfully!  ===")
-	fmt.Println("===============================================================")
-	fmt.Println()
-	fmt.Println("What just happened:")
-	fmt.Println()
-	fmt.Printf("  1. Created brain directory at: %s\n", target)
-	fmt.Println("  2. Added flip-compatible folder structure:")
-	fmt.Println("       journal/     - Daily notes")
-	fmt.Println("       meetings/    - Meeting notes")
-	fmt.Println("       notes/       - General notes")
-	fmt.Println("       tasks/       - Task lists")
-	fmt.Println("       definitions/ - People, orgs, contexts")
-	fmt.Println("       templates/   - Note templates")
-	fmt.Println()
-	fmt.Println("  3. Created 'default' workspace")
-	fmt.Printf("  4. Added '%s' brain to 'default' workspace\n", name)
-	fmt.Println()
-	fmt.Println("---------------------------------------------------------------")
-	fmt.Println()
-	fmt.Println("Next steps:")
-	fmt.Println("  flip status               # See your setup")
-	fmt.Println("  flip workspace create personal  # Create another workspace")
-	fmt.Println("  flip brain add <path>     # Add existing brain")
-	fmt.Println()
-
-	return nil
-}
-
-func guideAddBrain(reader *bufio.Reader) error {
-	fmt.Println()
-	fmt.Println("=== Adding a Brain ===")
-	fmt.Println()
-	fmt.Println("You can:")
-	fmt.Println("  1) Create a new brain")
-	fmt.Println("  2) Connect an existing directory")
-	fmt.Println()
-
-	fmt.Print("? Choose (1/2) [default: 1]: ")
+	// Step 2: Add a brain
+	fmt.Println(getText("step_brain"))
+	fmt.Println(getText("brain_options"))
+	fmt.Print(getText("choose_option"))
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
-	if choice == "2" {
-		return guideConnectExisting(reader)
+       if choice == "2" {
+	       // Connect existing brain
+	       fmt.Print(getText("prompt_existing_brain_path"))
+	       brainPathInput, _ := reader.ReadString('\n')
+	       brainPathInput = strings.TrimSpace(brainPathInput)
+	       if brainPathInput == "" {
+		       fmt.Println(getText("no_path_provided"))
+		       return nil
+	       }
+	       brainTarget, err := filepath.Abs(brainPathInput)
+	       if err != nil {
+		       return fmt.Errorf(getText("invalid_path"), err)
+	       }
+	       if _, err := os.Stat(brainTarget); os.IsNotExist(err) {
+		       return fmt.Errorf(getText("path_not_exist"), brainTarget)
+	       }
+	       fmt.Print(getText("prompt_existing_brain_name"))
+	       brainName, _ := reader.ReadString('\n')
+	       brainName = strings.TrimSpace(brainName)
+	       if brainName == "" {
+		       brainName = filepath.Base(brainTarget)
+	       }
+	       if strings.ToLower(brainName) == "flap" {
+		       fmt.Println(getText("reserved_flap"))
+		       return nil
+	       }
+	       // Initialize if not already a brain
+	       fmt.Printf(getText("initializing_brain")+"\n", brainName, brainTarget)
+	       if err := runDirectoryInit(brainTarget, "", false); err != nil {
+		       fmt.Printf("! Warning: %v\n", err)
+	       }
+	       fmt.Printf(getText("brain_added")+"\n", brainName, wsName)
+	       fmt.Println(getText("status_tip"))
+	       return nil
 	}
 
-	return guideCreateNew(reader)
-}
-
-func guideConnectExisting(reader *bufio.Reader) error {
-	fmt.Println()
-	fmt.Print("? Path to existing brain directory: ")
-	pathInput, _ := reader.ReadString('\n')
-	pathInput = strings.TrimSpace(pathInput)
-
-	if pathInput == "" {
-		fmt.Println("[X] No path provided.")
-		return nil
-	}
-
-	target, err := filepath.Abs(pathInput)
-	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	if _, err := os.Stat(target); os.IsNotExist(err) {
-		return fmt.Errorf("path does not exist: %s", target)
-	}
-
-	fmt.Print("? Name for this brain [default: auto-detect]: ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = filepath.Base(target)
-	}
-
-	// Initialize if not already a brain
-	fmt.Println()
-	fmt.Printf("> Initializing '%s' at: %s\n", name, target)
-	if err := runDirectoryInit(target, "", false); err != nil {
-		fmt.Printf("! Warning: %v\n", err)
-	}
-
-	fmt.Println()
-	fmt.Printf("[OK] Brain '%s' added to default workspace!\n", name)
-	fmt.Println()
-	fmt.Println("Use 'flip status' to see your setup.")
-
-	return nil
-}
-
-func guideCreateNew(reader *bufio.Reader) error {
-	fmt.Println()
-	fmt.Print("? Name for new brain: ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = "brain"
-	}
-
-	home, _ := os.UserHomeDir()
-	suggestedPath := filepath.Join(home, name)
-
-	fmt.Printf("? Where to create it? [default: %s]: ", suggestedPath)
-	pathInput, _ := reader.ReadString('\n')
-	pathInput = strings.TrimSpace(pathInput)
-	if pathInput == "" {
-		pathInput = suggestedPath
-	}
-
-	target, err := filepath.Abs(pathInput)
-	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	fmt.Println()
-	fmt.Printf("> Creating brain '%s' at: %s\n", name, target)
-
-	// Create and initialize
-	if err := createBrainStructure(target, "flip"); err != nil {
-		return fmt.Errorf("failed to create structure: %w", err)
-	}
-
-	if err := runDirectoryInit(target, "", true); err != nil {
-		return fmt.Errorf("failed to initialize: %w", err)
-	}
-
-	fmt.Println()
-	fmt.Printf("[OK] Brain '%s' created and added to default workspace!\n", name)
-	fmt.Println()
-	fmt.Println("Use 'flip status' to see your setup.")
-
-	return nil
+	// Create new brain
+       creativeNames := []string{
+	       "atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany", "noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
+       }
+       fmt.Println(getText("choose_brain_name"))
+       for i, n := range creativeNames {
+	       fmt.Printf(getText("brain_name_option"), i+1, n)
+       }
+       fmt.Printf(getText("prompt_brain_name"), creativeNames[0])
+       brainName, _ := reader.ReadString('\n')
+       brainName = strings.TrimSpace(brainName)
+       if brainName == "" {
+	       brainName = creativeNames[0]
+       }
+       if strings.ToLower(brainName) == "flap" {
+	       fmt.Println(getText("reserved_flap"))
+	       return nil
+       }
+       brainPath := filepath.Join(home, "flap", "brains", brainName)
+       fmt.Printf(getText("prompt_brain_path"), brainPath)
+       brainPathInput, _ := reader.ReadString('\n')
+       brainPathInput = strings.TrimSpace(brainPathInput)
+       if brainPathInput != "" {
+	       brainPath = brainPathInput
+       }
+       fmt.Printf(getText("creating_brain")+"\n", brainName, brainPath)
+       if err := createBrainStructure(brainPath, "flip"); err != nil {
+	       return fmt.Errorf("failed to create structure: %w", err)
+       }
+       if err := runDirectoryInit(brainPath, "", true); err != nil {
+	       return fmt.Errorf("failed to initialize: %w", err)
+       }
+       fmt.Printf(getText("brain_created")+"\n", brainName, wsName)
+       fmt.Println(getText("status_tip"))
+       return nil
 }
