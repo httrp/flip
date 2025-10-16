@@ -2,7 +2,7 @@
   "welcome_banner": "Your Intelligent Assistant for Personal Knowledge Management and AI-Powered Content Generation",
   "intro_workspace": "A workspace is a collection of brains (knowledge bases) you work with together. Organize your notes, tasks, and knowledge sources in flexible groups.",
   "intro_brain": "A brain is a knowledge base (e.g. Obsidian vault, Logseq graph, Markdown folder, Dendron workspace). Flip connects to your existing brains or helps you create new ones.",
-  "step_workspace": "Step 1: Create your first workspace to organize your brains",
+  "step_workspace": "Step 1: Create a default workspace to organize your brains",
   "prompt_workspace_name": "Workspace name",
   "reserved_flap": "'flap' is reserved for the main folder. Please choose another name.",
   "prompt_workspace_path": "Workspace path",

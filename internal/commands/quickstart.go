@@ -157,9 +157,9 @@ func runQuickstart() error {
 
 	// Create new brain
 	creativeNames := []string{
+		"[Enter custom name]",
 		"atlas", "odyssey", "aurora", "echo", "zenith", "soliloquy", "muse", "oracle", "serendipity", "epiphany",
 		"noesis", "elysium", "satori", "logos", "cosmos", "paradox", "quasar", "zeitgeist", "sophia", "mythos",
-		"[Enter custom name]",
 	}
 
 	selectBrainName := promptui.Select{
@@ -180,7 +180,7 @@ func runQuickstart() error {
 	}
 
 	// If custom name was selected, prompt for it
-	if idx == len(creativeNames)-1 {
+	if idx == 0 {
 		promptCustomName := promptui.Prompt{
 			Label:   "Enter custom brain name",
 			Default: "my-brain",
