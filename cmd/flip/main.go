@@ -21,12 +21,13 @@ func main() {
 			} else {
 				commands.SetIconTheme(theme)
 			}
-			// If no subcommand provided, run status
-			return commands.NewStatusCommand().RunE(cmd, args)
+			// If no subcommand provided, run interactive menu
+			return commands.NewMenuCommand().RunE(cmd, args)
 		},
 	}
 
 	// Add commands
+	rootCmd.AddCommand(commands.NewMenuCommand())
 	rootCmd.AddCommand(commands.NewStatusCommand())
 	rootCmd.AddCommand(commands.NewQuickstartCommand())
 	rootCmd.AddCommand(commands.NewIntroCommand())
