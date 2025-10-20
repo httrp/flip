@@ -267,6 +267,11 @@ func runWorkspaceRename(oldName, newName string) error {
 		return fmt.Errorf("cannot use 'default' as workspace name - it's reserved")
 	}
 
+	// Warning message
+	fmt.Printf("\n%s Note: Renaming workspace from '%s' to '%s'\n", IconWarning, oldName, newName)
+	fmt.Println("   This updates the workspace configuration.")
+	fmt.Println()
+
 	// Find and rename
 	found := false
 	for i := range config.Workspaces {

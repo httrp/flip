@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // WorkspaceConfig is the root configuration
@@ -304,4 +305,34 @@ func addBrainToDefaultWorkspace(brain Brain) error {
 	}
 
 	return fmt.Errorf("default workspace not found")
+}
+
+// normalizePathName converts a name to a filesystem-safe version
+// Removes spaces, special characters, converts to lowercase
+func normalizePathName(name string) string {
+	// Convert to lowercase
+	normalized := strings.ToLower(name)
+	
+	// Replace spaces and underscores with hyphens
+	normalized = strings.ReplaceAll(normalized, " ", "-")
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	
+	// Remove special characters, keep only alphanumeric and hyphens
+	var result strings.Builder
+	for _, r := range normalized {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+	
+	// Remove consecutive hyphens
+	finalResult := result.String()
+	for strings.Contains(finalResult, "--") {
+		finalResult = strings.ReplaceAll(finalResult, "--", "-")
+	}
+	
+	// Trim hyphens from start and end
+	finalResult = strings.Trim(finalResult, "-")
+	
+	return finalResult
 }

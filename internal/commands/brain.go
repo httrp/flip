@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/spf13/cobra"
@@ -344,19 +345,16 @@ func runBrainRename(oldName, newName string) error {
 		}
 	}
 
-	// Find and rename in config
+	// Find the brain to get its path
+	var brainPath string
 	found := false
+	
 	for i := range config.Workspaces {
 		if config.Workspaces[i].Name == ws.Name {
 			for j := range config.Workspaces[i].Brains {
 				if config.Workspaces[i].Brains[j].Name == oldName {
-					config.Workspaces[i].Brains[j].Name = newName
+					brainPath = config.Workspaces[i].Brains[j].Path
 					found = true
-
-					// Update default brain reference if needed
-					if config.Workspaces[i].DefaultBrain == oldName {
-						config.Workspaces[i].DefaultBrain = newName
-					}
 					break
 				}
 			}
@@ -368,11 +366,70 @@ func runBrainRename(oldName, newName string) error {
 		return fmt.Errorf("brain '%s' not found in workspace '%s'", oldName, ws.Name)
 	}
 
+	// Warning: This will update the name across all workspaces
+	fmt.Printf("\n%s Warning: This will update the brain name in ALL workspaces that reference this brain.\n", IconWarning)
+	
+	// Check if brain is referenced in other workspaces
+	otherWorkspaces := []string{}
+	for _, w := range config.Workspaces {
+		if w.Name != ws.Name {
+			for _, b := range w.Brains {
+				if b.Path == brainPath {
+					otherWorkspaces = append(otherWorkspaces, w.Name)
+					break
+				}
+			}
+		}
+	}
+	
+	if len(otherWorkspaces) > 0 {
+		fmt.Printf("   Brain is also referenced in: %s\n", strings.Join(otherWorkspaces, ", "))
+	}
+	fmt.Println()
+
+	// Update name in all workspaces that reference this brain
+	for i := range config.Workspaces {
+		for j := range config.Workspaces[i].Brains {
+			if config.Workspaces[i].Brains[j].Path == brainPath {
+				config.Workspaces[i].Brains[j].Name = newName
+				
+				// Update default brain reference if needed
+				if config.Workspaces[i].DefaultBrain == oldName {
+					config.Workspaces[i].DefaultBrain = newName
+				}
+			}
+		}
+	}
+
 	if err := saveWorkspaceConfig(config); err != nil {
 		return err
 	}
 
-	fmt.Printf("[OK] Brain renamed: '%s' -> '%s'\n", oldName, newName)
+	fmt.Printf("%s Brain renamed in config: '%s' -> '%s'\n", IconCheck, oldName, newName)
+
+	// Check if .flip-brain.yaml exists and update it
+	brainConfigPath := filepath.Join(brainPath, ".flip-brain.yaml")
+	if _, err := os.Stat(brainConfigPath); err == nil {
+		// Read the file
+		data, err := os.ReadFile(brainConfigPath)
+		if err == nil {
+			// Simple string replacement for the name field
+			content := string(data)
+			oldLine := fmt.Sprintf("  name: \"%s\"", oldName)
+			newLine := fmt.Sprintf("  name: \"%s\"", newName)
+			
+			if strings.Contains(content, oldLine) {
+				content = strings.Replace(content, oldLine, newLine, 1)
+				if err := os.WriteFile(brainConfigPath, []byte(content), 0644); err != nil {
+					fmt.Printf("%s Warning: Could not update .flip-brain.yaml: %v\n", IconWarning, err)
+				} else {
+					fmt.Printf("%s Updated .flip-brain.yaml\n", IconCheck)
+				}
+			}
+		}
+	}
+
+	fmt.Printf("\n%s Brain renamed: '%s' -> '%s'\n", IconCheck, oldName, newName)
 	return nil
 }
 
