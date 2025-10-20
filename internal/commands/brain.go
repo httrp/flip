@@ -348,7 +348,7 @@ func runBrainRename(oldName, newName string) error {
 	// Find the brain to get its path
 	var brainPath string
 	found := false
-	
+
 	for i := range config.Workspaces {
 		if config.Workspaces[i].Name == ws.Name {
 			for j := range config.Workspaces[i].Brains {
@@ -368,7 +368,7 @@ func runBrainRename(oldName, newName string) error {
 
 	// Warning: This will update the name across all workspaces
 	fmt.Printf("\n%s Warning: This will update the brain name in ALL workspaces that reference this brain.\n", IconWarning)
-	
+
 	// Check if brain is referenced in other workspaces
 	otherWorkspaces := []string{}
 	for _, w := range config.Workspaces {
@@ -381,7 +381,7 @@ func runBrainRename(oldName, newName string) error {
 			}
 		}
 	}
-	
+
 	if len(otherWorkspaces) > 0 {
 		fmt.Printf("   Brain is also referenced in: %s\n", strings.Join(otherWorkspaces, ", "))
 	}
@@ -392,7 +392,7 @@ func runBrainRename(oldName, newName string) error {
 		for j := range config.Workspaces[i].Brains {
 			if config.Workspaces[i].Brains[j].Path == brainPath {
 				config.Workspaces[i].Brains[j].Name = newName
-				
+
 				// Update default brain reference if needed
 				if config.Workspaces[i].DefaultBrain == oldName {
 					config.Workspaces[i].DefaultBrain = newName
@@ -417,7 +417,7 @@ func runBrainRename(oldName, newName string) error {
 			content := string(data)
 			oldLine := fmt.Sprintf("  name: \"%s\"", oldName)
 			newLine := fmt.Sprintf("  name: \"%s\"", newName)
-			
+
 			if strings.Contains(content, oldLine) {
 				content = strings.Replace(content, oldLine, newLine, 1)
 				if err := os.WriteFile(brainConfigPath, []byte(content), 0644); err != nil {

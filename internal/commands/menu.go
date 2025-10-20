@@ -572,7 +572,7 @@ func runEditWorkspaceMenu() error {
 				if workspaceDirPath != "" {
 					suggestedPath := normalizePathName(newName)
 					currentDirName := filepath.Base(workspaceDirPath)
-					
+
 					if currentDirName != suggestedPath {
 						promptRenameDir := promptui.Prompt{
 							Label:     fmt.Sprintf("Also rename workspace directory '%s' to '%s'? (yes/no)", currentDirName, suggestedPath),
@@ -585,7 +585,7 @@ func runEditWorkspaceMenu() error {
 						if renameDir {
 							parentDir := filepath.Dir(workspaceDirPath)
 							newPath := filepath.Join(parentDir, suggestedPath)
-							
+
 							if err := os.Rename(workspaceDirPath, newPath); err != nil {
 								fmt.Printf("\n%s Warning: Could not rename workspace directory: %v\n", IconWarning, err)
 								fmt.Println("   Continuing with name change in config only...")
@@ -774,7 +774,7 @@ func runEditBrainMenu() error {
 				// Ask if directory should also be renamed
 				suggestedPath := normalizePathName(newName)
 				currentDirName := filepath.Base(oldBrain.Path)
-				
+
 				if currentDirName != suggestedPath {
 					promptRenameDir := promptui.Prompt{
 						Label:     fmt.Sprintf("Also rename directory '%s' to '%s'? (yes/no)", currentDirName, suggestedPath),
@@ -788,13 +788,13 @@ func runEditBrainMenu() error {
 						// Rename the directory
 						parentDir := filepath.Dir(oldBrain.Path)
 						newPath := filepath.Join(parentDir, suggestedPath)
-						
+
 						if err := os.Rename(oldBrain.Path, newPath); err != nil {
 							fmt.Printf("\n%s Warning: Could not rename directory: %v\n", IconWarning, err)
 							fmt.Println("   Continuing with name change in config only...")
 						} else {
 							fmt.Printf("\n%s Directory renamed: %s -> %s\n", IconCheck, currentDirName, suggestedPath)
-							
+
 							// Update path in config before calling runBrainRename
 							config, err := loadWorkspaceConfig()
 							if err == nil {

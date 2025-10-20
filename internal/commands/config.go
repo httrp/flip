@@ -312,11 +312,11 @@ func addBrainToDefaultWorkspace(brain Brain) error {
 func normalizePathName(name string) string {
 	// Convert to lowercase
 	normalized := strings.ToLower(name)
-	
+
 	// Replace spaces and underscores with hyphens
 	normalized = strings.ReplaceAll(normalized, " ", "-")
 	normalized = strings.ReplaceAll(normalized, "_", "-")
-	
+
 	// Remove special characters, keep only alphanumeric and hyphens
 	var result strings.Builder
 	for _, r := range normalized {
@@ -324,15 +324,15 @@ func normalizePathName(name string) string {
 			result.WriteRune(r)
 		}
 	}
-	
+
 	// Remove consecutive hyphens
 	finalResult := result.String()
 	for strings.Contains(finalResult, "--") {
 		finalResult = strings.ReplaceAll(finalResult, "--", "-")
 	}
-	
+
 	// Trim hyphens from start and end
 	finalResult = strings.Trim(finalResult, "-")
-	
+
 	return finalResult
 }
