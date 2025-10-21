@@ -85,6 +85,18 @@ func runCreateMeeting() error {
 	}
 	participants = strings.TrimSpace(participants)
 
+	// Prompt for tags
+	promptTags := promptui.Prompt{
+		Label:   "Tags (comma-separated, optional)",
+		Default: "meeting",
+	}
+
+	tags, err := promptTags.Run()
+	if err != nil {
+		return fmt.Errorf("tags prompt cancelled: %w", err)
+	}
+	tags = strings.TrimSpace(tags)
+
 	// Generate filename
 	filename := generateMeetingFilename(title, detection.Type)
 
@@ -108,7 +120,7 @@ func runCreateMeeting() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content
-	content := generateMeetingContent(title, participants, detection.Type)
+	content := generateMeetingContent(title, participants, tags, detection.Type)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -161,7 +173,7 @@ func generateMeetingFilename(title string, brainType brain.BrainType) string {
 }
 
 // generateMeetingContent creates meeting note content
-func generateMeetingContent(title, participants string, brainType brain.BrainType) string {
+func generateMeetingContent(title, participants, tags string, brainType brain.BrainType) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
@@ -178,13 +190,19 @@ func generateMeetingContent(title, participants string, brainType brain.BrainTyp
 		}
 	}
 
+	// Parse tags into list
+	tagList := "meeting"
+	if tags != "" {
+		tagList = tags
+	}
+
 	switch brainType {
 	case brain.BrainTypeLogseq:
 		return fmt.Sprintf(`- title:: %s
 - type:: meeting
 - date:: %s
 - time:: %s
-- tags:: meeting
+- tags:: %s
 
 ## %s
 
@@ -200,7 +218,7 @@ func generateMeetingContent(title, participants string, brainType brain.BrainTyp
 ### Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, title, participantList)
+`, title, dateStr, timeStr, tagList, title, participantList)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
@@ -208,7 +226,7 @@ title: %s
 type: meeting
 date: %s
 time: %s
-tags: [meeting]
+tags: [%s]
 ---
 
 # %s
@@ -225,7 +243,7 @@ tags: [meeting]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, title, participantList)
+`, title, dateStr, timeStr, tagList, title, participantList)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -236,6 +254,7 @@ type: meeting
 date: %s
 updated: %d
 created: %d
+tags: [%s]
 ---
 
 # %s
@@ -252,7 +271,7 @@ created: %d
 ## Related
 - [[related-note]]
 
-`, fmt.Sprintf("%d", now.UnixNano()), title, dateStr, now.Unix(), now.Unix(), title, participantList)
+`, fmt.Sprintf("%d", now.UnixNano()), title, dateStr, now.Unix(), now.Unix(), tagList, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -262,7 +281,7 @@ updated: %s
 type: meeting
 date: %s
 time: %s
-tags: [meeting]
+tags: [%s]
 ---
 
 # %s
@@ -279,14 +298,14 @@ tags: [meeting]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, dateStr, dateStr, timeStr, title, participantList)
+`, title, dateStr, dateStr, dateStr, timeStr, tagList, title, participantList)
 
 	default:
 		return fmt.Sprintf(`---
 title: %s
 type: meeting
 date: %s
-tags: [meeting]
+tags: [%s]
 ---
 
 # %s
@@ -303,6 +322,6 @@ tags: [meeting]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, title, participantList)
+`, title, dateStr, tagList, title, participantList)
 	}
 }
