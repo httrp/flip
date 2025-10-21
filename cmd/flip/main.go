@@ -37,8 +37,9 @@ func main() {
 	brainCmd.AddCommand(commands.NewInitCommand())
 	brainCmd.AddCommand(commands.NewScanCommand())
 	rootCmd.AddCommand(brainCmd)
-	// Register 'new' command at root level (not as brain subcommand)
+	// Register 'new' and 'note' commands at root level
 	rootCmd.AddCommand(commands.NewNewCommand())
+	rootCmd.AddCommand(commands.NewNoteCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")

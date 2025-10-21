@@ -187,8 +187,9 @@ func runCreateAddMenu() error {
 			Label:       "📝 Note",
 			Description: "Create a new note",
 			Action: func() error {
-				// TODO: Implement note creation
-				fmt.Println("\n🚧 Note creation coming soon!")
+				if err := runCreateNote(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
