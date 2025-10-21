@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
@@ -282,7 +283,7 @@ func generateNoteContent(title string, brainType brain.BrainType) string {
 		"title":   title,
 		"date":    dateStr,
 		"tags":    "note",
-		"id":      generateID(),
+		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated": fmt.Sprintf("%d", now.Unix()),
 		"created": fmt.Sprintf("%d", now.Unix()),
 	}
@@ -385,9 +386,9 @@ date: %s
 	}
 }
 
-// generateID creates a unique ID for notes (used by Dendron)
+// generateID creates a unique ID for notes (UUID format for Dendron compatibility)
 func generateID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return uuid.New().String()
 }
 
 // promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor

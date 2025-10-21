@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
@@ -220,7 +221,7 @@ func generateJournalContent(date time.Time, brainType brain.BrainType) string {
 	// Prepare template variables
 	vars := map[string]string{
 		"date":    dateStr,
-		"id":      fmt.Sprintf("%d", time.Now().UnixNano()),
+		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated": fmt.Sprintf("%d", time.Now().Unix()),
 		"created": fmt.Sprintf("%d", time.Now().Unix()),
 	}
@@ -305,7 +306,7 @@ date: %s
 ## Grateful For
 - 
 
-`, fmt.Sprintf("%d", time.Now().UnixNano()), dateStr, time.Now().Unix(), time.Now().Unix(), dateStr, dateStr, weekday)
+`, uuid.New().String(), dateStr, time.Now().Unix(), time.Now().Unix(), dateStr, dateStr, weekday)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---

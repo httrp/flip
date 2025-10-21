@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
@@ -212,7 +213,7 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 		"time":         timeStr,
 		"participants": participantList,
 		"tags":         tagList,
-		"id":           fmt.Sprintf("%d", now.UnixNano()),
+		"id":           uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated":      fmt.Sprintf("%d", now.Unix()),
 		"created":      fmt.Sprintf("%d", now.Unix()),
 	}
@@ -297,7 +298,7 @@ tags: [%s]
 ## Related
 - [[related-note]]
 
-`, fmt.Sprintf("%d", now.UnixNano()), title, dateStr, now.Unix(), now.Unix(), tagList, title, participantList)
+`, uuid.New().String(), title, dateStr, now.Unix(), now.Unix(), tagList, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
