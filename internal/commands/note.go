@@ -278,6 +278,12 @@ func generateNoteContent(title string, brainType brain.BrainType) string {
 
 ## %s
 
+## Related
+- [[related-note]]
+
+## Tasks
+- TODO Example task
+
 `, title, dateStr, timeStr, title)
 
 	case brain.BrainTypeObsidian:
@@ -289,6 +295,12 @@ tags: []
 ---
 
 # %s
+
+## Related
+- [[related-note]]
+
+## Tasks
+- [ ] Example task
 
 `, title, dateStr, title)
 
@@ -304,6 +316,12 @@ created: %d
 
 # %s
 
+## Related
+- [[related-note]]
+
+## Tasks
+- [ ] Example task
+
 `, generateID(), title, now.Unix(), now.Unix(), title)
 
 	case brain.BrainTypeFlip:
@@ -318,6 +336,12 @@ tags: []
 
 # %s
 
+## Related
+- [[related-note]]
+
+## Tasks
+- [ ] Example task
+
 `, title, dateStr, dateStr, title)
 
 	default:
@@ -328,6 +352,12 @@ date: %s
 ---
 
 # %s
+
+## Related
+- [[related-note]]
+
+## Tasks
+- [ ] Example task
 
 `, title, dateStr, title)
 	}

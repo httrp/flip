@@ -199,8 +199,21 @@ func runCreateAddMenu() error {
 			Label:       "📅 Meeting Note",
 			Description: "Create a meeting note",
 			Action: func() error {
-				// TODO: Implement meeting note creation
-				fmt.Println("\n🚧 Meeting note creation coming soon!")
+				if err := runCreateMeeting(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📔 Daily Journal",
+			Description: "Create or open daily journal note",
+			Action: func() error {
+				if err := runCreateJournal(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
