@@ -7,6 +7,52 @@ Flip is an intelligent assistant designed to supercharge personal knowledge mana
 
 **Flip doesn't store your notes and tasks directly** - instead, it works with your existing external 2nd brain directories (Obsidian vaults, Logseq graphs, Dendron workspaces, or plain markdown folders).
 
+## Installation
+
+### For Development & Daily Use (Recommended)
+
+If you're actively developing flip while using it:
+
+```bash
+# Clone the repository
+git clone https://github.com/danorama-dh/flip.git
+cd flip
+
+# Option 1: Create dev symlink (recommended for development)
+make dev-link
+# This creates a symlink /usr/local/bin/flip -> your local build
+# After any code changes, just run 'make build' and changes are live
+
+# Option 2: Install to GOPATH/bin
+make install
+# Requires ~/go/bin in your PATH
+```
+
+### For End Users (Coming Soon)
+
+Once flip is ready for public release:
+
+```bash
+# Via Homebrew (macOS/Linux)
+brew install danorama/tap/flip
+
+# Via go install
+go install github.com/danorama-dh/flip/cmd/flip@latest
+
+# Manual download
+# Download binary from releases page
+curl -L https://github.com/danorama-dh/flip/releases/latest/download/flip-darwin-amd64 -o flip
+chmod +x flip
+sudo mv flip /usr/local/bin/
+```
+
+### Verify Installation
+
+```bash
+flip --version
+flip status
+```
+
 ## Architecture
 
 Flip organizes your brains using a simple two-level structure:
