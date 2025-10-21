@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -54,13 +55,22 @@ func runCreateNote() error {
 		return nil
 	}
 
-	// Get default brain or let user select
+	// STEP 1: Confirm/select brain FIRST
 	activeBrain, err := confirmOrSelectBrain(activeWs)
 	if err != nil {
 		return err
 	}
 
-	// Prompt for note title
+	// Detect brain type early (for context)
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(activeBrain.Path)
+	if err != nil {
+		return fmt.Errorf("failed to detect brain type: %w", err)
+	}
+
+	fmt.Printf("Brain type: %s\n\n", detection.Type)
+
+	// STEP 2: Prompt for note title
 	promptTitle := promptui.Prompt{
 		Label: "Note title",
 		Validate: func(input string) error {
@@ -76,13 +86,6 @@ func runCreateNote() error {
 		return fmt.Errorf("title prompt cancelled: %w", err)
 	}
 	title = strings.TrimSpace(title)
-
-	// Detect brain type
-	detector := brain.NewDetector()
-	detection, err := detector.DetectBrainType(activeBrain.Path)
-	if err != nil {
-		return fmt.Errorf("failed to detect brain type: %w", err)
-	}
 
 	// Generate filename based on brain type
 	filename := generateNoteFilename(title, detection.Type)
@@ -102,17 +105,27 @@ func runCreateNote() error {
 		return nil
 	}
 
+	// STEP 3: Show preview of what will be created
+	fmt.Printf("\n📄 Will create: %s\n", filename)
+	fmt.Printf("   Location: %s\n\n", targetDir)
+
 	// Generate content based on brain type
 	content := generateNoteContent(title, detection.Type)
 
-	// Write file
+	// STEP 4: Write file (only after title is confirmed)
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to create note: %w", err)
 	}
 
-	fmt.Printf("\n✓ Note created: %s\n", filePath)
-	fmt.Printf("  Brain: %s (%s)\n", activeBrain.Name, detection.Type)
-	fmt.Println()
+	fmt.Printf("✓ Note created successfully!\n")
+	fmt.Printf("  Path: %s\n", filePath)
+	fmt.Printf("  Brain: %s (%s)\n\n", activeBrain.Name, detection.Type)
+
+	// STEP 5: Ask if user wants to edit the note
+	if err := promptAndOpenEditor(filePath); err != nil {
+		// Don't fail if editor opening fails, note is already created
+		fmt.Printf("⚠️  Could not open editor: %v\n", err)
+	}
 
 	return nil
 }
@@ -317,4 +330,109 @@ date: %s
 // generateID creates a unique ID for notes (used by Dendron)
 func generateID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+// promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor
+func promptAndOpenEditor(filePath string) error {
+	promptEdit := promptui.Select{
+		Label: "Open note in editor?",
+		Items: []string{"Yes", "No"},
+	}
+
+	idx, _, err := promptEdit.Run()
+	if err != nil {
+		return err
+	}
+
+	if idx != 0 {
+		// User chose "No"
+		return nil
+	}
+
+	return openInEditor(filePath)
+}
+
+// openInEditor opens the file in the most appropriate editor
+func openInEditor(filePath string) error {
+	// Check if we're in VS Code terminal (TERM_PROGRAM env var)
+	termProgram := os.Getenv("TERM_PROGRAM")
+	vscodeIPC := os.Getenv("VSCODE_IPC_HOOK_CLI")
+
+	// Priority 1: VS Code (if running in VS Code terminal)
+	if termProgram == "vscode" || vscodeIPC != "" {
+		if err := tryOpenInVSCode(filePath); err == nil {
+			fmt.Println("📝 Opening in VS Code...")
+			return nil
+		}
+	}
+
+	// Priority 2: Try VS Code anyway (might be installed)
+	if err := tryOpenInVSCode(filePath); err == nil {
+		fmt.Println("📝 Opening in VS Code...")
+		return nil
+	}
+
+	// Priority 3: System default editor via 'open' (macOS) or 'xdg-open' (Linux)
+	if err := trySystemOpen(filePath); err == nil {
+		fmt.Println("📝 Opening in default editor...")
+		return nil
+	}
+
+	// Priority 4: EDITOR environment variable
+	if editor := os.Getenv("EDITOR"); editor != "" {
+		if err := tryEditor(editor, filePath); err == nil {
+			fmt.Printf("📝 Opening in %s...\n", editor)
+			return nil
+		}
+	}
+
+	// Priority 5: Common CLI editors
+	for _, editor := range []string{"nano", "vim", "vi"} {
+		if err := tryEditor(editor, filePath); err == nil {
+			fmt.Printf("📝 Opening in %s...\n", editor)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no suitable editor found")
+}
+
+// tryOpenInVSCode attempts to open file in VS Code
+func tryOpenInVSCode(filePath string) error {
+	// Try 'code' command
+	cmd := exec.Command("code", filePath)
+	return cmd.Run()
+}
+
+// trySystemOpen uses system default (macOS 'open', Linux 'xdg-open')
+func trySystemOpen(filePath string) error {
+	// Try platform-specific commands
+	// macOS
+	cmd := exec.Command("open", filePath)
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+
+	// Linux
+	cmd = exec.Command("xdg-open", filePath)
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+
+	// Windows
+	cmd = exec.Command("cmd", "/c", "start", filePath)
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("could not open file with system default")
+}
+
+// tryEditor tries to open file with a specific editor
+func tryEditor(editor, filePath string) error {
+	cmd := exec.Command(editor, filePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
