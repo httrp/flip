@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -267,11 +268,36 @@ func getNotesDirectory(brainPath string, brainType brain.BrainType) string {
 func generateNoteContent(title string, brainType brain.BrainType) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
+
+	// Try to load template from file
+	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
+	if err != nil {
+		// Fallback to hardcoded template if file not found
+		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		return generateDefaultNoteContent(title, brainType)
+	}
+
+	// Prepare template variables
+	vars := map[string]string{
+		"title":   title,
+		"date":    dateStr,
+		"tags":    "note",
+		"id":      generateID(),
+		"updated": fmt.Sprintf("%d", now.Unix()),
+		"created": fmt.Sprintf("%d", now.Unix()),
+	}
+
+	return templates.Render(tmpl, vars)
+}
+
+// generateDefaultNoteContent provides fallback templates when template files don't exist
+func generateDefaultNoteContent(title string, brainType brain.BrainType) string {
+	now := time.Now()
+	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
 
 	switch brainType {
 	case brain.BrainTypeLogseq:
-		// Logseq: simple markdown with properties
 		return fmt.Sprintf(`- title:: %s
 - created:: %s %s
 - tags:: 
@@ -287,7 +313,6 @@ func generateNoteContent(title string, brainType brain.BrainType) string {
 `, title, dateStr, timeStr, title)
 
 	case brain.BrainTypeObsidian:
-		// Obsidian: YAML frontmatter
 		return fmt.Sprintf(`---
 title: %s
 created: %s
@@ -305,7 +330,6 @@ tags: []
 `, title, dateStr, title)
 
 	case brain.BrainTypeDendron:
-		// Dendron: YAML frontmatter
 		return fmt.Sprintf(`---
 id: %s
 title: %s
@@ -325,7 +349,6 @@ created: %d
 `, generateID(), title, now.Unix(), now.Unix(), title)
 
 	case brain.BrainTypeFlip:
-		// Flip: YAML frontmatter
 		return fmt.Sprintf(`---
 title: %s
 created: %s
@@ -345,7 +368,6 @@ tags: []
 `, title, dateStr, dateStr, title)
 
 	default:
-		// Generic: simple markdown with frontmatter
 		return fmt.Sprintf(`---
 title: %s
 date: %s

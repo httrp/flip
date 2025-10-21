@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -190,12 +191,37 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 		}
 	}
 
-	// Parse tags into list
+	// Parse tags
 	tagList := "meeting"
 	if tags != "" {
 		tagList = tags
 	}
 
+	// Try to load template from file
+	tmpl, err := templates.Load(brainType, templates.TemplateTypeMeeting)
+	if err != nil {
+		// Fallback to hardcoded template if file not found
+		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		return generateDefaultMeetingContent(title, participantList, tagList, brainType, now, dateStr, timeStr)
+	}
+
+	// Prepare template variables
+	vars := map[string]string{
+		"title":        title,
+		"date":         dateStr,
+		"time":         timeStr,
+		"participants": participantList,
+		"tags":         tagList,
+		"id":           fmt.Sprintf("%d", now.UnixNano()),
+		"updated":      fmt.Sprintf("%d", now.Unix()),
+		"created":      fmt.Sprintf("%d", now.Unix()),
+	}
+
+	return templates.Render(tmpl, vars)
+}
+
+// generateDefaultMeetingContent provides fallback templates when template files don't exist
+func generateDefaultMeetingContent(title, participantList, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr string) string {
 	switch brainType {
 	case brain.BrainTypeLogseq:
 		return fmt.Sprintf(`- title:: %s

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/templates"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -206,6 +207,29 @@ func getJournalDirectory(brainPath string, brainType brain.BrainType) string {
 
 // generateJournalContent creates journal entry content
 func generateJournalContent(date time.Time, brainType brain.BrainType) string {
+	dateStr := date.Format("2006-01-02")
+
+	// Try to load template from file
+	tmpl, err := templates.Load(brainType, templates.TemplateTypeJournal)
+	if err != nil {
+		// Fallback to hardcoded template if file not found
+		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		return generateDefaultJournalContent(date, brainType)
+	}
+
+	// Prepare template variables
+	vars := map[string]string{
+		"date":    dateStr,
+		"id":      fmt.Sprintf("%d", time.Now().UnixNano()),
+		"updated": fmt.Sprintf("%d", time.Now().Unix()),
+		"created": fmt.Sprintf("%d", time.Now().Unix()),
+	}
+
+	return templates.Render(tmpl, vars)
+}
+
+// generateDefaultJournalContent provides fallback templates when template files don't exist
+func generateDefaultJournalContent(date time.Time, brainType brain.BrainType) string {
 	dateStr := date.Format("2006-01-02")
 	weekday := date.Format("Monday")
 	timeStr := time.Now().Format("15:04")

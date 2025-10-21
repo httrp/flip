@@ -231,6 +231,18 @@ func runCreateAddMenu() error {
 			},
 		},
 		{
+			Label:       "🎨 Templates",
+			Description: "Edit and manage templates",
+			Action: func() error {
+				if err := runTemplateMenu(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
 			Label:       "◀️  Back to Main Menu",
 			Description: "Return to main menu",
 			Action:      runInteractiveMenu,
