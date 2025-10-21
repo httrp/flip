@@ -231,18 +231,6 @@ func runCreateAddMenu() error {
 			},
 		},
 		{
-			Label:       "🎨 Templates",
-			Description: "Edit and manage templates",
-			Action: func() error {
-				if err := runTemplateMenu(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
 			Label:       "◀️  Back to Main Menu",
 			Description: "Return to main menu",
 			Action:      runInteractiveMenu,
@@ -477,6 +465,18 @@ func runEditManageMenu() error {
 			Label:       "🧠 Edit Brain",
 			Description: "Rename, repair, or remove brains",
 			Action:      runEditBrainMenu,
+		},
+		{
+			Label:       "🎨 Manage Templates",
+			Description: "Edit and manage note templates",
+			Action: func() error {
+				if err := runTemplateMenu(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
 		},
 		{
 			Label:       "◀️  Back to Main Menu",
