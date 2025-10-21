@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +16,7 @@ var langTexts map[string]string
 func getText(key string) string {
 	if langTexts == nil {
 		langTexts = make(map[string]string)
-		data, err := ioutil.ReadFile("lang/en.json")
+		data, err := os.ReadFile("lang/en.json")
 		if err == nil {
 			json.Unmarshal(data, &langTexts)
 		}
@@ -56,7 +55,7 @@ func runQuickstart() error {
 
 	validate := func(input string) error {
 		if strings.ToLower(input) == "flap" {
-			return fmt.Errorf(getText("reserved_flap"))
+			return fmt.Errorf("%s", getText("reserved_flap"))
 		}
 		return nil
 	}
@@ -159,7 +158,7 @@ func runQuickstart() error {
 			Label: getText("prompt_existing_brain_path"),
 			Validate: func(input string) error {
 				if input == "" {
-					return fmt.Errorf(getText("no_path_provided"))
+					return fmt.Errorf("%s", getText("no_path_provided"))
 				}
 				absPath, err := filepath.Abs(input)
 				if err != nil {
@@ -185,7 +184,7 @@ func runQuickstart() error {
 			Default: defaultName,
 			Validate: func(input string) error {
 				if strings.ToLower(input) == "flap" {
-					return fmt.Errorf(getText("reserved_flap"))
+					return fmt.Errorf("%s", getText("reserved_flap"))
 				}
 				return nil
 			},
@@ -197,11 +196,11 @@ func runQuickstart() error {
 		}
 
 		// Initialize if not already a brain (pass brainName to avoid asking again)
-		fmt.Printf(getText("initializing_brain")+"\n", brainName, brainTarget)
+		fmt.Println(fmt.Sprintf(getText("initializing_brain"), brainName, brainTarget))
 		if err := runDirectoryInitWithName(brainTarget, brainName, "", false); err != nil {
 			fmt.Printf("! Warning: %v\n", err)
 		}
-		fmt.Printf(getText("brain_added")+"\n", brainName, wsName)
+		fmt.Println(fmt.Sprintf(getText("brain_added"), brainName, wsName))
 		fmt.Println(getText("status_tip"))
 		return nil
 	}
@@ -258,7 +257,7 @@ func runQuickstart() error {
 			Default: "my-brain",
 			Validate: func(input string) error {
 				if strings.ToLower(input) == "flap" {
-					return fmt.Errorf(getText("reserved_flap"))
+					return fmt.Errorf("%s", getText("reserved_flap"))
 				}
 				if input == "" {
 					return fmt.Errorf("brain name cannot be empty")
@@ -286,7 +285,7 @@ func runQuickstart() error {
 	}
 	brainPath = strings.TrimSpace(brainPath)
 
-	fmt.Printf(getText("creating_brain")+"\n", brainName, brainPath)
+	fmt.Println(fmt.Sprintf(getText("creating_brain"), brainName, brainPath))
 	if err := createBrainStructure(brainPath, "flip"); err != nil {
 		return fmt.Errorf("failed to create structure: %w", err)
 	}
@@ -294,7 +293,7 @@ func runQuickstart() error {
 	if err := runDirectoryInitWithName(brainPath, brainName, "", true); err != nil {
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
-	fmt.Printf(getText("brain_created")+"\n", brainName, wsName)
+	fmt.Println(fmt.Sprintf(getText("brain_created"), brainName, wsName))
 	fmt.Println(getText("status_tip"))
 	return nil
 }

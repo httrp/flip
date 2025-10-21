@@ -32,7 +32,7 @@ func NewNewCommand() *cobra.Command {
 }
 
 // Interactive menu for 'flip new'
-func runNewMenu(args []string) error {
+func runNewMenu(_ []string) error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ What do you want to create?")
 	fmt.Println("  1) Brain")
@@ -40,13 +40,15 @@ func runNewMenu(args []string) error {
 	fmt.Printf("Choose (1/2) [default: 1]: ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
-	if choice == "" || choice == "1" {
+	switch choice {
+	case "", "1":
 		return runNewBrain()
-	} else if choice == "2" {
+	case "2":
 		return runNewWorkspace()
+	default:
+		fmt.Println("[X] Cancelled.")
+		return nil
 	}
-	fmt.Println("[X] Cancelled.")
-	return nil
 }
 
 // Workspace creation logic (same UX as brain)
@@ -168,17 +170,18 @@ func runNewWorkspace() error {
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
-	if choice == "1" {
+	switch choice {
+	case "1":
 		fmt.Println()
 		return runNewBrain()
-	} else if choice == "2" {
+	case "2":
 		fmt.Println()
 		// TODO: Implement add existing brain flow
 		fmt.Println("→ Add existing brain (not yet implemented)")
 		return nil
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // Brain creation logic (used by 'flip new brain' and menu)
@@ -397,17 +400,18 @@ func runNewBrain() error {
 	followUp, _ := reader.ReadString('\n')
 	followUp = strings.TrimSpace(followUp)
 
-	if followUp == "1" {
+	switch followUp {
+	case "1":
 		fmt.Println()
 		return runNewBrain()
-	} else if followUp == "2" {
+	case "2":
 		fmt.Println()
 		// TODO: Implement add existing brain flow
 		fmt.Println("→ Add existing brain (not yet implemented)")
 		return nil
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // createBrainStructure legt die passende Struktur für den Dialekt an

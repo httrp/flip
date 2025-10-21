@@ -253,7 +253,7 @@ func getLastModified(base string) string {
 	if lastMod == 0 {
 		return "unknown"
 	}
-	return fmt.Sprintf("%s", time.Unix(lastMod, 0).Format("2006-01-02 15:04"))
+	return time.Unix(lastMod, 0).Format("2006-01-02 15:04")
 }
 func hasDir(base, name string) bool {
 	info, err := os.Stat(filepath.Join(base, name))

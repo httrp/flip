@@ -126,10 +126,6 @@ func askForConfirmation(question string) bool {
 	return response == "y" || response == "yes"
 }
 
-func initializeBrainAtPath(path, template string, existingType brain.BrainType) error {
-	return initializeBrainAtPathWithName(path, "", template, existingType)
-}
-
 func initializeBrainAtPathWithName(path, brainName, template string, existingType brain.BrainType) error {
 	// Use template or interactive config
 	var config BrainConfig
@@ -243,14 +239,6 @@ func runInteractiveInit(template string, force bool) error {
 	}
 
 	return initializeBrain(cwd, config)
-}
-
-func isDirEmpty(path string) bool {
-	files, err := os.ReadDir(path)
-	if err != nil {
-		return false
-	}
-	return len(files) == 0
 }
 
 func isBrainInitialized(path string) bool {
