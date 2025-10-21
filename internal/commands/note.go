@@ -130,57 +130,50 @@ func runCreateNote() error {
 	return nil
 }
 
-// confirmOrSelectBrain asks user to confirm default brain or select another
+// confirmOrSelectBrain shows all brains in workspace with default pre-selected
 func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
-	// If there's only one brain, use it
+	// If there's only one brain, use it directly
 	if len(ws.Brains) == 1 {
 		brain := &ws.Brains[0]
-		fmt.Printf("📍 Using brain: %s\n", brain.Name)
+		fmt.Printf("📍 Using brain: %s (%s)\n", brain.Name, brain.Type)
 		fmt.Printf("   Path: %s\n\n", brain.Path)
 		return brain, nil
 	}
 
-	// Find default brain
-	var defaultBrain *Brain
+	// Find default brain index
+	defaultIdx := 0
 	for i := range ws.Brains {
 		if ws.Brains[i].Name == ws.DefaultBrain {
-			defaultBrain = &ws.Brains[i]
+			defaultIdx = i
 			break
 		}
 	}
 
-	// If no default, use first brain
-	if defaultBrain == nil {
-		defaultBrain = &ws.Brains[0]
-	}
-
-	// Ask for confirmation
-	fmt.Printf("📍 Default brain: %s\n", defaultBrain.Name)
-	fmt.Printf("   Path: %s\n\n", defaultBrain.Path)
-
-	promptConfirm := promptui.Select{
-		Label: "Use this brain?",
-		Items: []string{"Yes, use default", "No, select different brain"},
-	}
-
-	idx, _, err := promptConfirm.Run()
-	if err != nil {
-		return nil, fmt.Errorf("confirmation prompt cancelled: %w", err)
-	}
-
-	if idx == 0 {
-		return defaultBrain, nil
-	}
-
-	// Let user select brain
-	brainNames := make([]string, len(ws.Brains))
+	// Build list of all brains with type information
+	brainItems := make([]string, len(ws.Brains))
 	for i, b := range ws.Brains {
-		brainNames[i] = fmt.Sprintf("%s (%s)", b.Name, b.Type)
+		if i == defaultIdx {
+			// Mark default brain
+			brainItems[i] = fmt.Sprintf("%s (%s) [default]", b.Name, b.Type)
+		} else {
+			brainItems[i] = fmt.Sprintf("%s (%s)", b.Name, b.Type)
+		}
+	}
+
+	// Show selection with default pre-selected
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ . | cyan }}",
+		Inactive: "  {{ . }}",
+		Selected: "📍 {{ . | green }}",
 	}
 
 	promptBrain := promptui.Select{
-		Label: "Select brain",
-		Items: brainNames,
+		Label:     fmt.Sprintf("Select brain (workspace: %s)", ws.Name),
+		Items:     brainItems,
+		Templates: templates,
+		CursorPos: defaultIdx, // Start at default brain
+		Size:      10,
 	}
 
 	brainIdx, _, err := promptBrain.Run()
@@ -188,7 +181,10 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 		return nil, fmt.Errorf("brain selection cancelled: %w", err)
 	}
 
-	return &ws.Brains[brainIdx], nil
+	selectedBrain := &ws.Brains[brainIdx]
+	fmt.Printf("   Path: %s\n\n", selectedBrain.Path)
+
+	return selectedBrain, nil
 }
 
 // generateNoteFilename creates a filename based on brain type conventions
