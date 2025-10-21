@@ -125,7 +125,7 @@ func loadWorkspaceConfig() (*WorkspaceConfig, error) {
 	if err := saveWorkspaceConfig(newConfig); err != nil {
 		fmt.Printf("%s Warning: Could not save migrated config: %v\n", IconWarning, err)
 	} else {
-		fmt.Println("[OK] Config migration complete")
+		fmt.Printf("%s Config migration complete\n", IconCheck)
 	}
 
 	return newConfig, nil
@@ -172,45 +172,6 @@ func getActiveWorkspace() (*Workspace, error) {
 	}
 
 	return nil, fmt.Errorf("active workspace '%s' not found", config.ActiveWorkspace)
-}
-
-// getWorkspace returns a workspace by name
-func getWorkspace(name string) (*Workspace, error) {
-	config, err := loadWorkspaceConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	for i, ws := range config.Workspaces {
-		if ws.Name == name {
-			return &config.Workspaces[i], nil
-		}
-	}
-
-	return nil, fmt.Errorf("workspace '%s' not found", name)
-}
-
-// getDefaultBrain returns the default brain from the active workspace
-func getDefaultBrain() (*Brain, error) {
-	ws, err := getActiveWorkspace()
-	if err != nil {
-		return nil, err
-	}
-
-	if ws.DefaultBrain == "" {
-		if len(ws.Brains) > 0 {
-			return &ws.Brains[0], nil
-		}
-		return nil, fmt.Errorf("no brains in active workspace '%s'", ws.Name)
-	}
-
-	for i, brain := range ws.Brains {
-		if brain.Name == ws.DefaultBrain {
-			return &ws.Brains[i], nil
-		}
-	}
-
-	return nil, fmt.Errorf("default brain '%s' not found in workspace '%s'", ws.DefaultBrain, ws.Name)
 }
 
 // ensureDefaultWorkspace ensures the "default" workspace exists and returns it
@@ -260,18 +221,13 @@ func ensureDefaultWorkspace() (*Workspace, error) {
 
 // addBrainToDefaultWorkspace adds a brain to the default workspace if not already present
 func addBrainToDefaultWorkspace(brain Brain) error {
-	config, err := loadWorkspaceConfig()
-	if err != nil {
-		return err
-	}
-
 	// Ensure default workspace exists
 	if _, err := ensureDefaultWorkspace(); err != nil {
 		return err
 	}
 
-	// Reload config after ensuring default workspace
-	config, err = loadWorkspaceConfig()
+	// Load config after ensuring default workspace exists
+	config, err := loadWorkspaceConfig()
 	if err != nil {
 		return err
 	}

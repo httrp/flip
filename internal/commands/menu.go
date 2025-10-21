@@ -90,7 +90,7 @@ func runInteractiveMenu() error {
 			Label:       "❓ Help & Documentation",
 			Description: "View available commands and options",
 			Action: func() error {
-				fmt.Println("\n=== Flip Commands ===\n")
+				fmt.Println("\n=== Flip Commands ===")
 				fmt.Println("Core Commands:")
 				fmt.Println("  flip quickstart          # Guided onboarding")
 				fmt.Println("  flip new                 # Create new brain")
@@ -550,50 +550,6 @@ func runEditWorkspaceMenu() error {
 				newName, err := promptName.Run()
 				if err != nil {
 					return runInteractiveMenu()
-				}
-
-				// Check if there's a workspace directory that should be renamed
-				// Look for common workspace directory patterns
-				home, _ := os.UserHomeDir()
-				possiblePaths := []string{
-					filepath.Join(home, "flap", "workspaces", oldName),
-					filepath.Join(home, "flip", "workspaces", oldName),
-					filepath.Join(home, "Documents", "flip", "workspaces", oldName),
-				}
-
-				var workspaceDirPath string
-				for _, path := range possiblePaths {
-					if info, err := os.Stat(path); err == nil && info.IsDir() {
-						workspaceDirPath = path
-						break
-					}
-				}
-
-				if workspaceDirPath != "" {
-					suggestedPath := normalizePathName(newName)
-					currentDirName := filepath.Base(workspaceDirPath)
-
-					if currentDirName != suggestedPath {
-						promptRenameDir := promptui.Prompt{
-							Label:     fmt.Sprintf("Also rename workspace directory '%s' to '%s'? (yes/no)", currentDirName, suggestedPath),
-							IsConfirm: true,
-						}
-
-						_, errConfirm := promptRenameDir.Run()
-						renameDir := errConfirm == nil
-
-						if renameDir {
-							parentDir := filepath.Dir(workspaceDirPath)
-							newPath := filepath.Join(parentDir, suggestedPath)
-
-							if err := os.Rename(workspaceDirPath, newPath); err != nil {
-								fmt.Printf("\n%s Warning: Could not rename workspace directory: %v\n", IconWarning, err)
-								fmt.Println("   Continuing with name change in config only...")
-							} else {
-								fmt.Printf("\n%s Workspace directory renamed: %s -> %s\n", IconCheck, currentDirName, suggestedPath)
-							}
-						}
-					}
 				}
 
 				if err := runWorkspaceRename(oldName, newName); err != nil {
