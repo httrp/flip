@@ -191,13 +191,23 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 func generateNoteFilename(title string, brainType brain.BrainType) string {
 	// Sanitize title for filename
 	safeName := strings.ToLower(title)
-	safeName = strings.ReplaceAll(safeName, " ", "-")
+
+	// Replace spaces and special chars with hyphen, but keep structure
 	safeName = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			return r
 		}
-		return -1
+		// Replace any non-alphanumeric with hyphen
+		return '-'
 	}, safeName)
+
+	// Clean up multiple consecutive hyphens
+	for strings.Contains(safeName, "--") {
+		safeName = strings.ReplaceAll(safeName, "--", "-")
+	}
+
+	// Trim leading/trailing hyphens
+	safeName = strings.Trim(safeName, "-")
 
 	now := time.Now()
 
