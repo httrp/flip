@@ -92,10 +92,16 @@ func runCreateNote() error {
 	// Generate filename based on brain type
 	filename := generateNoteFilename(title, detection.Type)
 
-	// Determine target directory
-	targetDir := getNotesDirectory(activeBrain.Path, detection.Type)
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	// Determine base notes directory
+	baseDir := getNotesDirectory(activeBrain.Path, detection.Type)
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create notes directory: %w", err)
+	}
+
+	// STEP 3: Prompt for subfolder
+	targetDir, err := promptForSubfolder(baseDir, detection.Type)
+	if err != nil {
+		return err
 	}
 
 	// Full file path
@@ -107,14 +113,14 @@ func runCreateNote() error {
 		return nil
 	}
 
-	// STEP 3: Show preview of what will be created
+	// STEP 4: Show preview of what will be created
 	fmt.Printf("\n📄 Will create: %s\n", filename)
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content based on brain type
-	content := generateNoteContent(title, detection.Type)
+	content := generateNoteContent(title, detection.Type, activeBrain.Path)
 
-	// STEP 4: Write file (only after title is confirmed)
+	// STEP 5: Write file (only after title is confirmed)
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to create note: %w", err)
 	}
@@ -191,26 +197,7 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 
 // generateNoteFilename creates a filename based on brain type conventions
 func generateNoteFilename(title string, brainType brain.BrainType) string {
-	// Sanitize title for filename
-	safeName := strings.ToLower(title)
-
-	// Replace spaces and special chars with hyphen, but keep structure
-	safeName = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			return r
-		}
-		// Replace any non-alphanumeric with hyphen
-		return '-'
-	}, safeName)
-
-	// Clean up multiple consecutive hyphens
-	for strings.Contains(safeName, "--") {
-		safeName = strings.ReplaceAll(safeName, "--", "-")
-	}
-
-	// Trim leading/trailing hyphens
-	safeName = strings.Trim(safeName, "-")
-
+	safeName := sanitizeFilename(title)
 	now := time.Now()
 
 	switch brainType {
@@ -236,46 +223,26 @@ func generateNoteFilename(title string, brainType brain.BrainType) string {
 	}
 }
 
-// getNotesDirectory returns the appropriate directory for notes based on brain type
-func getNotesDirectory(brainPath string, brainType brain.BrainType) string {
-	switch brainType {
-	case brain.BrainTypeLogseq:
-		// Logseq: pages/ directory
-		return filepath.Join(brainPath, "pages")
-
-	case brain.BrainTypeObsidian:
-		// Obsidian: root or Notes/ if it exists
-		notesDir := filepath.Join(brainPath, "Notes")
-		if _, err := os.Stat(notesDir); err == nil {
-			return notesDir
-		}
-		return brainPath
-
-	case brain.BrainTypeDendron:
-		// Dendron: root directory
-		return brainPath
-
-	case brain.BrainTypeFlip:
-		// Flip: notes/ directory
-		return filepath.Join(brainPath, "notes")
-
-	default:
-		// Generic: root directory
-		return brainPath
-	}
-}
+// promptForSubfolder, getBrainAuthor, getNotesDirectory, generateID
+// are now in content_common.go
 
 // generateNoteContent creates note content with appropriate frontmatter/metadata
-func generateNoteContent(title string, brainType brain.BrainType) string {
+func generateNoteContent(title string, brainType brain.BrainType, brainPath string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
+
+	// Get author from brain config
+	author := getBrainAuthor(brainPath)
+	if author == "" {
+		author = "Unknown"
+	}
 
 	// Try to load template from file
 	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
 	if err != nil {
 		// Fallback to hardcoded template if file not found
 		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		return generateDefaultNoteContent(title, brainType)
+		return generateDefaultNoteContent(title, brainType, author)
 	}
 
 	// Prepare template variables
@@ -283,6 +250,7 @@ func generateNoteContent(title string, brainType brain.BrainType) string {
 		"title":   title,
 		"date":    dateStr,
 		"tags":    "note",
+		"author":  author,
 		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated": fmt.Sprintf("%d", now.Unix()),
 		"created": fmt.Sprintf("%d", now.Unix()),
@@ -292,7 +260,7 @@ func generateNoteContent(title string, brainType brain.BrainType) string {
 }
 
 // generateDefaultNoteContent provides fallback templates when template files don't exist
-func generateDefaultNoteContent(title string, brainType brain.BrainType) string {
+func generateDefaultNoteContent(title string, brainType brain.BrainType, author string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
@@ -301,6 +269,7 @@ func generateDefaultNoteContent(title string, brainType brain.BrainType) string 
 	case brain.BrainTypeLogseq:
 		return fmt.Sprintf(`- title:: %s
 - created:: %s %s
+- author:: %s
 - tags:: 
 
 ## %s
@@ -309,14 +278,15 @@ func generateDefaultNoteContent(title string, brainType brain.BrainType) string 
 - [[related-note]]
 
 ## Tasks
-- TODO Example task
+- TODO Task title [priority: high] [deadline: YYYY-MM-DD] [assignee: name]
 
-`, title, dateStr, timeStr, title)
+`, title, dateStr, timeStr, author, title)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
 title: %s
 created: %s
+author: %s
 tags: []
 ---
 
@@ -326,15 +296,16 @@ tags: []
 - [[related-note]]
 
 ## Tasks
-- [ ] Example task
+- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
 
-`, title, dateStr, title)
+`, title, dateStr, author, title)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
 id: %s
 title: %s
 desc: ''
+author: %s
 updated: %d
 created: %d
 ---
@@ -345,9 +316,9 @@ created: %d
 - [[related-note]]
 
 ## Tasks
-- [ ] Example task
+- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
 
-`, generateID(), title, now.Unix(), now.Unix(), title)
+`, generateID(), title, author, now.Unix(), now.Unix(), title)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -355,6 +326,7 @@ title: %s
 created: %s
 updated: %s
 type: note
+author: %s
 tags: []
 ---
 
@@ -364,9 +336,9 @@ tags: []
 - [[related-note]]
 
 ## Tasks
-- [ ] Example task
+- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
 
-`, title, dateStr, dateStr, title)
+`, title, dateStr, dateStr, author, title)
 
 	default:
 		return fmt.Sprintf(`---
@@ -384,11 +356,6 @@ date: %s
 
 `, title, dateStr, title)
 	}
-}
-
-// generateID creates a unique ID for notes (UUID format for Dendron compatibility)
-func generateID() string {
-	return uuid.New().String()
 }
 
 // promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor

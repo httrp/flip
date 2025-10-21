@@ -102,10 +102,16 @@ func runCreateMeeting() error {
 	// Generate filename
 	filename := generateMeetingFilename(title, detection.Type)
 
-	// Determine target directory
-	targetDir := getNotesDirectory(activeBrain.Path, detection.Type)
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	// Determine base notes directory
+	baseDir := getNotesDirectory(activeBrain.Path, detection.Type)
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Prompt for subfolder
+	targetDir, err := promptForSubfolder(baseDir, detection.Type)
+	if err != nil {
+		return err
 	}
 
 	// Full file path
@@ -122,7 +128,7 @@ func runCreateMeeting() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content
-	content := generateMeetingContent(title, participants, tags, detection.Type)
+	content := generateMeetingContent(title, participants, tags, detection.Type, activeBrain.Path)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -143,21 +149,7 @@ func runCreateMeeting() error {
 
 // generateMeetingFilename creates a filename for meeting notes
 func generateMeetingFilename(title string, brainType brain.BrainType) string {
-	safeName := strings.ToLower(title)
-
-	safeName = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			return r
-		}
-		return '-'
-	}, safeName)
-
-	for strings.Contains(safeName, "--") {
-		safeName = strings.ReplaceAll(safeName, "--", "-")
-	}
-
-	safeName = strings.Trim(safeName, "-")
-
+	safeName := sanitizeFilename(title)
 	now := time.Now()
 
 	switch brainType {
@@ -175,10 +167,16 @@ func generateMeetingFilename(title string, brainType brain.BrainType) string {
 }
 
 // generateMeetingContent creates meeting note content
-func generateMeetingContent(title, participants, tags string, brainType brain.BrainType) string {
+func generateMeetingContent(title, participants, tags string, brainType brain.BrainType, brainPath string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
+
+	// Get author from brain config
+	author := getBrainAuthor(brainPath)
+	if author == "" {
+		author = "Unknown"
+	}
 
 	// Parse participants into list
 	participantList := ""
@@ -203,7 +201,7 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 	if err != nil {
 		// Fallback to hardcoded template if file not found
 		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		return generateDefaultMeetingContent(title, participantList, tagList, brainType, now, dateStr, timeStr)
+		return generateDefaultMeetingContent(title, participantList, tagList, brainType, now, dateStr, timeStr, author)
 	}
 
 	// Prepare template variables
@@ -213,6 +211,7 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 		"time":         timeStr,
 		"participants": participantList,
 		"tags":         tagList,
+		"author":       author,
 		"id":           uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated":      fmt.Sprintf("%d", now.Unix()),
 		"created":      fmt.Sprintf("%d", now.Unix()),
@@ -222,13 +221,14 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 }
 
 // generateDefaultMeetingContent provides fallback templates when template files don't exist
-func generateDefaultMeetingContent(title, participantList, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr string) string {
+func generateDefaultMeetingContent(title, participantList, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
 	switch brainType {
 	case brain.BrainTypeLogseq:
 		return fmt.Sprintf(`- title:: %s
 - type:: meeting
 - date:: %s
 - time:: %s
+- author:: %s
 - tags:: %s
 
 ## %s
@@ -240,12 +240,12 @@ func generateDefaultMeetingContent(title, participantList, tagList string, brain
 ### Notes
 
 ### Action Items
-- TODO 
+- TODO Action item [priority: high] [deadline: YYYY-MM-DD] [assignee: name] [status: open]
 
 ### Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, tagList, title, participantList)
+`, title, dateStr, timeStr, author, tagList, title, participantList)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
@@ -253,6 +253,7 @@ title: %s
 type: meeting
 date: %s
 time: %s
+author: %s
 tags: [%s]
 ---
 
@@ -265,12 +266,12 @@ tags: [%s]
 ## Notes
 
 ## Action Items
-- [ ] 
+- [ ] Action item - Priority: High, Deadline: YYYY-MM-DD, Assignee: name, Status: Open
 
 ## Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, tagList, title, participantList)
+`, title, dateStr, timeStr, author, tagList, title, participantList)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -279,6 +280,7 @@ title: %s
 desc: 'Meeting note'
 type: meeting
 date: %s
+author: %s
 updated: %d
 created: %d
 tags: [%s]
@@ -293,12 +295,12 @@ tags: [%s]
 ## Notes
 
 ## Action Items
-- [ ] 
+- [ ] Action item - Priority: High, Deadline: YYYY-MM-DD, Assignee: name, Status: Open
 
 ## Related
 - [[related-note]]
 
-`, uuid.New().String(), title, dateStr, now.Unix(), now.Unix(), tagList, title, participantList)
+`, uuid.New().String(), title, dateStr, author, now.Unix(), now.Unix(), tagList, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -308,6 +310,7 @@ updated: %s
 type: meeting
 date: %s
 time: %s
+author: %s
 tags: [%s]
 ---
 
@@ -320,12 +323,12 @@ tags: [%s]
 ## Notes
 
 ## Action Items
-- [ ] 
+- [ ] Action item - Priority: High, Deadline: YYYY-MM-DD, Assignee: name, Status: Open
 
 ## Related
 - [[related-note]]
 
-`, title, dateStr, dateStr, dateStr, timeStr, tagList, title, participantList)
+`, title, dateStr, dateStr, dateStr, timeStr, author, tagList, title, participantList)
 
 	default:
 		return fmt.Sprintf(`---
@@ -344,7 +347,7 @@ tags: [%s]
 ## Notes
 
 ## Action Items
-- [ ] 
+- [ ] Action item - Priority: High, Deadline: YYYY-MM-DD, Assignee: name, Status: Open
 
 ## Related
 - [[related-note]]

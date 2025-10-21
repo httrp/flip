@@ -171,40 +171,7 @@ func generateJournalFilename(date time.Time, brainType brain.BrainType) string {
 	}
 }
 
-// getJournalDirectory returns the appropriate directory for journal entries
-func getJournalDirectory(brainPath string, brainType brain.BrainType) string {
-	switch brainType {
-	case brain.BrainTypeLogseq:
-		// Logseq: journals/ directory
-		return filepath.Join(brainPath, "journals")
-
-	case brain.BrainTypeObsidian:
-		// Obsidian: Daily Notes/ or root (check for Daily Notes folder)
-		dailyNotesDir := filepath.Join(brainPath, "Daily Notes")
-		if _, err := os.Stat(dailyNotesDir); err == nil {
-			return dailyNotesDir
-		}
-		// Fallback to Journal/
-		journalDir := filepath.Join(brainPath, "Journal")
-		if _, err := os.Stat(journalDir); err == nil {
-			return journalDir
-		}
-		// Create Daily Notes if doesn't exist
-		return dailyNotesDir
-
-	case brain.BrainTypeDendron:
-		// Dendron: root directory
-		return brainPath
-
-	case brain.BrainTypeFlip:
-		// Flip: journal/ directory
-		return filepath.Join(brainPath, "journal")
-
-	default:
-		// Generic: journal/ directory
-		return filepath.Join(brainPath, "journal")
-	}
-}
+// getJournalDirectory is now in content_common.go
 
 // generateJournalContent creates journal entry content
 func generateJournalContent(date time.Time, brainType brain.BrainType) string {
