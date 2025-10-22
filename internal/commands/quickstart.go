@@ -1,52 +1,18 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/httrp/flip/internal/lang"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
-var langTexts map[string]string
-
-// getLangPath returns the path to the lang directory, trying multiple locations
-func getLangPath() string {
-	// Try to find lang directory relative to executable
-	exe, err := os.Executable()
-	if err == nil {
-		exeDir := filepath.Dir(exe)
-		// Check if lang exists next to executable (for installed version)
-		langDir := filepath.Join(exeDir, "lang")
-		if _, err := os.Stat(langDir); err == nil {
-			return langDir
-		}
-		// Check parent directory (for development)
-		langDir = filepath.Join(filepath.Dir(exeDir), "lang")
-		if _, err := os.Stat(langDir); err == nil {
-			return langDir
-		}
-	}
-	// Fallback to current directory
-	return "lang"
-}
-
 func getText(key string) string {
-	if langTexts == nil {
-		langTexts = make(map[string]string)
-		langPath := filepath.Join(getLangPath(), "en.json")
-		data, err := os.ReadFile(langPath)
-		if err == nil {
-			json.Unmarshal(data, &langTexts)
-		}
-	}
-	if val, ok := langTexts[key]; ok {
-		return val
-	}
-	return key
+	return lang.GetText(key)
 }
 
 func NewQuickstartCommand() *cobra.Command {

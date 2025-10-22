@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/httrp/flip/internal/lang"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -21,15 +22,8 @@ func NewMenuCommand() *cobra.Command {
 }
 
 func runInteractiveMenu() error {
-	// Load banner using shared lang path helper
-	banner := ""
-	bannerPath := filepath.Join(getLangPath(), "banner.txt")
-	data, err := os.ReadFile(bannerPath)
-	if err == nil {
-		banner = string(data)
-	} else {
-		banner = "Flip - Your Intelligent Assistant"
-	}
+	// Load banner from embedded files
+	banner := lang.GetBanner()
 
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -61,98 +55,27 @@ func runInteractiveMenu() error {
 			},
 		},
 		{
-			Label:       "📁 Create Workspace",
-			Description: "Create a new workspace",
-			Action: func() error {
-				if err := runNewWorkspace(); err != nil {
-					fmt.Printf("\nError: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       "🧠 Create/Add Brain",
-			Description: "Create new or add existing brain",
-			Action:      runBrainMenu,
-		},
-		{
-			Label:       "🔍 Scan for Brains",
-			Description: "Scan directories for existing brain workspaces",
-			Action: func() error {
-				prompt := promptui.Prompt{
-					Label:   "Path to scan (leave empty for home directory)",
-					Default: "",
-				}
-				scanPath, err := prompt.Run()
-				if err != nil {
-					return nil
-				}
-				if scanPath == "" {
-					scanPath = os.Getenv("HOME")
-				}
-				if err := runScan(scanPath); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       "📝 Create Note",
-			Description: "Create a new note",
-			Action: func() error {
-				if err := runCreateNote(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       "📅 Create Meeting Note",
-			Description: "Create a new meeting note",
-			Action: func() error {
-				if err := runCreateMeeting(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       "📔 Create Daily Journal",
-			Description: "Create a new daily journal entry",
-			Action: func() error {
-				if err := runCreateJournal(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println("\nPress Enter to return to menu...")
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       "🔄 Switch Workspace",
-			Description: "Switch to a different workspace",
-			Action:      runSwitchWorkspaceMenu,
-		},
-		{
-			Label:       "🔍 Browse & Search",
+			Label:       "� Browse & Search",
 			Description: "Browse recent notes, search across workspace",
 			Action:      runBrowseSearchMenu,
 		},
 		{
-			Label:       "✏️  Edit / Manage",
-			Description: "Edit, rename, repair workspaces and brains",
-			Action:      runEditManageMenu,
+			Label:       "📝 New",
+			Description: "Create new note, meeting note, journal, task",
+			Action:      runCreateNewMenu,
 		},
 		{
-			Label:       "📊 View Status",
+			Label:       "⚙️  Manage",
+			Description: "Manage workspaces, brains, templates",
+			Action:      runManageResourcesMenu,
+		},
+		{
+			Label:       "🔄 Switch",
+			Description: "Switch active workspace or brain",
+			Action:      runSwitchContextMenu,
+		},
+		{
+			Label:       "📊 Status",
 			Description: "Show all workspaces and brains",
 			Action: func() error {
 				if err := runStatus(); err != nil {
@@ -418,6 +341,370 @@ func runBrowseSearchMenu() error {
 
 	selectMenu := promptui.Select{
 		Label:     "Browse & Search Notes",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runCreateNewMenu shows submenu for creating new content
+func runCreateNewMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📝 Note",
+			Description: "Create a new note",
+			Action: func() error {
+				if err := runCreateNote(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📅 Meeting Note",
+			Description: "Create a new meeting note",
+			Action: func() error {
+				if err := runCreateMeeting(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📔 Daily Journal",
+			Description: "Create a new daily journal entry",
+			Action: func() error {
+				if err := runCreateJournal(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "✅ Task",
+			Description: "Create a new task",
+			Action: func() error {
+				fmt.Println("\n🚧 Task creation coming soon!")
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "◀️  Back to Main Menu",
+			Description: "Return to main menu",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+		Details: `
+--------- Details ----------
+{{ "Description:" | faint }}  {{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Create New Content",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runManageResourcesMenu shows submenu for managing workspaces, brains, and templates
+func runManageResourcesMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📁 Workspaces",
+			Description: "Create, edit, rename, or remove workspaces",
+			Action:      runEditWorkspaceMenu,
+		},
+		{
+			Label:       "🧠 Brains",
+			Description: "Create, add, scan, edit, or remove brains",
+			Action:      runManageBrainsMenu,
+		},
+		{
+			Label:       "📋 Templates",
+			Description: "Manage note templates",
+			Action:      runEditManageMenu, // Reuse existing template management
+		},
+		{
+			Label:       "◀️  Back to Main Menu",
+			Description: "Return to main menu",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+		Details: `
+--------- Details ----------
+{{ "Description:" | faint }}  {{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Manage Resources",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runManageBrainsMenu shows submenu for brain management
+func runManageBrainsMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "✨ Create New Brain",
+			Description: "Create a brand new brain",
+			Action: func() error {
+				if err := runNewBrain(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📂 Init/Add Existing Brain",
+			Description: "Initialize or add an existing brain directory",
+			Action: func() error {
+				prompt := promptui.Prompt{
+					Label: "Path to existing brain directory",
+				}
+				path, err := prompt.Run()
+				if err != nil {
+					return runInteractiveMenu()
+				}
+				if err := runDirectoryInit(path, "", false); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "🔍 Scan for Brains",
+			Description: "Scan directories to find existing brains",
+			Action: func() error {
+				prompt := promptui.Prompt{
+					Label:   "Path to scan (leave empty for home directory)",
+					Default: "",
+				}
+				scanPath, err := prompt.Run()
+				if err != nil {
+					return runInteractiveMenu()
+				}
+				if scanPath == "" {
+					scanPath = os.Getenv("HOME")
+				}
+				if err := runScan(scanPath); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "✏️  Edit/Rename Brain",
+			Description: "Edit or rename existing brains",
+			Action:      runEditBrainMenu,
+		},
+		{
+			Label:       "◀️  Back",
+			Description: "Return to manage menu",
+			Action:      runManageResourcesMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+		Details: `
+--------- Details ----------
+{{ "Description:" | faint }}  {{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Manage Brains",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runManageResourcesMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runSwitchContextMenu shows submenu for switching context
+func runSwitchContextMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📁 Workspace",
+			Description: "Switch to a different workspace",
+			Action:      runSwitchWorkspaceMenu,
+		},
+		{
+			Label:       "🧠 Active Brain",
+			Description: "Set default brain for current workspace",
+			Action: func() error {
+				// Load config
+				config, err := loadWorkspaceConfig()
+				if err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+					return runInteractiveMenu()
+				}
+
+				if config.ActiveWorkspace == "" {
+					fmt.Println("\n❌ No active workspace")
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+					return runInteractiveMenu()
+				}
+
+				// Find active workspace
+				var activeWs *Workspace
+				for i := range config.Workspaces {
+					if config.Workspaces[i].Name == config.ActiveWorkspace {
+						activeWs = &config.Workspaces[i]
+						break
+					}
+				}
+
+				if activeWs == nil || len(activeWs.Brains) == 0 {
+					fmt.Println("\n❌ No brains in workspace")
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+					return runInteractiveMenu()
+				}
+
+				// Create menu items
+				var brainNames []string
+				for _, brain := range activeWs.Brains {
+					brainNames = append(brainNames, brain.Name)
+				}
+
+				prompt := promptui.Select{
+					Label: "Select default brain",
+					Items: brainNames,
+				}
+
+				idx, _, err := prompt.Run()
+				if err != nil {
+					return runInteractiveMenu()
+				}
+
+				if err := runBrainSetDefault(brainNames[idx]); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				} else {
+					fmt.Printf("\n✓ Set '%s' as default brain\n", brainNames[idx])
+				}
+
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "◀️  Back to Main Menu",
+			Description: "Return to main menu",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+		Details: `
+--------- Details ----------
+{{ "Description:" | faint }}  {{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Switch Context",
 		Items:     menuItems,
 		Templates: templates,
 		Size:      10,
