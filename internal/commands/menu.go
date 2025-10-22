@@ -21,9 +21,10 @@ func NewMenuCommand() *cobra.Command {
 }
 
 func runInteractiveMenu() error {
-	// Load banner
+	// Load banner using shared lang path helper
 	banner := ""
-	data, err := os.ReadFile("lang/banner.txt")
+	bannerPath := filepath.Join(getLangPath(), "banner.txt")
+	data, err := os.ReadFile(bannerPath)
 	if err == nil {
 		banner = string(data)
 	} else {
@@ -60,9 +61,80 @@ func runInteractiveMenu() error {
 			},
 		},
 		{
-			Label:       "✨ Create New / Add",
-			Description: "Create or add workspaces, brains, notes, tasks",
-			Action:      runCreateAddMenu,
+			Label:       "📁 Create Workspace",
+			Description: "Create a new workspace",
+			Action: func() error {
+				if err := runNewWorkspace(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "🧠 Create/Add Brain",
+			Description: "Create new or add existing brain",
+			Action:      runBrainMenu,
+		},
+		{
+			Label:       "🔍 Scan for Brains",
+			Description: "Scan directories for existing brain workspaces",
+			Action: func() error {
+				prompt := promptui.Prompt{
+					Label:   "Path to scan (leave empty for home directory)",
+					Default: "",
+				}
+				scanPath, err := prompt.Run()
+				if err != nil {
+					return nil
+				}
+				if scanPath == "" {
+					scanPath = os.Getenv("HOME")
+				}
+				if err := runScan(scanPath); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📝 Create Note",
+			Description: "Create a new note",
+			Action: func() error {
+				if err := runCreateNote(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📅 Create Meeting Note",
+			Description: "Create a new meeting note",
+			Action: func() error {
+				if err := runCreateMeeting(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
+		},
+		{
+			Label:       "📔 Create Daily Journal",
+			Description: "Create a new daily journal entry",
+			Action: func() error {
+				if err := runCreateJournal(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runInteractiveMenu()
+			},
 		},
 		{
 			Label:       "🔄 Switch Workspace",

@@ -13,10 +13,32 @@ import (
 
 var langTexts map[string]string
 
+// getLangPath returns the path to the lang directory, trying multiple locations
+func getLangPath() string {
+	// Try to find lang directory relative to executable
+	exe, err := os.Executable()
+	if err == nil {
+		exeDir := filepath.Dir(exe)
+		// Check if lang exists next to executable (for installed version)
+		langDir := filepath.Join(exeDir, "lang")
+		if _, err := os.Stat(langDir); err == nil {
+			return langDir
+		}
+		// Check parent directory (for development)
+		langDir = filepath.Join(filepath.Dir(exeDir), "lang")
+		if _, err := os.Stat(langDir); err == nil {
+			return langDir
+		}
+	}
+	// Fallback to current directory
+	return "lang"
+}
+
 func getText(key string) string {
 	if langTexts == nil {
 		langTexts = make(map[string]string)
-		data, err := os.ReadFile("lang/en.json")
+		langPath := filepath.Join(getLangPath(), "en.json")
+		data, err := os.ReadFile(langPath)
 		if err == nil {
 			json.Unmarshal(data, &langTexts)
 		}

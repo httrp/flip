@@ -195,6 +195,10 @@ func searchNotes(query string, searchContent bool) error {
 func collectNotesFromBrain(brainPath, brainName string) ([]NoteFile, error) {
 	var notes []NoteFile
 
+	// NOTE: We use filesystem ModTime for performance.
+	// Git log calls are too slow for large repositories (can take minutes).
+	// Future: Add --use-git-time flag for users who need accurate git timestamps.
+
 	// Supported note extensions
 	noteExtensions := map[string]bool{
 		".md":       true,
