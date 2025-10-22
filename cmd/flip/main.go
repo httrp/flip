@@ -45,6 +45,8 @@ func main() {
 	rootCmd.AddCommand(commands.NewMeetingCommand())
 	rootCmd.AddCommand(commands.NewJournalCommand())
 	rootCmd.AddCommand(commands.NewTemplateCommand())
+	// Register task command
+	rootCmd.AddCommand(commands.NewTaskCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")

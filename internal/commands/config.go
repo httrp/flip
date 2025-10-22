@@ -174,6 +174,30 @@ func getActiveWorkspace() (*Workspace, error) {
 	return nil, fmt.Errorf("active workspace '%s' not found", config.ActiveWorkspace)
 }
 
+// getActiveBrain returns the default brain from the active workspace
+func getActiveBrain() (*Brain, error) {
+	ws, err := getActiveWorkspace()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ws.Brains) == 0 {
+		return nil, fmt.Errorf("no brains in active workspace")
+	}
+
+	// Return default brain if set
+	if ws.DefaultBrain != "" {
+		for i := range ws.Brains {
+			if ws.Brains[i].Name == ws.DefaultBrain {
+				return &ws.Brains[i], nil
+			}
+		}
+	}
+
+	// Otherwise return first brain
+	return &ws.Brains[0], nil
+}
+
 // ensureDefaultWorkspace ensures the "default" workspace exists and returns it
 func ensureDefaultWorkspace() (*Workspace, error) {
 	config, err := loadWorkspaceConfig()
