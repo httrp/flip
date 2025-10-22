@@ -50,6 +50,52 @@ func runStatus() error {
 	fmt.Println("===============================================================")
 	fmt.Println()
 
+	// Check for issues across all brains and show warning banner
+	var allIssues []string
+	var allWarnings []string
+	for _, ws := range config.Workspaces {
+		for _, b := range ws.Brains {
+			health := checkBrainHealth(b.Path)
+			if health.HasIssues {
+				for _, issue := range health.Issues {
+					allIssues = append(allIssues, fmt.Sprintf("%s/%s: %s", ws.Name, b.Name, issue))
+				}
+			}
+			if len(health.Warnings) > 0 {
+				for _, warning := range health.Warnings {
+					allWarnings = append(allWarnings, fmt.Sprintf("%s/%s: %s", ws.Name, b.Name, warning))
+				}
+			}
+		}
+	}
+
+	if len(allIssues) > 0 {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("⚠️  ATTENTION: Issues detected with your brains!")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		for _, issue := range allIssues {
+			fmt.Printf("  ❌ %s\n", issue)
+		}
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println()
+	}
+
+	if len(allWarnings) > 0 && len(allIssues) == 0 {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("⚡ Warnings: Some brains need attention")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		for i, warning := range allWarnings {
+			if i < 5 { // Show max 5 warnings in summary
+				fmt.Printf("  ⚠️  %s\n", warning)
+			}
+		}
+		if len(allWarnings) > 5 {
+			fmt.Printf("  ... and %d more warnings\n", len(allWarnings)-5)
+		}
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println()
+	}
+
 	// Active workspace + default brain line
 	if config.ActiveWorkspace != "" {
 		fmt.Printf("%s Active Workspace: %s\n", IconActive, config.ActiveWorkspace)
@@ -77,21 +123,63 @@ func runStatus() error {
 	// Table: Brains in active workspace
 	if ws, err := getActiveWorkspace(); err == nil {
 		fmt.Printf("%s Brains in '%s'\n\n", IconBrain, ws.Name)
-		bHeaders := []string{"Default", "Name", "Type", "Status", "Path"}
+		bHeaders := []string{"Default", "Name", "Type", "Health", "Sync/Git", "Details"}
 		bRows := [][]string{}
+
+		hasIssues := false
 		for _, b := range ws.Brains {
 			def := ""
 			if b.Name == ws.DefaultBrain {
 				def = IconDefault
 			}
-			status := IconCheck
-			if _, err := os.Stat(b.Path); os.IsNotExist(err) {
-				status = IconError
+
+			// Check brain health
+			health := checkBrainHealth(b.Path)
+			healthIcon := formatHealthStatus(health)
+
+			// Track if any brain has issues
+			if health.HasIssues {
+				hasIssues = true
 			}
-			bRows = append(bRows, []string{def, b.Name, b.Type, status, b.Path})
+
+			// Build sync/git column
+			syncGitInfo := ""
+			if health.SyncService != "" {
+				syncGitInfo = "☁️ " + health.SyncService
+			}
+			if health.IsGitRepo {
+				if syncGitInfo != "" {
+					syncGitInfo += " "
+				}
+				syncGitInfo += "📦"
+				if health.GitStatus.Branch != "" {
+					syncGitInfo += " " + health.GitStatus.Branch
+				}
+			}
+			if syncGitInfo == "" {
+				syncGitInfo = "Local"
+			}
+
+			// Get health details
+			details := formatHealthDetails(health)
+			if _, err := os.Stat(b.Path); os.IsNotExist(err) {
+				healthIcon = IconError
+				details = "Path does not exist"
+			}
+
+			bRows = append(bRows, []string{def, b.Name, b.Type, healthIcon, syncGitInfo, details})
 		}
 		renderTableStdout(bHeaders, bRows)
 		fmt.Println()
+
+		// Show warning if issues detected
+		if hasIssues {
+			fmt.Println("⚠️  Issues detected! Review the details above.")
+			fmt.Println("   Use 'flip brain repair' to fix path issues.")
+			fmt.Println("   Use 'git pull' to sync behind commits.")
+			fmt.Println("   Resolve conflict files in your sync service.")
+			fmt.Println()
+		}
 	}
 
 	// Quick menu
