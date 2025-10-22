@@ -151,20 +151,27 @@ func (d *Detector) isLogseqGraph(path string, result *DetectionResult) bool {
 	indicators := []string{}
 
 	// Check for .logseq folder
+	hasLogseqDir := false
 	logseqDir := filepath.Join(path, ".logseq")
 	if _, err := os.Stat(logseqDir); err == nil {
 		indicators = append(indicators, ".logseq/ folder found")
+		hasLogseqDir = true
 	}
 
 	// Check for journals and pages directories (core Logseq structure)
+	hasJournals := false
+	hasPages := false
+
 	journalsDir := filepath.Join(path, "journals")
 	if info, err := os.Stat(journalsDir); err == nil && info.IsDir() {
 		indicators = append(indicators, "journals/ directory found")
+		hasJournals = true
 	}
 
 	pagesDir := filepath.Join(path, "pages")
 	if info, err := os.Stat(pagesDir); err == nil && info.IsDir() {
 		indicators = append(indicators, "pages/ directory found")
+		hasPages = true
 	}
 
 	// Check for common Logseq files
@@ -182,7 +189,14 @@ func (d *Detector) isLogseqGraph(path string, result *DetectionResult) bool {
 	}
 
 	result.Indicators = append(result.Indicators, indicators...)
-	return len(indicators) > 0
+
+	// Only recognize as Logseq if we have .logseq marker AND journals/pages,
+	// OR just journals+pages (for graphs without .logseq)
+	// This prevents detecting system-level .logseq config as a brain
+	if hasLogseqDir {
+		return hasJournals || hasPages
+	}
+	return hasJournals && hasPages
 }
 
 func (d *Detector) isDendronWorkspace(path string, result *DetectionResult) bool {

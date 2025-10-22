@@ -83,7 +83,10 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 	if !options.ShowPotential {
 		fmt.Printf("> Showing only recognized brain types (Obsidian, Logseq, Dendron, Flip)\n")
 	}
-	fmt.Println()
+
+	// Start progress animation
+	stopProgress := make(chan bool)
+	go showProgress(stopProgress)
 
 	type FoundBrain struct {
 		Number        int
@@ -219,6 +222,15 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 			// Logseq can be detected either by .logseq marker OR by journals+pages structure
 			hasMarker := hasDir(path, ".logseq")
 			hasStructure := hasDir(path, "journals") && hasDir(path, "pages")
+
+			// If no marker, verify it's actually a Logseq graph by checking journal content
+			if !hasMarker && hasStructure {
+				journalCount := countMarkdownFiles(filepath.Join(path, "journals"))
+				pagesCount := countMarkdownFiles(filepath.Join(path, "pages"))
+				// Only recognize as Logseq if journals has significant content (typical Logseq usage)
+				hasStructure = journalCount >= 5 || pagesCount >= 5
+			}
+
 			isValid = (hasMarker || hasStructure) && mdCount > options.MinBrainFiles
 			if isValid && !hasMarker && hasStructure {
 				result.Description = "Logseq Graph (no marker)"
@@ -234,13 +246,20 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 			// Check if this looks like a Logseq structure without .logseq marker
 			hasJournals := hasDir(path, "journals")
 			hasPages := hasDir(path, "pages")
-			if hasJournals && hasPages && contentCount > options.MinBrainFiles {
-				// This looks like Logseq without the marker
-				isValid = true
-				result.Type = brain.BrainTypeLogseq
-				result.Description = "Logseq Graph (no marker)"
-				result.Indicators = []string{"journals/ and pages/ directories"}
-				break
+			if hasJournals && hasPages {
+				// Verify it's actually Logseq by checking for content in journals/pages
+				journalCount := countMarkdownFiles(filepath.Join(path, "journals"))
+				pagesCount := countMarkdownFiles(filepath.Join(path, "pages"))
+
+				// Only recognize as Logseq if there's significant content in journals or pages
+				if (journalCount >= 5 || pagesCount >= 5) && contentCount > options.MinBrainFiles {
+					// This looks like Logseq without the marker
+					isValid = true
+					result.Type = brain.BrainTypeLogseq
+					result.Description = "Logseq Graph (no marker)"
+					result.Indicators = []string{"journals/ and pages/ directories"}
+					break
+				}
 			}
 
 			// Otherwise check for content-rich folders (if enabled)
@@ -283,6 +302,10 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		}
 		return nil
 	})
+
+	// Stop progress animation
+	stopProgress <- true
+	fmt.Print("\r\033[K") // Clear the progress line
 
 	if err != nil {
 		return fmt.Errorf("scan error: %w", err)
@@ -740,4 +763,36 @@ func detectGitInfo(path string) GitInfo {
 	}
 
 	return info
+}
+
+// showProgress displays an animated progress indicator while scanning
+func showProgress(stop chan bool) {
+	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	messages := []string{
+		"Searching for brains",
+		"Analyzing directories",
+		"Detecting brain types",
+		"Checking markers",
+		"Scanning workspaces",
+	}
+
+	i := 0
+	msgIdx := 0
+	ticker := time.NewTicker(80 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			msg := messages[msgIdx%len(messages)]
+			spinner := spinners[i%len(spinners)]
+			fmt.Printf("\r%s %s...", spinner, msg)
+			i++
+			if i%10 == 0 {
+				msgIdx++
+			}
+		}
+	}
 }
