@@ -48,13 +48,23 @@ func runScan(scanPath string) error {
 	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n\n", scanPath)
 
 	type FoundBrain struct {
-		Number      int
-		Description string
-		Type        brain.BrainType
-		Path        string
-		MdCount     int
-		LastMod     string
-		Indicators  []string
+		Number        int
+		Description   string
+		Type          brain.BrainType
+		Path          string
+		DisplayPath   string // Shortened path for display
+		MdCount       int
+		LastMod       string
+		Indicators    []string
+		IsInWorkspace bool   // Whether this brain is already in active workspace
+		WorkspaceName string // Name of workspace if already added
+		IsPotential   bool   // Whether this is a content-rich folder without markers
+		// Sync & Version Control
+		SyncService   string // Dropbox, Google Drive, iCloud, etc.
+		IsGitRepo     bool   // Whether this is a git repository
+		GitRemoteURL  string // Git remote URL (if exists)
+		GitRemoteName string // Git remote name (usually "origin")
+		GitBranch     string // Current git branch
 	}
 
 	var foundBrains []FoundBrain
@@ -87,9 +97,14 @@ func runScan(scanPath string) error {
 			return nil
 		}
 
-		// Only show if clear marker and plausible number of markdown files
+		// Check for content files (markdown, txt, org, etc.)
+		contentCount := countContentFiles(path)
 		mdCount := countMarkdownFiles(path)
+
+		// Only show if clear marker and plausible number of files, OR lots of content files
 		isValid := false
+		isPotential := false
+
 		switch result.Type {
 		case brain.BrainTypeObsidian:
 			isValid = hasDir(path, ".obsidian") && mdCount > 5
@@ -99,18 +114,43 @@ func runScan(scanPath string) error {
 			isValid = fileExists(path, "dendron.yml") && mdCount > 5
 		case brain.BrainTypeFlip:
 			isValid = fileExists(path, ".flip-brain.yaml") || fileExists(path, ".flip.yaml")
+		default:
+			// Check for content-rich folders without specific brain markers
+			if contentCount >= 20 {
+				isValid = true
+				isPotential = true
+				result.Type = brain.BrainTypeFlip // Default type for potential brains
+				result.Description = "Content Folder"
+				result.Indicators = []string{fmt.Sprintf("%d content files", contentCount)}
+			}
 		}
 
 		if isValid {
 			lastMod := getLastModified(path)
+			isInWs, wsName := checkIfInWorkspace(path)
+			displayPath := shortenPath(path)
+
+			// Detect sync service and git info
+			syncService := detectSyncService(path)
+			gitInfo := detectGitInfo(path)
+
 			foundBrains = append(foundBrains, FoundBrain{
-				Number:      len(foundBrains) + 1,
-				Description: result.Description,
-				Type:        result.Type,
-				Path:        path,
-				MdCount:     mdCount,
-				LastMod:     lastMod,
-				Indicators:  result.Indicators,
+				Number:        len(foundBrains) + 1,
+				Description:   result.Description,
+				Type:          result.Type,
+				Path:          path,
+				DisplayPath:   displayPath,
+				MdCount:       mdCount,
+				LastMod:       lastMod,
+				Indicators:    result.Indicators,
+				IsInWorkspace: isInWs,
+				WorkspaceName: wsName,
+				IsPotential:   isPotential,
+				SyncService:   syncService,
+				IsGitRepo:     gitInfo.IsRepo,
+				GitRemoteURL:  gitInfo.RemoteURL,
+				GitRemoteName: gitInfo.RemoteName,
+				GitBranch:     gitInfo.Branch,
 			})
 		}
 		return nil
@@ -141,7 +181,31 @@ func runScan(scanPath string) error {
 
 		var items []BrainListItem
 		for i, fb := range foundBrains {
-			display := fmt.Sprintf("%s (%s) - %d files", fb.Description, fb.Type, fb.MdCount)
+			// Build display string with path and workspace status
+			statusPrefix := ""
+			if fb.IsInWorkspace {
+				statusPrefix = "✓ "
+			}
+			if fb.IsPotential {
+				statusPrefix = "? " + statusPrefix
+			}
+
+			wsInfo := ""
+			if fb.IsInWorkspace {
+				wsInfo = fmt.Sprintf(" [%s]", fb.WorkspaceName)
+			}
+
+			// Add sync and git badges
+			badges := ""
+			if fb.SyncService != "" {
+				badges += " ☁️"
+			}
+			if fb.IsGitRepo {
+				badges += " 📦"
+			}
+
+			display := fmt.Sprintf("%s%s (%s) - %d files - %s%s%s",
+				statusPrefix, fb.Description, fb.Type, fb.MdCount, fb.DisplayPath, wsInfo, badges)
 			items = append(items, BrainListItem{Display: display, Index: i})
 		}
 		items = append(items, BrainListItem{Display: "◀️  Exit", Index: -1})
@@ -180,26 +244,67 @@ func runScan(scanPath string) error {
 		fmt.Println("Brain Details")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Printf("Name:         %s\n", fb.Description)
-		fmt.Printf("Type:         %s\n", fb.Type)
+		fmt.Printf("Type:         %s", fb.Type)
+		if fb.IsPotential {
+			fmt.Printf(" (potential - no specific brain marker detected)")
+		}
+		fmt.Println()
 		fmt.Printf("Path:         %s\n", fb.Path)
 		fmt.Printf("Files:        %d markdown files\n", fb.MdCount)
 		fmt.Printf("Last updated: %s\n", fb.LastMod)
 		fmt.Printf("Indicators:   %s\n", strings.Join(fb.Indicators, ", "))
+		if fb.IsInWorkspace {
+			fmt.Printf("Status:       ✓ Already in workspace '%s'\n", fb.WorkspaceName)
+		} else {
+			fmt.Printf("Status:       Not yet added to workspace\n")
+		}
+
+		// Show sync service info
+		if fb.SyncService != "" {
+			fmt.Printf("Sync:         ☁️  %s\n", fb.SyncService)
+		} else {
+			fmt.Printf("Sync:         Local only (no cloud sync detected)\n")
+		}
+
+		// Show git info
+		if fb.IsGitRepo {
+			fmt.Printf("Git:          📦 Repository")
+			if fb.GitBranch != "" {
+				fmt.Printf(" (branch: %s)", fb.GitBranch)
+			}
+			fmt.Println()
+			if fb.GitRemoteURL != "" {
+				fmt.Printf("Git Remote:   %s (%s)\n", fb.GitRemoteURL, fb.GitRemoteName)
+			} else {
+				fmt.Printf("Git Remote:   No remote configured (local only)\n")
+			}
+		} else {
+			fmt.Printf("Git:          Not a git repository\n")
+		}
+
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println()
 
 		// Ask what to do with this brain
+		actionItems := []string{}
+		if !fb.IsInWorkspace {
+			actionItems = append(actionItems, "✨ Initialize and add to workspace")
+		}
+		actionItems = append(actionItems, "◀️  Back to brain list")
+
 		actionPrompt := promptui.Select{
 			Label: "What would you like to do?",
-			Items: []string{
-				"✨ Initialize and add to workspace",
-				"◀️  Back to brain list",
-			},
+			Items: actionItems,
 		}
 
 		actionIdx, _, err := actionPrompt.Run()
 		if err != nil {
 			return nil
+		}
+
+		// If brain is already in workspace, only "Back" is available (index 0)
+		if fb.IsInWorkspace {
+			continue // Back to brain list
 		}
 
 		if actionIdx == 0 {
@@ -292,4 +397,178 @@ func depth(path, base string) int {
 		return 0
 	}
 	return strings.Count(rel, string(os.PathSeparator))
+}
+
+// shortenPath returns a shortened version of a path for display
+func shortenPath(fullPath string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && strings.HasPrefix(fullPath, home) {
+		shortened := "~" + strings.TrimPrefix(fullPath, home)
+		// Further shorten if still too long (> 50 chars)
+		if len(shortened) > 50 {
+			parts := strings.Split(shortened, string(os.PathSeparator))
+			if len(parts) > 3 {
+				return "~/" + parts[1] + "/.../" + strings.Join(parts[len(parts)-2:], "/")
+			}
+		}
+		return shortened
+	}
+
+	// Show last 3 path components if path is very long
+	if len(fullPath) > 60 {
+		parts := strings.Split(fullPath, string(os.PathSeparator))
+		if len(parts) > 4 {
+			return ".../" + strings.Join(parts[len(parts)-3:], "/")
+		}
+	}
+
+	return fullPath
+} // checkIfInWorkspace checks if a brain path is already in the active workspace
+func checkIfInWorkspace(brainPath string) (bool, string) {
+	config, err := loadWorkspaceConfig()
+	if err != nil || config.ActiveWorkspace == "" {
+		return false, ""
+	}
+
+	// Find active workspace
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			// Check if path matches any brain in this workspace
+			for _, b := range ws.Brains {
+				// Normalize paths for comparison
+				absPath, _ := filepath.Abs(b.Path)
+				absBrainPath, _ := filepath.Abs(brainPath)
+				if absPath == absBrainPath {
+					return true, ws.Name
+				}
+			}
+			return false, ""
+		}
+	}
+
+	return false, ""
+}
+
+// countContentFiles counts markdown, text, org and other content files
+func countContentFiles(base string) int {
+	count := 0
+	extensions := []string{".md", ".txt", ".org", ".markdown", ".rst"}
+
+	_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			lower := strings.ToLower(info.Name())
+			for _, ext := range extensions {
+				if strings.HasSuffix(lower, ext) {
+					count++
+					break
+				}
+			}
+		}
+		// Don't go too deep
+		if depth(path, base) > 2 {
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	return count
+}
+
+// detectSyncService checks if a path is inside a cloud sync folder
+func detectSyncService(path string) string {
+	// Common sync service patterns (macOS paths)
+	syncPatterns := map[string][]string{
+		"Dropbox":      {"/Dropbox/", "Dropbox (Personal)", "Dropbox (Business)"},
+		"Google Drive": {"/Google Drive/", "/GoogleDrive/", "Google Drive File Stream"},
+		"iCloud Drive": {"/Library/Mobile Documents/com~apple~CloudDocs/", "/iCloud Drive/"},
+		"OneDrive":     {"/OneDrive/", "/OneDrive - /"},
+		"SharePoint":   {"/SharePoint/"},
+		"Box":          {"/Box/", "/Box Sync/"},
+		"Nextcloud":    {"/Nextcloud/"},
+		"ownCloud":     {"/ownCloud/"},
+		"Syncthing":    {"/Syncthing/"},
+		"Resilio Sync": {"/Resilio Sync/", "/.sync/"},
+		"pCloud":       {"/pCloudDrive/", "/pCloud/"},
+		"MEGA":         {"/MEGA/", "/MEGAsync/"},
+		"SugarSync":    {"/SugarSync/"},
+		"SpiderOak":    {"/SpiderOak/"},
+	}
+
+	// Normalize path for comparison
+	normalizedPath := filepath.Clean(path)
+
+	for service, patterns := range syncPatterns {
+		for _, pattern := range patterns {
+			if strings.Contains(normalizedPath, pattern) {
+				return service
+			}
+		}
+	}
+
+	return ""
+}
+
+// GitInfo holds git repository information
+type GitInfo struct {
+	IsRepo     bool
+	RemoteName string
+	RemoteURL  string
+	Branch     string
+}
+
+// detectGitInfo checks if a path is a git repository and extracts remote info
+func detectGitInfo(path string) GitInfo {
+	info := GitInfo{}
+
+	// Check if .git directory exists
+	gitDir := filepath.Join(path, ".git")
+	if stat, err := os.Stat(gitDir); err != nil || !stat.IsDir() {
+		return info
+	}
+
+	info.IsRepo = true
+
+	// Read current branch
+	headFile := filepath.Join(gitDir, "HEAD")
+	if headData, err := os.ReadFile(headFile); err == nil {
+		headStr := strings.TrimSpace(string(headData))
+		if strings.HasPrefix(headStr, "ref: refs/heads/") {
+			info.Branch = strings.TrimPrefix(headStr, "ref: refs/heads/")
+		}
+	}
+
+	// Read remote info (look for origin first, then any remote)
+	configFile := filepath.Join(gitDir, "config")
+	if configData, err := os.ReadFile(configFile); err == nil {
+		lines := strings.Split(string(configData), "\n")
+		var currentRemote string
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+
+			// Check for remote section
+			if strings.HasPrefix(line, "[remote \"") && strings.HasSuffix(line, "\"]") {
+				currentRemote = strings.TrimSuffix(strings.TrimPrefix(line, "[remote \""), "\"]")
+			}
+
+			// Check for URL in current remote
+			if currentRemote != "" && strings.HasPrefix(line, "url = ") {
+				url := strings.TrimPrefix(line, "url = ")
+
+				// Prefer origin, but keep first remote found
+				if currentRemote == "origin" || info.RemoteName == "" {
+					info.RemoteName = currentRemote
+					info.RemoteURL = url
+				}
+
+				if currentRemote == "origin" {
+					break // Found origin, no need to continue
+				}
+			}
+		}
+	}
+
+	return info
 }
