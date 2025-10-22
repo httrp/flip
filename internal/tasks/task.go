@@ -29,33 +29,33 @@ const (
 
 // Task represents a single task with all metadata
 type Task struct {
-	ID          string    // Unique identifier (hash-based)
-	Description string    // Task text
-	Status      Status    // Current status
-	
+	ID          string // Unique identifier (hash-based)
+	Description string // Task text
+	Status      Status // Current status
+
 	// Timestamps
 	Created   time.Time
 	Started   *time.Time
 	Due       *time.Time
 	Completed *time.Time
-	
+
 	// Priority & Effort
 	Priority Priority
 	Effort   string // "2h", "1d", "3w"
-	
+
 	// Categorization
 	Tags     []string
 	Project  string // [[Project Name]]
 	Assigned string
-	
+
 	// Context - where this task lives
 	Context TaskContext
-	
+
 	// Relationships
 	DependsOn []string // Task IDs this task depends on
 	Blocks    []string // Task IDs this task blocks
 	RelatedTo []string // Related note links
-	
+
 	// Additional metadata
 	Recurring *RecurringPattern
 	Notes     string // Additional notes below task
@@ -102,9 +102,9 @@ func (t *Task) IsDueToday() bool {
 	}
 	now := time.Now()
 	dueDate := t.Due
-	return dueDate.Year() == now.Year() && 
-	       dueDate.Month() == now.Month() && 
-	       dueDate.Day() == now.Day()
+	return dueDate.Year() == now.Year() &&
+		dueDate.Month() == now.Month() &&
+		dueDate.Day() == now.Day()
 }
 
 // IsDueThisWeek returns true if the task is due within the next 7 days

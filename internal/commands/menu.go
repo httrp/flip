@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/httrp/flip/internal/lang"
+	"github.com/httrp/flip/internal/tasks"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -323,6 +324,18 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
+			Label:       "📋 Browse Tasks",
+			Description: "View and manage tasks across all brains",
+			Action: func() error {
+				if err := runTaskBrowseMenu(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+				}
+				return runBrowseSearchMenu()
+			},
+		},
+		{
 			Label:       "◀️  Back to Main Menu",
 			Description: "",
 			Action:      runInteractiveMenu,
@@ -406,7 +419,9 @@ func runCreateNewMenu() error {
 			Label:       "✅ Task",
 			Description: "Create a new task",
 			Action: func() error {
-				fmt.Println("\n🚧 Task creation coming soon!")
+				if err := runCreateTask(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
@@ -1409,6 +1424,138 @@ func runEditBrainMenu() error {
 	idx, _, err := selectMenu.Run()
 	if err != nil {
 		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runTaskBrowseMenu shows submenu for browsing and managing tasks
+func runTaskBrowseMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📋 All Open Tasks",
+			Description: "View all open tasks across all brains",
+			Action: func() error {
+				filter := tasks.TaskFilter{
+					Status: tasks.StatusOpen,
+				}
+				if err := runListTasks(filter); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "📅 Due Today",
+			Description: "Tasks due today",
+			Action: func() error {
+				filter := tasks.TaskFilter{
+					DueToday: true,
+				}
+				if err := runListTasks(filter); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "📆 Due This Week",
+			Description: "Tasks due within the next 7 days",
+			Action: func() error {
+				filter := tasks.TaskFilter{
+					DueThisWeek: true,
+				}
+				if err := runListTasks(filter); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "🚨 Overdue Tasks",
+			Description: "Tasks past their due date",
+			Action: func() error {
+				filter := tasks.TaskFilter{
+					Overdue: true,
+				}
+				if err := runListTasks(filter); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "⏫ High Priority",
+			Description: "View high priority tasks",
+			Action: func() error {
+				filter := tasks.TaskFilter{
+					Priority: tasks.PriorityHigh,
+					Status:   tasks.StatusOpen,
+				}
+				if err := runListTasks(filter); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "📊 Task Statistics",
+			Description: "View task statistics and completion rates",
+			Action: func() error {
+				if err := runTaskStats(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Scanln()
+				return runTaskBrowseMenu()
+			},
+		},
+		{
+			Label:       "◀️  Back",
+			Description: "Return to Browse & Search menu",
+			Action:      runBrowseSearchMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+		Details: `
+--------- Details ----------
+{{ "Description:" | faint }}  {{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Task Management",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runBrowseSearchMenu()
 	}
 
 	fmt.Println()
