@@ -13,6 +13,7 @@ const (
 	BrainTypeObsidian BrainType = "obsidian"
 	BrainTypeLogseq   BrainType = "logseq"
 	BrainTypeDendron  BrainType = "dendron"
+	BrainTypeFoam     BrainType = "foam"
 	BrainTypeFlip     BrainType = "flip"
 	BrainTypeEmpty    BrainType = "empty"
 	BrainTypeUnknown  BrainType = "unknown"
@@ -84,6 +85,13 @@ func (d *Detector) DetectBrainType(path string) (*DetectionResult, error) {
 		return result, nil
 	}
 
+	if d.isFoamBrain(path, result) {
+		result.Type = BrainTypeFoam
+		result.Description = "Foam Brain detected"
+		result.Compatible = true
+		return result, nil
+	}
+
 	if d.isFlipBrain(path, result) {
 		result.Type = BrainTypeFlip
 		result.Description = "Flip Brain detected"
@@ -148,13 +156,23 @@ func (d *Detector) isLogseqGraph(path string, result *DetectionResult) bool {
 		indicators = append(indicators, ".logseq/ folder found")
 	}
 
+	// Check for journals and pages directories (core Logseq structure)
+	journalsDir := filepath.Join(path, "journals")
+	if info, err := os.Stat(journalsDir); err == nil && info.IsDir() {
+		indicators = append(indicators, "journals/ directory found")
+	}
+
+	pagesDir := filepath.Join(path, "pages")
+	if info, err := os.Stat(pagesDir); err == nil && info.IsDir() {
+		indicators = append(indicators, "pages/ directory found")
+	}
+
 	// Check for common Logseq files
 	commonFiles := []string{
 		".logseq/config.edn",
 		".logseq/metadata.edn",
 		"logseq/config.edn",
 		"pages/contents.md",
-		"journals/",
 	}
 
 	for _, file := range commonFiles {
@@ -193,6 +211,31 @@ func (d *Detector) isDendronWorkspace(path string, result *DetectionResult) bool
 	vaultDirs, err := filepath.Glob(filepath.Join(path, "vault*"))
 	if err == nil && len(vaultDirs) > 0 {
 		indicators = append(indicators, "vault directories found")
+	}
+
+	result.Indicators = append(result.Indicators, indicators...)
+	return len(indicators) > 0
+}
+
+func (d *Detector) isFoamBrain(path string, result *DetectionResult) bool {
+	indicators := []string{}
+
+	// Check for .foam folder
+	foamDir := filepath.Join(path, ".foam")
+	if _, err := os.Stat(foamDir); err == nil {
+		indicators = append(indicators, ".foam/ folder found")
+	}
+
+	// Check for typical Foam structure files
+	commonFiles := []string{
+		".vscode/foam.code-snippets",
+		".vscode/settings.json",
+	}
+
+	for _, file := range commonFiles {
+		if _, err := os.Stat(filepath.Join(path, file)); err == nil {
+			indicators = append(indicators, file+" found")
+		}
 	}
 
 	result.Indicators = append(result.Indicators, indicators...)
@@ -262,6 +305,8 @@ func (d *Detector) GetCompatibilityInfo(brainType BrainType) string {
 		return "Flip can work alongside Logseq, using compatible block references and daily notes structure."
 	case BrainTypeDendron:
 		return "Flip can integrate with Dendron's hierarchical note structure and schema system."
+	case BrainTypeFoam:
+		return "Flip can work alongside Foam, using compatible markdown notes and wikilinks."
 	case BrainTypeFlip:
 		return "This is already a Flip-managed brain. You can enhance it with additional features."
 	case BrainTypeEmpty:

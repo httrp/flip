@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,7 +54,7 @@ func NewScanCommand() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&minBrainFiles, "min-brain-files", 10, "Minimum markdown files for recognized brain types (Obsidian, Logseq, Dendron)")
-	cmd.Flags().IntVar(&minContentFiles, "min-content-files", 100, "Minimum content files for potential brains without markers")
+	cmd.Flags().IntVar(&minContentFiles, "min-content-files", 50, "Minimum content files for potential brains without markers")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 4, "Maximum directory depth to scan")
 	cmd.Flags().BoolVar(&showPotential, "show-potential", true, "Show potential brains (folders with many content files)")
 
@@ -71,7 +72,7 @@ type ScanOptions struct {
 func runScan(scanPath string) error {
 	return runScanWithOptions(scanPath, ScanOptions{
 		MinBrainFiles:   10,
-		MinContentFiles: 100,
+		MinContentFiles: 50,
 		MaxDepth:        4,
 		ShowPotential:   true,
 	})
@@ -180,6 +181,29 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 			return nil
 		}
 
+		// Check if this is a subdirectory of a git repo
+		// If so, check if the git root is a better match
+		gitRoot := getGitRoot(path)
+		if gitRoot != "" && gitRoot != path {
+			// Check if git root has brain markers or significant content
+			gitRootResult, _ := detector.DetectBrainType(gitRoot)
+			gitRootMdCount := countMarkdownFiles(gitRoot)
+			gitRootContentCount := countContentFiles(gitRoot)
+
+			// Special case: If git root has journals+pages structure (Logseq), prefer it
+			gitHasLogseqStructure := hasDir(gitRoot, "journals") && hasDir(gitRoot, "pages")
+
+			// If git root has brain markers OR significant content OR Logseq structure, skip this subdirectory
+			// (we'll find the git root later in the scan)
+			hasGitRootMarkers := gitRootResult.Type != brain.BrainTypeUnknown
+			hasGitRootContent := gitRootContentCount >= 30 || gitRootMdCount >= 10
+
+			if hasGitRootMarkers || hasGitRootContent || gitHasLogseqStructure {
+				// Skip this subdirectory, we'll pick up the git root instead
+				return filepath.SkipDir
+			}
+		}
+
 		// Check for content files (markdown, txt, org, etc.)
 		contentCount := countContentFiles(path)
 		mdCount := countMarkdownFiles(path)
@@ -192,13 +216,34 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		case brain.BrainTypeObsidian:
 			isValid = hasDir(path, ".obsidian") && mdCount > options.MinBrainFiles
 		case brain.BrainTypeLogseq:
-			isValid = hasDir(path, ".logseq") && (hasDir(path, "journals") || hasDir(path, "pages")) && mdCount > options.MinBrainFiles
+			// Logseq can be detected either by .logseq marker OR by journals+pages structure
+			hasMarker := hasDir(path, ".logseq")
+			hasStructure := hasDir(path, "journals") && hasDir(path, "pages")
+			isValid = (hasMarker || hasStructure) && mdCount > options.MinBrainFiles
+			if isValid && !hasMarker && hasStructure {
+				result.Description = "Logseq Graph (no marker)"
+				result.Indicators = []string{"journals/ and pages/ directories"}
+			}
 		case brain.BrainTypeDendron:
 			isValid = fileExists(path, "dendron.yml") && mdCount > options.MinBrainFiles
+		case brain.BrainTypeFoam:
+			isValid = hasDir(path, ".foam") && mdCount > options.MinBrainFiles
 		case brain.BrainTypeFlip:
 			isValid = (fileExists(path, ".flip-brain.yaml") || fileExists(path, ".flip.yaml")) && mdCount > 3
-		default:
-			// Check for content-rich folders without specific brain markers (if enabled)
+		case brain.BrainTypeUnknown:
+			// Check if this looks like a Logseq structure without .logseq marker
+			hasJournals := hasDir(path, "journals")
+			hasPages := hasDir(path, "pages")
+			if hasJournals && hasPages && contentCount > options.MinBrainFiles {
+				// This looks like Logseq without the marker
+				isValid = true
+				result.Type = brain.BrainTypeLogseq
+				result.Description = "Logseq Graph (no marker)"
+				result.Indicators = []string{"journals/ and pages/ directories"}
+				break
+			}
+
+			// Otherwise check for content-rich folders (if enabled)
 			if options.ShowPotential && contentCount >= options.MinContentFiles {
 				isValid = true
 				isPotential = true
@@ -246,6 +291,26 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 	if len(foundBrains) == 0 {
 		fmt.Println("\n✗ No 2nd brain workspaces found.")
 		return nil
+	}
+
+	// Sort results: recognized brain types first (by confidence), then potential folders
+	// Within each category, sort by file count (descending)
+	sort.Slice(foundBrains, func(i, j int) bool {
+		iPotential := foundBrains[i].IsPotential
+		jPotential := foundBrains[j].IsPotential
+
+		// Recognized types come before potential folders
+		if iPotential != jPotential {
+			return !iPotential // false (recognized) comes before true (potential)
+		}
+
+		// Within same category, sort by markdown file count (more files = higher confidence)
+		return foundBrains[i].MdCount > foundBrains[j].MdCount
+	})
+
+	// Renumber after sorting
+	for idx := range foundBrains {
+		foundBrains[idx].Number = idx + 1
 	}
 
 	// Display found brains with summary
@@ -590,6 +655,27 @@ func detectSyncService(path string) string {
 		}
 	}
 
+	return ""
+}
+
+// getGitRoot returns the git repository root for a given path, or empty string if not in a git repo
+func getGitRoot(path string) string {
+	// Walk up the directory tree looking for .git
+	current := path
+	for {
+		gitDir := filepath.Join(current, ".git")
+		if stat, err := os.Stat(gitDir); err == nil && stat.IsDir() {
+			return current
+		}
+
+		// Move to parent directory
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached filesystem root
+			break
+		}
+		current = parent
+	}
 	return ""
 }
 
