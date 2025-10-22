@@ -42,27 +42,5 @@ func displayStatusHeader() {
 	}
 
 	fmt.Println()
-
-	// Quick health check - show warning if issues detected
-	issueCount := 0
-	warningCount := 0
-	for _, b := range activeWS.Brains {
-		health := checkBrainHealth(b.Path)
-		if health.HasIssues {
-			issueCount++
-		}
-		if len(health.Warnings) > 0 {
-			warningCount++
-		}
-	}
-
-	if issueCount > 0 {
-		fmt.Printf("⚠️  %d brain(s) with issues - check status for details", issueCount)
-		fmt.Println()
-	} else if warningCount > 0 {
-		fmt.Printf("⚡ %d brain(s) need attention", warningCount)
-		fmt.Println()
-	}
-
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
