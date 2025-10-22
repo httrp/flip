@@ -36,6 +36,8 @@ func main() {
 	brainCmd := commands.NewBrainCommand()
 	brainCmd.AddCommand(commands.NewInitCommand())
 	brainCmd.AddCommand(commands.NewScanCommand())
+	brainCmd.AddCommand(commands.NewRecentCommand())
+	brainCmd.AddCommand(commands.NewSearchCommand())
 	rootCmd.AddCommand(brainCmd)
 	// Register 'new', 'note', 'meeting', 'journal', and 'template' commands at root level
 	rootCmd.AddCommand(commands.NewNewCommand())

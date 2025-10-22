@@ -70,6 +70,11 @@ func runInteractiveMenu() error {
 			Action:      runSwitchWorkspaceMenu,
 		},
 		{
+			Label:       "🔍 Browse & Search",
+			Description: "Browse recent notes, search across workspace",
+			Action:      runBrowseSearchMenu,
+		},
+		{
 			Label:       "✏️  Edit / Manage",
 			Description: "Edit, rename, repair workspaces and brains",
 			Action:      runEditManageMenu,
@@ -252,6 +257,98 @@ func runCreateAddMenu() error {
 		Items:     menuItems,
 		Templates: templates,
 		Size:      8,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runBrowseSearchMenu shows submenu for browsing and searching notes
+func runBrowseSearchMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📝 Recent Notes",
+			Description: "View recently modified notes across all brains",
+			Action: func() error {
+				if err := showRecentNotes(20); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+				}
+				return runBrowseSearchMenu()
+			},
+		},
+		{
+			Label:       "🔍 Search Notes",
+			Description: "Search for notes by keyword",
+			Action: func() error {
+				fmt.Print("\n🔍 Enter search query: ")
+				var query string
+				fmt.Scanln(&query)
+
+				if query == "" {
+					fmt.Println("No query entered")
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+					return runBrowseSearchMenu()
+				}
+
+				// Ask if content search is needed
+				contentPrompt := promptui.Select{
+					Label: "Search in",
+					Items: []string{"Filename only (fast)", "Filename and content (slower)"},
+				}
+
+				contentIdx, _, err := contentPrompt.Run()
+				if err != nil {
+					return runBrowseSearchMenu()
+				}
+
+				searchContent := contentIdx == 1
+
+				if err := searchNotes(query, searchContent); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Scanln()
+				}
+				return runBrowseSearchMenu()
+			},
+		},
+		{
+			Label:       "◀️  Back to Main Menu",
+			Description: "",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green }}",
+		Details: `
+--------- Browse & Search ---------
+{{ "Description:" | faint }}	{{ .Description }}`,
+	}
+
+	selectMenu := promptui.Select{
+		Label:     "Browse & Search Notes",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      10,
 	}
 
 	idx, _, err := selectMenu.Run()
