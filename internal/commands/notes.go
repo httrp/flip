@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,6 +18,7 @@ type NoteFile struct {
 	Path         string
 	RelativePath string
 	BrainName    string
+	BrainPath    string // Root path of the brain (git repo)
 	ModTime      time.Time
 	Size         int64
 }
@@ -103,15 +105,26 @@ func showRecentNotes(limit int) error {
 		return nil
 	}
 
-	// Sort by modification time (newest first)
+	// Sort by modification time (newest first) for initial filtering
 	sort.Slice(allNotes, func(i, j int) bool {
 		return allNotes[i].ModTime.After(allNotes[j].ModTime)
 	})
 
-	// Limit results
+	// Limit results first to reduce git calls
 	if len(allNotes) > limit {
 		allNotes = allNotes[:limit]
 	}
+
+	// Now get accurate git creation times for the top notes only
+	fmt.Println("🕐 Getting accurate timestamps from git...")
+	for i := range allNotes {
+		allNotes[i].ModTime = getGitCreationTime(allNotes[i].Path, allNotes[i].BrainPath)
+	}
+
+	// Re-sort by git creation time (newest first)
+	sort.Slice(allNotes, func(i, j int) bool {
+		return allNotes[i].ModTime.After(allNotes[j].ModTime)
+	})
 
 	// Display and allow selection
 	return displayAndSelectNotes(allNotes, fmt.Sprintf("Recent Notes (Top %d)", limit))
@@ -239,6 +252,7 @@ func collectNotesFromBrain(brainPath, brainName string) ([]NoteFile, error) {
 			Path:         path,
 			RelativePath: relPath,
 			BrainName:    brainName,
+			BrainPath:    brainPath,
 			ModTime:      info.ModTime(),
 			Size:         info.Size(),
 		})
@@ -247,6 +261,59 @@ func collectNotesFromBrain(brainPath, brainName string) ([]NoteFile, error) {
 	})
 
 	return notes, err
+}
+
+// getGitCreationTime returns the time of the first commit for a file.
+// Returns the filesystem ModTime as fallback if git fails.
+func getGitCreationTime(filePath, brainPath string) time.Time {
+	// Get relative path from brain root for git
+	relPath, err := filepath.Rel(brainPath, filePath)
+	if err != nil {
+		// Fallback to filesystem time
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return time.Time{}
+		}
+		return info.ModTime()
+	}
+
+	// Try to get git creation time (first commit)
+	cmd := exec.Command("git", "log", "--follow", "--format=%aI", "--reverse", "--", relPath)
+	cmd.Dir = brainPath // Run from brain root (git repository root)
+
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback to filesystem time if git fails
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return time.Time{}
+		}
+		return info.ModTime()
+	}
+
+	// Parse the first (oldest) commit timestamp
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		// No git history, use filesystem time
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return time.Time{}
+		}
+		return info.ModTime()
+	}
+
+	// Parse ISO 8601 timestamp
+	timestamp, err := time.Parse(time.RFC3339, strings.TrimSpace(lines[0]))
+	if err != nil {
+		// Fallback to filesystem time
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return time.Time{}
+		}
+		return info.ModTime()
+	}
+
+	return timestamp
 }
 
 func contentMatches(filePath, query string) bool {
