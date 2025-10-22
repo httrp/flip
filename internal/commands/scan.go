@@ -13,6 +13,11 @@ import (
 )
 
 func NewScanCommand() *cobra.Command {
+	var minBrainFiles int
+	var minContentFiles int
+	var maxDepth int
+	var showPotential bool
+
 	cmd := &cobra.Command{
 		Use:   "scan [path]",
 		Short: "Scan a directory for 2nd brain workspaces",
@@ -38,14 +43,46 @@ func NewScanCommand() *cobra.Command {
 			if input != "" {
 				scanPath = input
 			}
-			return runScan(scanPath)
+			return runScanWithOptions(scanPath, ScanOptions{
+				MinBrainFiles:   minBrainFiles,
+				MinContentFiles: minContentFiles,
+				MaxDepth:        maxDepth,
+				ShowPotential:   showPotential,
+			})
 		},
 	}
+
+	cmd.Flags().IntVar(&minBrainFiles, "min-brain-files", 10, "Minimum markdown files for recognized brain types (Obsidian, Logseq, Dendron)")
+	cmd.Flags().IntVar(&minContentFiles, "min-content-files", 100, "Minimum content files for potential brains without markers")
+	cmd.Flags().IntVar(&maxDepth, "max-depth", 4, "Maximum directory depth to scan")
+	cmd.Flags().BoolVar(&showPotential, "show-potential", true, "Show potential brains (folders with many content files)")
+
 	return cmd
 }
 
+// ScanOptions contains configurable thresholds for scanning
+type ScanOptions struct {
+	MinBrainFiles   int  // Minimum files for recognized brain types
+	MinContentFiles int  // Minimum files for potential brains
+	MaxDepth        int  // Maximum scan depth
+	ShowPotential   bool // Whether to show potential brains
+}
+
 func runScan(scanPath string) error {
-	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n\n", scanPath)
+	return runScanWithOptions(scanPath, ScanOptions{
+		MinBrainFiles:   10,
+		MinContentFiles: 100,
+		MaxDepth:        4,
+		ShowPotential:   true,
+	})
+}
+
+func runScanWithOptions(scanPath string, options ScanOptions) error {
+	fmt.Printf("> Scanning %s for 2nd brain workspaces...\n", scanPath)
+	if !options.ShowPotential {
+		fmt.Printf("> Showing only recognized brain types (Obsidian, Logseq, Dendron, Flip)\n")
+	}
+	fmt.Println()
 
 	type FoundBrain struct {
 		Number        int
@@ -68,8 +105,49 @@ func runScan(scanPath string) error {
 	}
 
 	var foundBrains []FoundBrain
-	maxDepth := 5
-	excludeDirs := []string{".vscode", ".oh-my-zsh", "Library", "AppData", "Program Files", "node_modules", "Applications"}
+
+	// Comprehensive exclude list for scanning
+	excludeDirs := []string{
+		// Development environments
+		"node_modules", ".npm", ".yarn", ".pnpm",
+		"vendor", "venv", "env", ".venv", ".env",
+		"go", "pkg", "bin", "target", "build", "dist",
+		".gradle", ".maven", ".cargo", ".rustup",
+		"Cargo.lock", "package-lock.json",
+
+		// Version control & IDEs
+		".git", ".svn", ".hg",
+		".vscode", ".idea", ".eclipse", ".vs",
+
+		// System directories (macOS)
+		"Library", "Applications", "System", "Volumes",
+		"private", "opt", "usr", "var", "tmp",
+		".Trash", ".DocumentRevisions-V100", ".Spotlight-V100",
+		".TemporaryItems", ".fseventsd",
+		"Downloads", "Music", "Movies", "Pictures", // Usually not brain locations
+
+		// System directories (Windows)
+		"AppData", "Program Files", "Program Files (x86)",
+		"Windows", "ProgramData",
+
+		// Package managers & caches
+		".cache", ".local", ".config",
+		"__pycache__", ".pytest_cache",
+		".next", ".nuxt", ".output",
+		"coverage", ".coverage",
+
+		// Common hidden/config directories
+		".oh-my-zsh", ".zsh", ".vim", ".emacs.d",
+		".ssh", ".gnupg", ".docker",
+
+		// Cloud sync internal folders (don't scan inside these)
+		".dropbox.cache", ".dropbox",
+		".icloud", "iCloud~",
+
+		// Other
+		"Parallels", "VirtualBox VMs", "Docker",
+		"snap", "flatpak",
+	}
 
 	err := filepath.Walk(scanPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -79,8 +157,13 @@ func runScan(scanPath string) error {
 			return nil
 		}
 
+		// Skip hidden directories at root level (anything starting with .)
+		if strings.HasPrefix(info.Name(), ".") && path != scanPath {
+			return filepath.SkipDir
+		}
+
 		// Limit scan depth for performance
-		if depth(path, scanPath) > maxDepth {
+		if depth(path, scanPath) > options.MaxDepth {
 			return filepath.SkipDir
 		}
 
@@ -107,16 +190,16 @@ func runScan(scanPath string) error {
 
 		switch result.Type {
 		case brain.BrainTypeObsidian:
-			isValid = hasDir(path, ".obsidian") && mdCount > 5
+			isValid = hasDir(path, ".obsidian") && mdCount > options.MinBrainFiles
 		case brain.BrainTypeLogseq:
-			isValid = hasDir(path, ".logseq") && (hasDir(path, "journals") || hasDir(path, "pages")) && mdCount > 5
+			isValid = hasDir(path, ".logseq") && (hasDir(path, "journals") || hasDir(path, "pages")) && mdCount > options.MinBrainFiles
 		case brain.BrainTypeDendron:
-			isValid = fileExists(path, "dendron.yml") && mdCount > 5
+			isValid = fileExists(path, "dendron.yml") && mdCount > options.MinBrainFiles
 		case brain.BrainTypeFlip:
-			isValid = fileExists(path, ".flip-brain.yaml") || fileExists(path, ".flip.yaml")
+			isValid = (fileExists(path, ".flip-brain.yaml") || fileExists(path, ".flip.yaml")) && mdCount > 3
 		default:
-			// Check for content-rich folders without specific brain markers
-			if contentCount >= 20 {
+			// Check for content-rich folders without specific brain markers (if enabled)
+			if options.ShowPotential && contentCount >= options.MinContentFiles {
 				isValid = true
 				isPotential = true
 				result.Type = brain.BrainTypeFlip // Default type for potential brains
