@@ -273,6 +273,11 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		}
 
 		if isValid {
+			// Don't add system-critical paths as brains (but continue scanning their children)
+			if IsSystemCriticalPath(path) {
+				return nil
+			}
+
 			lastMod := getLastModified(path)
 			isInWs, wsName := checkIfInWorkspace(path)
 			displayPath := shortenPath(path)
@@ -531,6 +536,55 @@ func getLastModified(base string) string {
 	}
 	return time.Unix(lastMod, 0).Format("2006-01-02 15:04")
 }
+
+// IsSystemCriticalPath checks if a path is a system-critical directory that should never be a brain
+func IsSystemCriticalPath(path string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	// Get home directory for comparison
+	homeDir, _ := os.UserHomeDir()
+	usersDir := filepath.Dir(homeDir) // Usually /Users on macOS, /home on Linux
+
+	// List of critical paths that should never be brains
+	criticalPaths := []string{
+		"/",                 // Root filesystem
+		"/System",           // macOS system
+		"/Library",          // macOS system library
+		"/Applications",     // macOS applications
+		"/usr",              // Unix system
+		"/var",              // Unix variables
+		"/tmp",              // Temporary
+		"/opt",              // Optional software
+		"/bin",              // Binaries
+		"/sbin",             // System binaries
+		"/etc",              // System configuration
+		"/dev",              // Devices
+		"/proc",             // Process info (Linux)
+		"/sys",              // System info (Linux)
+		homeDir,             // User home directory
+		usersDir,            // /Users or /home directory
+		"C:\\",              // Windows root
+		"C:\\Windows",       // Windows system
+		"C:\\Program Files", // Windows programs
+		"C:\\Program Files (x86)",
+	}
+
+	// Clean paths for comparison
+	absPath = filepath.Clean(absPath)
+
+	// Check exact matches
+	for _, critical := range criticalPaths {
+		if critical != "" && absPath == filepath.Clean(critical) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func hasDir(base, name string) bool {
 	info, err := os.Stat(filepath.Join(base, name))
 	return err == nil && info.IsDir()

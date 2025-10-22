@@ -64,6 +64,11 @@ func runDirectoryInitWithName(directory, brainName, template string, force bool)
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
+	// Prevent initialization in system-critical directories
+	if IsSystemCriticalPath(absPath) {
+		return fmt.Errorf("cannot initialize brain in system-critical directory: %s\nPlease choose a directory within your home folder or a dedicated workspace location", absPath)
+	}
+
 	// Prevent initialization in flip source/project folder
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
 	for _, marker := range projectMarkers {
