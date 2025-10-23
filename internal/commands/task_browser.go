@@ -46,16 +46,18 @@ var (
 
 // taskBrowserModel is the bubbletea model for interactive task browsing
 type taskBrowserModel struct {
-	tasks         []*tasks.Task
-	filteredTasks []*tasks.Task
-	cursor        int
-	selected      map[int]struct{}
-	filterMode    string // "all", "today", "week", "overdue", "high"
-	searchQuery   string
-	width         int
-	height        int
-	showHelp      bool
-	groupByFile   bool
+	tasks              []*tasks.Task
+	filteredTasks      []*tasks.Task
+	cursor             int
+	selected           map[int]struct{}
+	filterMode         string // "all", "today", "week", "overdue", "high", "done", "org", "context"
+	organizationFilter string // Current organization filter
+	contextFilter      string // Current context filter
+	searchQuery        string
+	width              int
+	height             int
+	showHelp           bool
+	groupByFile        bool
 }
 
 // NewTaskBrowser creates a new interactive task browser

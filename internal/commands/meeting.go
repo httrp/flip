@@ -105,6 +105,42 @@ func runCreateMeeting() error {
 	}
 	participants = strings.TrimSpace(participants)
 
+	// Prompt for organization
+	promptOrganization := promptui.Prompt{
+		Label:   "Organization (e.g., P1174, DANORAMA, optional)",
+		Default: "",
+	}
+
+	organization, err := promptOrganization.Run()
+	if err != nil {
+		return fmt.Errorf("organization prompt cancelled: %w", err)
+	}
+	organization = strings.TrimSpace(organization)
+
+	// Prompt for project
+	promptProject := promptui.Prompt{
+		Label:   "Project (optional)",
+		Default: "",
+	}
+
+	project, err := promptProject.Run()
+	if err != nil {
+		return fmt.Errorf("project prompt cancelled: %w", err)
+	}
+	project = strings.TrimSpace(project)
+
+	// Prompt for context
+	promptContext := promptui.Prompt{
+		Label:   "Context (e.g., BACKEND, FINANCE, optional)",
+		Default: "",
+	}
+
+	context, err := promptContext.Run()
+	if err != nil {
+		return fmt.Errorf("context prompt cancelled: %w", err)
+	}
+	context = strings.TrimSpace(context)
+
 	// Prompt for tags
 	promptTags := promptui.Prompt{
 		Label:   "Tags (comma-separated, optional)",
@@ -146,7 +182,7 @@ func runCreateMeeting() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content
-	content := generateMeetingContent(title, participants, tags, detection.Type, activeBrain.Path)
+	content := generateMeetingContent(title, participants, organization, project, context, tags, detection.Type, activeBrain.Path)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -185,7 +221,7 @@ func generateMeetingFilename(title string, brainType brain.BrainType) string {
 }
 
 // generateMeetingContent creates meeting note content
-func generateMeetingContent(title, participants, tags string, brainType brain.BrainType, brainPath string) string {
+func generateMeetingContent(title, participants, organization, project, context, tags string, brainType brain.BrainType, brainPath string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
@@ -219,7 +255,7 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 	if err != nil {
 		// Fallback to hardcoded template if file not found
 		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		return generateDefaultMeetingContent(title, participantList, tagList, brainType, now, dateStr, timeStr, author)
+		return generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, brainType, now, dateStr, timeStr, author)
 	}
 
 	// Prepare template variables
@@ -228,6 +264,9 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 		"date":         dateStr,
 		"time":         timeStr,
 		"participants": participantList,
+		"organization": organization,
+		"project":      project,
+		"context":      context,
 		"tags":         tagList,
 		"author":       author,
 		"id":           uuid.New().String(), // Proper UUID for Dendron compatibility
@@ -239,16 +278,43 @@ func generateMeetingContent(title, participants, tags string, brainType brain.Br
 }
 
 // generateDefaultMeetingContent provides fallback templates when template files don't exist
-func generateDefaultMeetingContent(title, participantList, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
+func generateDefaultMeetingContent(title, participantList, organization, project, context, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
+	// Build frontmatter fields
+	frontmatterOrg := ""
+	if organization != "" {
+		frontmatterOrg = fmt.Sprintf("\norganization: %s", organization)
+	}
+	frontmatterProj := ""
+	if project != "" {
+		frontmatterProj = fmt.Sprintf("\nproject: %s", project)
+	}
+	frontmatterCtx := ""
+	if context != "" {
+		frontmatterCtx = fmt.Sprintf("\ncontext: %s", context)
+	}
+
 	switch brainType {
 	case brain.BrainTypeLogseq:
+		orgField := ""
+		if organization != "" {
+			orgField = fmt.Sprintf("- organization:: %s\n", organization)
+		}
+		projField := ""
+		if project != "" {
+			projField = fmt.Sprintf("- project:: %s\n", project)
+		}
+		ctxField := ""
+		if context != "" {
+			ctxField = fmt.Sprintf("- context:: %s\n", context)
+		}
+
 		return fmt.Sprintf(`- title:: %s
 - type:: meeting
 - date:: %s
 - time:: %s
 - author:: %s
 - tags:: %s
-
+%s%s%s
 ## %s
 
 ### Participants
@@ -263,7 +329,7 @@ func generateDefaultMeetingContent(title, participantList, tagList string, brain
 ### Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, author, tagList, title, participantList)
+`, title, dateStr, timeStr, author, tagList, orgField, projField, ctxField, title, participantList)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
@@ -272,7 +338,7 @@ type: meeting
 date: %s
 time: %s
 author: %s
-tags: [%s]
+tags: [%s]%s%s%s
 ---
 
 # %s
@@ -289,7 +355,7 @@ tags: [%s]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, author, tagList, title, participantList)
+`, title, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -301,7 +367,7 @@ date: %s
 author: %s
 updated: %d
 created: %d
-tags: [%s]
+tags: [%s]%s%s%s
 ---
 
 # %s
@@ -318,7 +384,7 @@ tags: [%s]
 ## Related
 - [[related-note]]
 
-`, uuid.New().String(), title, dateStr, author, now.Unix(), now.Unix(), tagList, title, participantList)
+`, uuid.New().String(), title, dateStr, author, now.Unix(), now.Unix(), tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -329,7 +395,7 @@ type: meeting
 date: %s
 time: %s
 author: %s
-tags: [%s]
+tags: [%s]%s%s%s
 ---
 
 # %s
@@ -346,14 +412,14 @@ tags: [%s]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, dateStr, dateStr, timeStr, author, tagList, title, participantList)
+`, title, dateStr, dateStr, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
 
 	default:
 		return fmt.Sprintf(`---
 title: %s
 type: meeting
 date: %s
-tags: [%s]
+tags: [%s]%s%s%s
 ---
 
 # %s
@@ -370,6 +436,6 @@ tags: [%s]
 ## Related
 - [[related-note]]
 
-`, title, dateStr, tagList, title, participantList)
+`, title, dateStr, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
 	}
 }

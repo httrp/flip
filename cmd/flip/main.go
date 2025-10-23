@@ -42,6 +42,7 @@ func main() {
 	// Register 'new', 'note', 'meeting', 'journal', and 'template' commands at root level
 	rootCmd.AddCommand(commands.NewNewCommand())
 	rootCmd.AddCommand(commands.NewNoteCommand())
+	rootCmd.AddCommand(commands.NewQuicknoteCommand())
 	rootCmd.AddCommand(commands.NewMeetingCommand())
 	rootCmd.AddCommand(commands.NewJournalCommand())
 	rootCmd.AddCommand(commands.NewTemplateCommand())
