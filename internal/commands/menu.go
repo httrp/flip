@@ -1426,7 +1426,7 @@ func runTaskBrowseMenu() error {
 				filter := tasks.TaskFilter{
 					Status: tasks.StatusOpen,
 				}
-				if err := runListTasks(filter); err != nil {
+				if err := runListTasks(filter, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1441,7 +1441,7 @@ func runTaskBrowseMenu() error {
 				filter := tasks.TaskFilter{
 					DueToday: true,
 				}
-				if err := runListTasks(filter); err != nil {
+				if err := runListTasks(filter, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1456,7 +1456,7 @@ func runTaskBrowseMenu() error {
 				filter := tasks.TaskFilter{
 					DueThisWeek: true,
 				}
-				if err := runListTasks(filter); err != nil {
+				if err := runListTasks(filter, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1471,7 +1471,7 @@ func runTaskBrowseMenu() error {
 				filter := tasks.TaskFilter{
 					Overdue: true,
 				}
-				if err := runListTasks(filter); err != nil {
+				if err := runListTasks(filter, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1487,7 +1487,7 @@ func runTaskBrowseMenu() error {
 					Priority: tasks.PriorityHigh,
 					Status:   tasks.StatusOpen,
 				}
-				if err := runListTasks(filter); err != nil {
+				if err := runListTasks(filter, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))

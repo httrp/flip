@@ -20,6 +20,7 @@ func NewTaskListCommand() *cobra.Command {
 		dueToday       bool
 		dueThisWeek    bool
 		overdue        bool
+		groupByFile    bool
 	)
 
 	cmd := &cobra.Command{
@@ -46,7 +47,7 @@ func NewTaskListCommand() *cobra.Command {
 				filter.Project = projectFilter
 			}
 
-			return runListTasks(filter)
+			return runListTasks(filter, groupByFile)
 		},
 	}
 
@@ -57,12 +58,13 @@ func NewTaskListCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dueToday, "today", false, "Show tasks due today")
 	cmd.Flags().BoolVar(&dueThisWeek, "week", false, "Show tasks due this week")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "Show overdue tasks")
+	cmd.Flags().BoolVarP(&groupByFile, "group", "g", false, "Group tasks by file")
 
 	return cmd
 }
 
 // runListTasks lists and filters tasks
-func runListTasks(filter tasks.TaskFilter) error {
+func runListTasks(filter tasks.TaskFilter, groupByFile bool) error {
 	fmt.Println("\n📋 Task List")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
@@ -139,41 +141,50 @@ func runListTasks(filter tasks.TaskFilter) error {
 
 	totalShown := 0
 
-	if len(overdueTasks) > 0 {
-		fmt.Printf("🚨 Overdue (%d)\n", len(overdueTasks))
-		displayTaskList(overdueTasks)
-		fmt.Println()
-		totalShown += len(overdueTasks)
-	}
-
-	if len(todayTasks) > 0 {
-		fmt.Printf("📅 Due Today (%d)\n", len(todayTasks))
-		displayTaskList(todayTasks)
-		fmt.Println()
-		totalShown += len(todayTasks)
-	}
-
-	if len(weekTasks) > 0 {
-		fmt.Printf("📆 This Week (%d)\n", len(weekTasks))
-		displayTaskList(weekTasks)
-		fmt.Println()
-		totalShown += len(weekTasks)
-	}
-
-	if len(laterTasks) > 0 {
-		limit := 10
-		if len(laterTasks) > limit {
-			fmt.Printf("📌 Later (showing %d of %d)\n", limit, len(laterTasks))
-			displayTaskList(laterTasks[:limit])
-		} else {
-			fmt.Printf("📌 Later (%d)\n", len(laterTasks))
-			displayTaskList(laterTasks)
+	// Choose display mode based on flag
+	if groupByFile {
+		// Group by file display
+		fmt.Printf("📋 Tasks grouped by file (%d total)\n", len(results))
+		displayTasksGroupedByFile(results)
+		totalShown = len(results)
+	} else {
+		// Original time-based grouping
+		if len(overdueTasks) > 0 {
+			fmt.Printf("🚨 Overdue (%d)\n", len(overdueTasks))
+			displayTaskList(overdueTasks)
+			fmt.Println()
+			totalShown += len(overdueTasks)
 		}
-		fmt.Println()
-		totalShown += len(laterTasks)
+
+		if len(todayTasks) > 0 {
+			fmt.Printf("📅 Due Today (%d)\n", len(todayTasks))
+			displayTaskList(todayTasks)
+			fmt.Println()
+			totalShown += len(todayTasks)
+		}
+
+		if len(weekTasks) > 0 {
+			fmt.Printf("📆 This Week (%d)\n", len(weekTasks))
+			displayTaskList(weekTasks)
+			fmt.Println()
+			totalShown += len(weekTasks)
+		}
+
+		if len(laterTasks) > 0 {
+			limit := 10
+			if len(laterTasks) > limit {
+				fmt.Printf("📌 Later (showing %d of %d)\n", limit, len(laterTasks))
+				displayTaskList(laterTasks[:limit])
+			} else {
+				fmt.Printf("📌 Later (%d)\n", len(laterTasks))
+				displayTaskList(laterTasks)
+			}
+			fmt.Println()
+			totalShown += len(laterTasks)
+		}
 	}
 
-	fmt.Printf("Total: %d tasks\n\n", totalShown)
+	fmt.Printf("\nTotal: %d tasks\n\n", totalShown)
 
 	// Interactive selection
 	if totalShown > 0 {
@@ -532,4 +543,93 @@ func formatTaskDueDate(t *time.Time) string {
 	}
 
 	return fmt.Sprintf("📅 %s", t.Format("Jan 02"))
+}
+
+// displayTasksGroupedByFile displays tasks grouped by their source file
+func displayTasksGroupedByFile(taskList []*tasks.Task) {
+	// Group tasks by file
+	fileGroups := make(map[string][]*tasks.Task)
+	for _, task := range taskList {
+		filePath := task.Context.FilePath
+		fileGroups[filePath] = append(fileGroups[filePath], task)
+	}
+
+	// Display each file group
+	for filePath, fileTasks := range fileGroups {
+		// Get relative path for better readability
+		relPath := getRelativePathFromBrain(filePath, fileTasks[0].Context.BrainPath)
+
+		// Show file header with task count
+		fmt.Printf("\n📁 %s (%d)\n", relPath, len(fileTasks))
+
+		// Display tasks in this file
+		for _, task := range fileTasks {
+			displayTaskLine(task, true) // true = show context like section
+		}
+	}
+}
+
+// displayTaskLine displays a single task line with all relevant info
+func displayTaskLine(task *tasks.Task, showContext bool) {
+	// Priority icon
+	icon := tasks.PriorityIcon(task.Priority)
+	if icon == "" {
+		icon = "  "
+	}
+
+	// Status indicator
+	statusIcon := ""
+	switch task.Status {
+	case tasks.StatusOpen:
+		statusIcon = "[ ]"
+	case tasks.StatusInProgress:
+		statusIcon = "[~]"
+	case tasks.StatusDone:
+		statusIcon = "[x]"
+	case tasks.StatusDeferred:
+		statusIcon = "[>]"
+	case tasks.StatusCancelled:
+		statusIcon = "[-]"
+	}
+
+	// Due date
+	dueStr := ""
+	if task.Due != nil {
+		dueStr = " " + formatTaskDueDate(task.Due)
+	}
+
+	// Tags
+	tagsStr := ""
+	if len(task.Tags) > 0 {
+		tagList := make([]string, 0, len(task.Tags))
+		for _, tag := range task.Tags {
+			tagList = append(tagList, "#"+tag)
+		}
+		tagsStr = " " + strings.Join(tagList, " ")
+	}
+
+	// Context (section heading)
+	contextStr := ""
+	if showContext && task.Context.Section != "" {
+		contextStr = fmt.Sprintf(" › %s", task.Context.Section)
+	}
+
+	fmt.Printf("  %s %s %s%s%s%s\n",
+		icon,
+		statusIcon,
+		truncate(task.Description, 60),
+		dueStr,
+		tagsStr,
+		contextStr,
+	)
+}
+
+// getRelativePathFromBrain returns a relative path from the brain root
+func getRelativePathFromBrain(fullPath, brainPath string) string {
+	if strings.HasPrefix(fullPath, brainPath) {
+		rel := strings.TrimPrefix(fullPath, brainPath)
+		rel = strings.TrimPrefix(rel, "/")
+		return rel
+	}
+	return fullPath
 }

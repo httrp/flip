@@ -542,7 +542,7 @@ func NewTaskSearchCommand() *cobra.Command {
 				SearchText: query,
 				Status:     tasks.StatusOpen,
 			}
-			return runListTasks(filter)
+			return runListTasks(filter, false)
 		},
 	}
 	return cmd
