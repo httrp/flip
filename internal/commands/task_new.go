@@ -16,9 +16,10 @@ import (
 // NewTaskNewCommand creates the task new command
 func NewTaskNewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "new",
-		Short: "Create a new task",
-		Long:  "Create a new task interactively.",
+		Use:     "new",
+		Aliases: []string{"n"},
+		Short:   "Create a new task",
+		Long:    "Create a new task interactively.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreateTask()
 		},

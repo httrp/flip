@@ -9,11 +9,16 @@ import (
 // NewTaskCommand creates the main task command with subcommands
 func NewTaskCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "task",
+		Use:   "task [new]",
 		Short: "Manage tasks across your brains",
-		Long:  "Create, list, update, and manage tasks in your second brain system.",
+		Long:  "Create, list, update, and manage tasks in your second brain system.\n\nExamples:\n  flip task           # Show task menu (default action)\n  flip task new       # Create new task (explicit)\n  flip task n         # Create new task (shortcut)\n  flip new task       # Create new task (alternative syntax)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// If no subcommand, show interactive menu
+			// Default action when called without subcommand
+			// Support: flip task new, flip task n for quick task creation
+			if len(args) > 0 && (args[0] == "new" || args[0] == "n") {
+				return runCreateTask()
+			}
+			// If no args or unknown subcommand, show menu
 			return runTaskMenu()
 		},
 	}

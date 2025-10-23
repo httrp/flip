@@ -41,9 +41,10 @@ func newBrainAddCommand() *cobra.Command {
 	var setDefault bool
 
 	cmd := &cobra.Command{
-		Use:   "add [path]",
-		Short: "Add a brain to the active workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:     "add [path]",
+		Aliases: []string{"create", "new"},
+		Short:   "Add a brain to the active workspace",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBrainAdd(args[0], name, setDefault)
 		},

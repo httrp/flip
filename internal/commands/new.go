@@ -12,38 +12,120 @@ import (
 
 func NewNewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "new",
-		Short: "Create something new (brain/workspace)",
-		Long:  "Interactive menu to create a new brain or workspace.",
+		Use:   "new [type]",
+		Short: "Create something new",
+		Long:  "Create new content (note, meeting-note, journal, task) or infrastructure (brain, workspace).\n\nExamples:\n  flip new               # Interactive menu\n  flip new note          # Create new note\n  flip new meeting-note  # Create new meeting note\n  flip new journal       # Create new journal\n  flip new task          # Create new task\n  flip new brain         # Create new brain\n  flip new workspace     # Create new workspace",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runNewMenu(args)
 		},
 	}
-	// Alias: flip new brain
+
+	// Content creation subcommands
+	noteCmd := &cobra.Command{
+		Use:   "note",
+		Short: "Create a new note",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreateNote()
+		},
+	}
+	cmd.AddCommand(noteCmd)
+
+	meetingCmd := &cobra.Command{
+		Use:     "meeting-note",
+		Aliases: []string{"meeting"}, // Backward compatibility
+		Short:   "Create a new meeting note",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreateMeeting()
+		},
+	}
+	cmd.AddCommand(meetingCmd)
+
+	journalCmd := &cobra.Command{
+		Use:   "journal",
+		Short: "Create or open a daily journal",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreateJournal()
+		},
+	}
+	cmd.AddCommand(journalCmd)
+
+	taskCmd := &cobra.Command{
+		Use:   "task",
+		Short: "Create a new task",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreateTask()
+		},
+	}
+	cmd.AddCommand(taskCmd)
+
+	// Infrastructure subcommands
 	brainCmd := &cobra.Command{
 		Use:   "brain",
-		Short: "Create a new brain (alias)",
+		Short: "Create a new brain",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runNewBrain()
 		},
 	}
 	cmd.AddCommand(brainCmd)
+
+	workspaceCmd := &cobra.Command{
+		Use:   "workspace",
+		Short: "Create a new workspace",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runNewWorkspace()
+		},
+	}
+	cmd.AddCommand(workspaceCmd)
+
 	return cmd
 }
 
 // Interactive menu for 'flip new'
-func runNewMenu(_ []string) error {
+func runNewMenu(args []string) error {
+	// If args provided, route to appropriate command
+	if len(args) > 0 {
+		switch args[0] {
+		case "note":
+			return runCreateNote()
+		case "meeting-note", "meeting":
+			return runCreateMeeting()
+		case "journal":
+			return runCreateJournal()
+		case "task":
+			return runCreateTask()
+		case "brain":
+			return runNewBrain()
+		case "workspace":
+			return runNewWorkspace()
+		default:
+			return fmt.Errorf("unknown type: %s", args[0])
+		}
+	}
+
+	// Interactive menu if no args
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("+ What do you want to create?")
-	fmt.Println("  1) Brain")
-	fmt.Println("  2) Workspace")
-	fmt.Printf("Choose (1/2) [default: 1]: ")
+	fmt.Println("  1) Note")
+	fmt.Println("  2) Meeting Note")
+	fmt.Println("  3) Journal")
+	fmt.Println("  4) Task")
+	fmt.Println("  5) Brain")
+	fmt.Println("  6) Workspace")
+	fmt.Printf("Choose (1-6) [default: 1]: ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 	switch choice {
 	case "", "1":
-		return runNewBrain()
+		return runCreateNote()
 	case "2":
+		return runCreateMeeting()
+	case "3":
+		return runCreateJournal()
+	case "4":
+		return runCreateTask()
+	case "5":
+		return runNewBrain()
+	case "6":
 		return runNewWorkspace()
 	default:
 		fmt.Println("[X] Cancelled.")

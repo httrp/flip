@@ -29,9 +29,10 @@ func NewWorkspaceCommand() *cobra.Command {
 
 func newWorkspaceCreateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "create [name]",
-		Short: "Create a new workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create [name]",
+		Aliases: []string{"new", "add"},
+		Short:   "Create a new workspace",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runWorkspaceCreate(args[0])
 		},

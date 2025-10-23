@@ -16,13 +16,30 @@ import (
 
 func NewJournalCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "journal",
+		Use:   "journal [new]",
 		Short: "Create or open a daily journal note",
-		Long:  "Create a new daily journal/daily note or open existing one. Prevents duplicate entries for the same date.",
+		Long:  "Create a new daily journal/daily note or open existing one. Prevents duplicate entries for the same date.\n\nExamples:\n  flip journal         # Create/open journal (default action)\n  flip journal new     # Create/open journal (explicit)\n  flip journal n       # Create/open journal (shortcut)\n  flip new journal     # Create/open journal (alternative syntax)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Default action: create/open journal
+			// Support: flip journal, flip journal new, flip journal n
+			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				return runCreateJournal()
+			}
+			return fmt.Errorf("unknown subcommand: %s", args[0])
+		},
+	}
+
+	// Add explicit 'new' subcommand for clarity
+	newCmd := &cobra.Command{
+		Use:     "new",
+		Aliases: []string{"n"},
+		Short:   "Create or open a daily journal note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreateJournal()
 		},
 	}
+	cmd.AddCommand(newCmd)
+
 	return cmd
 }
 

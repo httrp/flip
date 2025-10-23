@@ -17,13 +17,30 @@ import (
 
 func NewNoteCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "note",
+		Use:   "note [new]",
 		Short: "Create a new note",
-		Long:  "Create a new note in your active brain with appropriate template and naming conventions",
+		Long:  "Create a new note in your active brain with appropriate template and naming conventions.\n\nExamples:\n  flip note           # Create new note (default action)\n  flip note new       # Create new note (explicit)\n  flip note n         # Create new note (shortcut)\n  flip new note       # Create new note (alternative syntax)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Default action: create new note
+			// Support: flip note, flip note new, flip note n
+			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				return runCreateNote()
+			}
+			return fmt.Errorf("unknown subcommand: %s", args[0])
+		},
+	}
+
+	// Add explicit 'new' subcommand for clarity
+	newCmd := &cobra.Command{
+		Use:     "new",
+		Aliases: []string{"n"},
+		Short:   "Create a new note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreateNote()
 		},
 	}
+	cmd.AddCommand(newCmd)
+
 	return cmd
 }
 

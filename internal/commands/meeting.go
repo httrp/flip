@@ -16,13 +16,31 @@ import (
 
 func NewMeetingCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "meeting",
-		Short: "Create a meeting note",
-		Long:  "Create a meeting note with date, participants, agenda, and action items",
+		Use:     "meeting-note [new]",
+		Aliases: []string{"meeting"}, // Backward compatibility
+		Short:   "Create a meeting note",
+		Long:    "Create a meeting note with date, participants, agenda, and action items.\n\nExamples:\n  flip meeting-note       # Create new meeting note (default action)\n  flip meeting-note new   # Create new meeting note (explicit)\n  flip meeting-note n     # Create new meeting note (shortcut)\n  flip new meeting-note   # Create new meeting note (alternative syntax)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Default action: create new meeting note
+			// Support: flip meeting-note, flip meeting-note new, flip meeting-note n
+			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				return runCreateMeeting()
+			}
+			return fmt.Errorf("unknown subcommand: %s", args[0])
+		},
+	}
+
+	// Add explicit 'new' subcommand for clarity
+	newCmd := &cobra.Command{
+		Use:     "new",
+		Aliases: []string{"n"},
+		Short:   "Create a new meeting note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreateMeeting()
 		},
 	}
+	cmd.AddCommand(newCmd)
+
 	return cmd
 }
 

@@ -61,8 +61,8 @@ func runInteractiveMenu() error {
 			Action:      runBrowseSearchMenu,
 		},
 		{
-			Label:       "📝 New",
-			Description: "Create new note, meeting note, journal, task",
+			Label:       "📝 Create",
+			Description: "Create new content: note, meeting-note, journal, task",
 			Action:      runCreateNewMenu,
 		},
 		{
@@ -92,25 +92,46 @@ func runInteractiveMenu() error {
 			Description: "View available commands and options",
 			Action: func() error {
 				fmt.Println("\n=== Flip Commands ===")
-				fmt.Println("Core Commands:")
-				fmt.Println("  flip quickstart          # Guided onboarding")
-				fmt.Println("  flip new                 # Create new brain")
-				fmt.Println("  flip init <path>         # Initialize existing directory")
-				fmt.Println("  flip status              # Show overview")
 				fmt.Println()
-				fmt.Println("Workspace Management:")
-				fmt.Println("  flip workspace create <name>   # Create workspace")
-				fmt.Println("  flip workspace list            # List all workspaces")
-				fmt.Println("  flip workspace switch <name>   # Switch active workspace")
-				fmt.Println("  flip workspace remove <name>   # Remove workspace")
+				fmt.Println("Content Creation (Flexible Syntax):")
+				fmt.Println("  flip note [new]              # Create note (default action)")
+				fmt.Println("  flip note n                  # Create note (shortcut)")
+				fmt.Println("  flip new note                # Create note (alternative)")
 				fmt.Println()
-				fmt.Println("Brain Management:")
-				fmt.Println("  flip brain add <path>          # Add brain to workspace")
-				fmt.Println("  flip brain list                # List brains in workspace")
-				fmt.Println("  flip brain set-default <name>  # Set default brain")
-				fmt.Println("  flip brain remove <name>       # Remove brain")
+				fmt.Println("  flip meeting-note [new]      # Create meeting note")
+				fmt.Println("  flip meeting-note n          # Create meeting note (shortcut)")
+				fmt.Println("  flip new meeting-note        # Create meeting note (alternative)")
 				fmt.Println()
-				fmt.Println("For detailed help on any command, use: flip <command> --help")
+				fmt.Println("  flip journal [new]           # Create/open journal")
+				fmt.Println("  flip journal n               # Create/open journal (shortcut)")
+				fmt.Println("  flip new journal             # Create/open journal (alternative)")
+				fmt.Println()
+				fmt.Println("  flip task [new]              # Create task")
+				fmt.Println("  flip task n                  # Create task (shortcut)")
+				fmt.Println("  flip new task                # Create task (alternative)")
+				fmt.Println()
+				fmt.Println("Task Management:")
+				fmt.Println("  flip task list [--status open]   # List tasks")
+				fmt.Println("  flip task done [pattern]         # Mark task as done")
+				fmt.Println("  flip task start [pattern]        # Mark task in-progress")
+				fmt.Println("  flip task update [pattern]       # Update task properties")
+				fmt.Println("  flip task stats                  # Show statistics")
+				fmt.Println()
+				fmt.Println("Workspace & Brain Management:")
+				fmt.Println("  flip workspace create/new/add <name>   # Create workspace")
+				fmt.Println("  flip workspace list                    # List all workspaces")
+				fmt.Println("  flip workspace switch <name>           # Switch workspace")
+				fmt.Println()
+				fmt.Println("  flip brain add/create/new <path>       # Add brain")
+				fmt.Println("  flip brain list                        # List brains")
+				fmt.Println("  flip brain set-default <name>          # Set default")
+				fmt.Println()
+				fmt.Println("Other:")
+				fmt.Println("  flip quickstart                        # Guided onboarding")
+				fmt.Println("  flip status                            # Show overview")
+				fmt.Println("  flip menu                              # Interactive menu")
+				fmt.Println()
+				fmt.Println("For detailed help: flip <command> --help")
 				fmt.Println("\nPress Enter to return to menu...")
 				fmt.Scanln()
 				return runInteractiveMenu()
