@@ -3,8 +3,10 @@
 ## Overview
 
 Flip uses a hybrid approach for text management:
-- **Short labels/messages**: `lang/en.json` with dot-notation keys
-- **Long content (intro, help, etc.)**: `lang/*.en.txt` template files
+- **Short labels/messages**: `internal/lang/en.json` with dot-notation keys
+- **Long content (intro, help, etc.)**: `internal/lang/*.en.txt` template files
+
+All text files are embedded at compile-time using Go's `embed` package, so the binary is self-contained.
 
 ## API
 
