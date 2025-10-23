@@ -1,9 +1,12 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/httrp/flip/internal/lang"
 	"github.com/httrp/flip/internal/tasks"
@@ -1154,6 +1157,139 @@ func runEditBrainMenu() error {
 		Description string
 		Action      func() error
 	}{
+		{
+			Label:       "View brain details",
+			Description: "Show configuration and details of a brain",
+			Action: func() error {
+				ws, err := getActiveWorkspace()
+				if err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runEditBrainMenu()
+				}
+
+				if len(ws.Brains) == 0 {
+					fmt.Println(lang.GetText("errors.no_brains"))
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runEditBrainMenu()
+				}
+
+				// Select brain to view
+				var brainNames []string
+				for _, b := range ws.Brains {
+					label := b.Name
+					if b.Name == ws.DefaultBrain {
+						label += " (default)"
+					}
+					brainNames = append(brainNames, label)
+				}
+
+				selectBrain := promptui.Select{
+					Label:     "Select brain to view details",
+					Items:     brainNames,
+					Size:      calculateMenuSize(len(brainNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
+				}
+
+				idx, _, err := selectBrain.Run()
+				if err != nil {
+					return runEditBrainMenu()
+				}
+
+				brain := ws.Brains[idx]
+
+				// Display brain details
+				fmt.Println("\n" + strings.Repeat("━", 60))
+				fmt.Printf("Brain: %s\n", brain.Name)
+				fmt.Println(strings.Repeat("━", 60))
+				fmt.Printf("Type:        %s\n", brain.Type)
+				fmt.Printf("Description: %s\n", brain.Description)
+				fmt.Printf("Path:        %s\n", brain.Path)
+
+				// Check if path exists
+				if stat, err := os.Stat(brain.Path); os.IsNotExist(err) {
+					fmt.Printf("Status:      %s Path does not exist\n", IconError)
+				} else if err != nil {
+					fmt.Printf("Status:      %s Error accessing path: %v\n", IconError, err)
+				} else if !stat.IsDir() {
+					fmt.Printf("Status:      %s Path is not a directory\n", IconError)
+				} else {
+					fmt.Printf("Status:      %s Available\n", IconCheck)
+				}
+
+				if brain.Name == ws.DefaultBrain {
+					fmt.Printf("Default:     %s Yes\n", IconDefault)
+				} else {
+					fmt.Printf("Default:     No\n")
+				}
+
+				fmt.Println(strings.Repeat("━", 60))
+				fmt.Println("\nOptions:")
+				fmt.Println("  e) Edit path")
+				fmt.Println("  o) Open folder")
+				fmt.Println("  b) Back to menu")
+				fmt.Printf("\nChoose (e/o/b) [default: b]: ")
+
+				reader := bufio.NewReader(os.Stdin)
+				choice, _ := reader.ReadString('\n')
+				choice = strings.TrimSpace(strings.ToLower(choice))
+
+				switch choice {
+				case "e":
+					// Edit path
+					fmt.Printf("\nCurrent path: %s\n", brain.Path)
+					fmt.Printf("Enter new path (or press Enter to cancel): ")
+					newPath, _ := reader.ReadString('\n')
+					newPath = strings.TrimSpace(newPath)
+
+					if newPath != "" && newPath != brain.Path {
+						// Validate new path
+						absPath, err := filepath.Abs(newPath)
+						if err != nil {
+							fmt.Printf("\n%s Error: Invalid path: %v\n", IconError, err)
+						} else if _, err := os.Stat(absPath); os.IsNotExist(err) {
+							fmt.Printf("\n%s Error: Path does not exist: %s\n", IconError, absPath)
+						} else {
+							// Update config
+							config, err := loadWorkspaceConfig()
+							if err == nil {
+								for i := range config.Workspaces {
+									if config.Workspaces[i].Name == ws.Name {
+										for j := range config.Workspaces[i].Brains {
+											if config.Workspaces[i].Brains[j].Name == brain.Name {
+												config.Workspaces[i].Brains[j].Path = absPath
+												if err := saveWorkspaceConfig(config); err != nil {
+													fmt.Printf("\n%s Error saving config: %v\n", IconError, err)
+												} else {
+													fmt.Printf("\n%s Brain path updated successfully\n", IconCheck)
+												}
+												break
+											}
+										}
+										break
+									}
+								}
+							}
+						}
+					}
+				case "o":
+					// Open folder
+					if _, err := os.Stat(brain.Path); err == nil {
+						exec.Command("open", brain.Path).Start()
+						fmt.Printf("\n%s Opening folder...\n", IconCheck)
+					} else {
+						fmt.Printf("\n%s Error: Cannot open folder - path does not exist\n", IconError)
+					}
+				}
+
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runEditBrainMenu()
+			},
+		},
 		{
 			Label:       lang.GetText("menu.edit_brain.rename_label"),
 			Description: lang.GetText("menu.edit_brain.rename_desc"),

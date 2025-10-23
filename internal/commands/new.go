@@ -390,6 +390,7 @@ func runNewBrain() error {
 	home, _ := os.UserHomeDir()
 	recommended := filepath.Join(home, "flap", "brains", name)
 	fmt.Printf("\n? Path for your brain [default: %s]\n", recommended)
+	fmt.Printf("  IMPORTANT: Path must be a NEW directory or include the brain name as the final folder.\n")
 	fmt.Printf("  (or enter '0' to cancel): ")
 	path, _ := reader.ReadString('\n')
 	path = strings.TrimSpace(path)
@@ -403,7 +404,49 @@ func runNewBrain() error {
 	if path == "" {
 		path = recommended
 	}
+
+	// Validate: path should end with brain name OR be a non-existing directory
 	target := path
+	baseName := filepath.Base(target)
+
+	// Check if path already exists
+	if stat, err := os.Stat(target); err == nil {
+		// Path exists - check if it's a directory
+		if !stat.IsDir() {
+			fmt.Printf("\n✗ Error: Path exists but is not a directory: %s\n", target)
+			return runNewBrain()
+		}
+
+		// Check if directory is empty
+		entries, err := os.ReadDir(target)
+		if err != nil {
+			return fmt.Errorf("failed to read directory: %w", err)
+		}
+
+		if len(entries) > 0 {
+			fmt.Printf("\n✗ Error: Directory already exists and is not empty: %s\n", target)
+			fmt.Printf("   A brain must be created in a NEW directory to avoid conflicts.\n")
+			fmt.Printf("   Please choose a different path or create a subdirectory.\n")
+			return runNewBrain()
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to check path: %w", err)
+	}
+
+	// Warn if path doesn't end with brain name
+	if baseName != name && baseName != normalizePathName(name) {
+		fmt.Printf("\n⚠️  Warning: Path does not end with brain name '%s'\n", name)
+		fmt.Printf("   Path will be: %s\n", target)
+		fmt.Printf("   Suggested: %s\n", filepath.Join(filepath.Dir(target), name))
+		fmt.Printf("\n? Continue anyway? (yes/no) [default: no]: ")
+		confirm, _ := reader.ReadString('\n')
+		confirm = strings.TrimSpace(strings.ToLower(confirm))
+
+		if confirm != "yes" && confirm != "y" {
+			fmt.Println("\n✗ Cancelled. Please specify the full path including the brain name.")
+			return runNewBrain()
+		}
+	}
 
 	// Safety: Prevent using the flip project/source folder as the target
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
