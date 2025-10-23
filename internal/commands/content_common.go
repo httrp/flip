@@ -106,6 +106,31 @@ func getJournalDirectory(brainPath string, brainType brain.BrainType) string {
 	}
 }
 
+// getMeetingsDirectory returns the appropriate directory for meeting notes
+func getMeetingsDirectory(brainPath string, brainType brain.BrainType) string {
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		// Logseq: pages/ directory (meetings are just pages)
+		return filepath.Join(brainPath, "pages")
+
+	case brain.BrainTypeObsidian:
+		// Obsidian: Meetings/ directory
+		return filepath.Join(brainPath, "Meetings")
+
+	case brain.BrainTypeDendron:
+		// Dendron: root directory (uses hierarchy notation)
+		return brainPath
+
+	case brain.BrainTypeFlip:
+		// Flip: meetings/ directory
+		return filepath.Join(brainPath, "meetings")
+
+	default:
+		// Generic: meetings/ directory
+		return filepath.Join(brainPath, "meetings")
+	}
+}
+
 // promptForSubfolder asks if user wants to use a subfolder
 // Only applicable for notes and meetings, not journals
 func promptForSubfolder(baseDir string, brainType brain.BrainType) (string, error) {
