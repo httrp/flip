@@ -93,53 +93,58 @@ func runCreateMeeting() error {
 	}
 	title = strings.TrimSpace(title)
 
-	// Prompt for participants
+	// Prompt for participants - optional, can be filled in later
 	promptParticipants := promptui.Prompt{
-		Label:   "Participants (comma-separated, optional)",
+		Label:   "Participants (optional, press Enter to skip)",
 		Default: "",
 	}
 
 	participants, err := promptParticipants.Run()
 	if err != nil {
-		return fmt.Errorf("participants prompt cancelled: %w", err)
+		// If cancelled, continue with empty participants
+		participants = ""
+	} else {
+		participants = strings.TrimSpace(participants)
 	}
-	participants = strings.TrimSpace(participants)
 
 	// Prompt for organization
 	promptOrganization := promptui.Prompt{
-		Label:   "Organization (e.g., P1174, DANORAMA, optional)",
+		Label:   "Organization (e.g., P1174, DANORAMA, press Enter to skip)",
 		Default: "",
 	}
 
 	organization, err := promptOrganization.Run()
 	if err != nil {
-		return fmt.Errorf("organization prompt cancelled: %w", err)
+		organization = ""
+	} else {
+		organization = strings.TrimSpace(organization)
 	}
-	organization = strings.TrimSpace(organization)
 
 	// Prompt for project
 	promptProject := promptui.Prompt{
-		Label:   "Project (optional)",
+		Label:   "Project (press Enter to skip)",
 		Default: "",
 	}
 
 	project, err := promptProject.Run()
 	if err != nil {
-		return fmt.Errorf("project prompt cancelled: %w", err)
+		project = ""
+	} else {
+		project = strings.TrimSpace(project)
 	}
-	project = strings.TrimSpace(project)
 
 	// Prompt for context
 	promptContext := promptui.Prompt{
-		Label:   "Context (e.g., BACKEND, FINANCE, optional)",
+		Label:   "Context (e.g., BACKEND, FINANCE, press Enter to skip)",
 		Default: "",
 	}
 
 	context, err := promptContext.Run()
 	if err != nil {
-		return fmt.Errorf("context prompt cancelled: %w", err)
+		context = ""
+	} else {
+		context = strings.TrimSpace(context)
 	}
-	context = strings.TrimSpace(context)
 
 	// Prompt for tags
 	promptTags := promptui.Prompt{
@@ -149,9 +154,10 @@ func runCreateMeeting() error {
 
 	tags, err := promptTags.Run()
 	if err != nil {
-		return fmt.Errorf("tags prompt cancelled: %w", err)
+		tags = "meeting" // Keep default if cancelled
+	} else {
+		tags = strings.TrimSpace(tags)
 	}
-	tags = strings.TrimSpace(tags)
 
 	// Generate filename
 	filename := generateMeetingFilename(title, detection.Type)
@@ -242,6 +248,9 @@ func generateMeetingContent(title, participants, organization, project, context,
 				participantList += fmt.Sprintf("- %s\n", p)
 			}
 		}
+	} else {
+		// Empty placeholder that user can fill in
+		participantList = "- \n"
 	}
 
 	// Parse tags
