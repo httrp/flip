@@ -1,5 +1,215 @@
 {
+  "_comment": "Flip i18n - English text resources. Supports flat keys (backwards compatible) and dot-notation for nested access.",
+  
   "welcome_banner": "Your Intelligent Assistant for Personal Knowledge Management and AI-Powered Content Generation",
+  
+  "banner": {
+    "tagline": "Personal Knowledge Management on Steroids"
+  },
+  
+  "intro": {
+    "title": "Welcome to Flip",
+    "separator": "===============================================================",
+    "description": "Flip manages external knowledge bases without moving your notes.",
+    "concepts_header": "Key concepts:",
+    "brain_concept": "Brain: A single knowledge base directory (Obsidian, Logseq, Dendron, markdown)",
+    "workspace_concept": "Workspace: A named collection of related brains",
+    "default_workspace_info": "The 'default' workspace contains all brains Flip knows about on this machine",
+    "quickstart_header": "Quick start:",
+    "quickstart_guided": "flip quickstart           # Guided onboarding",
+    "quickstart_new_brain": "flip brain new            # Create a new brain with a compatible structure",
+    "quickstart_add_brain": "flip brain add <path>     # Connect an existing brain directory",
+    "quickstart_status": "flip status               # See your workspaces and brains",
+    "tips_header": "Tips:",
+    "tip_create_workspace": "Use 'flip workspace create <name>' to organize brains by context (e.g., personal/work)",
+    "tip_set_default": "Set a default brain per workspace with 'flip brain set-default <name>'",
+    "tip_repair": "Repair your registry anytime with 'flip workspace repair'"
+  },
+  
+  "menu": {
+    "main": {
+      "quickstart_label": "🚀 Quickstart (Guided Setup)",
+      "quickstart_desc": "First time? Walk through creating your first workspace and brain",
+      "browse_label": "📂 Browse & Search",
+      "browse_desc": "Browse recent notes, search across workspace",
+      "create_label": "📝 Create",
+      "create_desc": "Create new content: note, meeting-note, journal, task",
+      "manage_label": "⚙️  Manage",
+      "manage_desc": "Manage workspaces, brains, templates",
+      "switch_label": "🔄 Switch",
+      "switch_desc": "Switch active workspace or brain",
+      "status_label": "📊 Status",
+      "status_desc": "Show all workspaces and brains",
+      "help_label": "❓ Help & Documentation",
+      "help_desc": "Introduction, command reference, tips",
+      "exit_label": "🚪 Exit",
+      "exit_desc": "Close the menu"
+    },
+    "browse": {
+      "recent_label": "📄 Recent Notes",
+      "recent_desc": "Show recently modified notes",
+      "search_label": "🔍 Search",
+      "search_desc": "Search for notes by name or content",
+      "tasks_label": "✅ Task Management",
+      "tasks_desc": "Browse, filter, and manage tasks",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    },
+    "create": {
+      "note_label": "📝 Note",
+      "note_desc": "Create a new note",
+      "meeting_label": "🤝 Meeting Note",
+      "meeting_desc": "Create a meeting note with agenda template",
+      "journal_label": "📔 Journal Entry",
+      "journal_desc": "Create or open today's journal",
+      "task_label": "✅ Task",
+      "task_desc": "Create a new task",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    },
+    "manage": {
+      "workspaces_label": "📁 Manage Workspaces",
+      "workspaces_desc": "Create, rename, or remove workspaces",
+      "brains_label": "🧠 Manage Brains",
+      "brains_desc": "Add, rename, or remove brains",
+      "edit_label": "✏️  Edit Resources",
+      "edit_desc": "Edit or remove workspaces and brains",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    },
+    "manage_brains": {
+      "add_label": "➕ Add Existing Brain",
+      "add_desc": "Connect an existing knowledge base",
+      "create_label": "🆕 Create New Brain",
+      "create_desc": "Initialize a new brain with structure",
+      "scan_label": "🔍 Scan for Brains",
+      "scan_desc": "Auto-detect brains in a directory",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to Create/Add menu"
+    },
+    "switch": {
+      "workspace_label": "📁 Switch Workspace",
+      "workspace_desc": "Change active workspace",
+      "brain_label": "🧠 Set Default Brain",
+      "brain_desc": "Set default brain for current workspace",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    },
+    "edit_manage": {
+      "workspace_label": "📁 Edit Workspace",
+      "workspace_desc": "Rename, repair, or remove workspaces",
+      "brain_label": "🧠 Edit Brain",
+      "brain_desc": "Rename, set default, or remove brains",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    },
+    "edit_workspace": {
+      "rename_label": "✏️  Rename Workspace",
+      "rename_desc": "Change workspace name",
+      "repair_label": "🔧 Repair Workspace",
+      "repair_desc": "Fix inconsistencies in workspace",
+      "remove_label": "🗑️  Remove Workspace",
+      "remove_desc": "Delete workspace (brains remain)",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to Edit/Manage menu"
+    },
+    "edit_brain": {
+      "rename_label": "✏️  Rename Brain",
+      "rename_desc": "Change brain name in workspace",
+      "set_default_label": "⭐ Set Default Brain",
+      "set_default_desc": "Make this the default brain",
+      "remove_label": "🗑️  Remove Brain",
+      "remove_desc": "Remove brain from workspace (files remain)",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to Edit/Manage menu"
+    },
+    "tasks": {
+      "list_label": "📋 List All Tasks",
+      "list_desc": "Show all tasks across workspace",
+      "open_label": "🔓 Open Tasks",
+      "open_desc": "Filter by open/incomplete tasks",
+      "priority_label": "🔥 By Priority",
+      "priority_desc": "Show high priority tasks first",
+      "due_label": "📅 By Due Date",
+      "due_desc": "Show tasks by due date",
+      "today_label": "📆 Due Today",
+      "today_desc": "Tasks due today",
+      "overdue_label": "⚠️  Overdue",
+      "overdue_desc": "Tasks past due date",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to Browse & Search menu"
+    },
+    "help": {
+      "intro_label": "📖 Introduction",
+      "intro_desc": "What is Flip? Key concepts explained",
+      "commands_label": "⌨️  Command Reference",
+      "commands_desc": "Complete list of flip commands",
+      "back_label": "◀️  Back to Main Menu",
+      "back_desc": "Return to main menu"
+    }
+  },
+  
+  "commands": {
+    "header": "=== Flip Commands ===",
+    "creation_header": "Content Creation (Flexible Syntax):",
+    "task_mgmt_header": "Task Management:",
+    "workspace_header": "Workspace Management:",
+    "brain_header": "Brain Management:",
+    "other_header": "Other:"
+  },
+  
+  "prompts": {
+    "continue": "Press Enter to return to menu...",
+    "continue_main": "Press Enter to return to main menu...",
+    "search_in": "Search in",
+    "search_filename_only": "Filename only (fast)",
+    "search_filename_content": "Filename and content (slower)",
+    "select_workspace": "Select workspace to switch to",
+    "select_brain_default": "Select default brain",
+    "select_workspace_rename": "Select workspace to rename",
+    "select_workspace_remove": "Select workspace to remove",
+    "select_brain_rename": "Select brain to rename",
+    "select_brain_default_set": "Select brain to set as default",
+    "select_brain_remove": "Select brain to remove"
+  },
+  
+  "errors": {
+    "no_workspaces": "📭 No workspaces found. Create one first!",
+    "no_brains": "📭 No brains in active workspace.",
+    "workspace_load_failed": "Error loading workspaces: %v"
+  },
+  
+  "quickstart": {
+    "flap_folder_info": "💡 By default, flip stores new workspaces and brains in ~/flap/ - feel free to use any other folder that suits your workflow better.",
+    "intro_workspace": "A workspace is a collection of brains (knowledge bases) you work with together. Organize your notes, tasks, and knowledge sources in flexible groups.",
+    "intro_brain": "A brain is a knowledge base (e.g. Obsidian vault, Logseq graph, Markdown folder, Dendron workspace). Flip connects to your existing brains or helps you create new ones.",
+    "step_workspace": "Step 1: Create a default workspace to organize your brains",
+    "prompt_workspace_name": "Workspace name",
+    "reserved_flap": "'flap' is reserved for the main folder. Please choose another name.",
+    "prompt_workspace_path": "Workspace path",
+    "workspace_created": "✓ Workspace '%s' created at %s",
+    "workspace_exists": "✓ Workspace '%s' already exists, using it",
+    "step_brain": "Step 2: Add a brain (your knowledge base) to your workspace",
+    "brain_options": "How would you like to add a brain?",
+    "option_existing": "1) Connect existing brain (Obsidian, Logseq, etc.)",
+    "option_new": "2) Create new brain with compatible structure",
+    "choose_option": "Choose (1/2) [default: 1]: ",
+    "prompt_existing_brain_path": "Path to existing brain",
+    "no_path_provided": "No path provided",
+    "invalid_path": "Invalid path: %s",
+    "path_not_exist": "Path does not exist: %s",
+    "prompt_existing_brain_name": "Name for this brain",
+    "initializing_brain": "→ Initializing '%s' at: %s",
+    "brain_added": "✓ Brain '%s' added to workspace '%s'!",
+    "status_tip": "\n💡 Tip: Use 'flip status' to see your workspaces and brains.",
+    "choose_brain_name": "Choose a name for your new brain",
+    "brain_name_option": "  %d) %s\n",
+    "prompt_brain_name": "Or enter your own name [default: %s]: ",
+    "prompt_brain_path": "Brain path",
+    "creating_brain": "Creating brain '%s' at: %s",
+    "brain_created": "Brain '%s' created and added to workspace '%s'!"
+  },
+  
   "flap_folder_info": "💡 By default, flip stores new workspaces and brains in ~/flap/ - feel free to use any other folder that suits your workflow better.",
   "intro_workspace": "A workspace is a collection of brains (knowledge bases) you work with together. Organize your notes, tasks, and knowledge sources in flexible groups.",
   "intro_brain": "A brain is a knowledge base (e.g. Obsidian vault, Logseq graph, Markdown folder, Dendron workspace). Flip connects to your existing brains or helps you create new ones.",

@@ -103,102 +103,65 @@ func runInteractiveMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "🚀 Quickstart (Guided Setup)",
-			Description: "First time? Walk through creating your first workspace and brain",
+			Label:       lang.GetText("menu.main.quickstart_label"),
+			Description: lang.GetText("menu.main.quickstart_desc"),
 			Action: func() error {
 				if err := runQuickstart(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "� Browse & Search",
-			Description: "Browse recent notes, search across workspace",
+			Label:       lang.GetText("menu.main.browse_label"),
+			Description: lang.GetText("menu.main.browse_desc"),
 			Action:      runBrowseSearchMenu,
 		},
 		{
-			Label:       "📝 Create",
-			Description: "Create new content: note, meeting-note, journal, task",
+			Label:       lang.GetText("menu.main.create_label"),
+			Description: lang.GetText("menu.main.create_desc"),
 			Action:      runCreateNewMenu,
 		},
 		{
-			Label:       "⚙️  Manage",
-			Description: "Manage workspaces, brains, templates",
+			Label:       lang.GetText("menu.main.manage_label"),
+			Description: lang.GetText("menu.main.manage_desc"),
 			Action:      runManageResourcesMenu,
 		},
 		{
-			Label:       "🔄 Switch",
-			Description: "Switch active workspace or brain",
+			Label:       lang.GetText("menu.main.switch_label"),
+			Description: lang.GetText("menu.main.switch_desc"),
 			Action:      runSwitchContextMenu,
 		},
 		{
-			Label:       "📊 Status",
-			Description: "Show all workspaces and brains",
+			Label:       lang.GetText("menu.main.status_label"),
+			Description: lang.GetText("menu.main.status_desc"),
 			Action: func() error {
 				if err := runStatus(); err != nil {
 					return err
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "❓ Help & Documentation",
-			Description: "View available commands and options",
+			Label:       lang.GetText("menu.main.help_label"),
+			Description: lang.GetText("menu.main.help_desc"),
 			Action: func() error {
-				fmt.Println("\n=== Flip Commands ===")
 				fmt.Println()
-				fmt.Println("Content Creation (Flexible Syntax):")
-				fmt.Println("  flip note [new]              # Create note (default action)")
-				fmt.Println("  flip note n                  # Create note (shortcut)")
-				fmt.Println("  flip new note                # Create note (alternative)")
-				fmt.Println()
-				fmt.Println("  flip meeting-note [new]      # Create meeting note")
-				fmt.Println("  flip meeting-note n          # Create meeting note (shortcut)")
-				fmt.Println("  flip new meeting-note        # Create meeting note (alternative)")
-				fmt.Println()
-				fmt.Println("  flip journal [new]           # Create/open journal")
-				fmt.Println("  flip journal n               # Create/open journal (shortcut)")
-				fmt.Println("  flip new journal             # Create/open journal (alternative)")
-				fmt.Println()
-				fmt.Println("  flip task [new]              # Create task")
-				fmt.Println("  flip task n                  # Create task (shortcut)")
-				fmt.Println("  flip new task                # Create task (alternative)")
-				fmt.Println()
-				fmt.Println("Task Management:")
-				fmt.Println("  flip task list [--status open]   # List tasks")
-				fmt.Println("  flip task done [pattern]         # Mark task as done")
-				fmt.Println("  flip task start [pattern]        # Mark task in-progress")
-				fmt.Println("  flip task update [pattern]       # Update task properties")
-				fmt.Println("  flip task stats                  # Show statistics")
-				fmt.Println()
-				fmt.Println("Workspace & Brain Management:")
-				fmt.Println("  flip workspace create/new/add <name>   # Create workspace")
-				fmt.Println("  flip workspace list                    # List all workspaces")
-				fmt.Println("  flip workspace switch <name>           # Switch workspace")
-				fmt.Println()
-				fmt.Println("  flip brain add/create/new <path>       # Add brain")
-				fmt.Println("  flip brain list                        # List brains")
-				fmt.Println("  flip brain set-default <name>          # Set default")
-				fmt.Println()
-				fmt.Println("Other:")
-				fmt.Println("  flip quickstart                        # Guided onboarding")
-				fmt.Println("  flip status                            # Show overview")
-				fmt.Println("  flip menu                              # Interactive menu")
+				fmt.Println(lang.GetTemplate("commands"))
 				fmt.Println()
 				fmt.Println("For detailed help: flip <command> --help")
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🚪 Exit",
-			Description: "Exit flip",
+			Label:       lang.GetText("menu.main.exit_label"),
+			Description: lang.GetText("menu.main.exit_desc"),
 			Action: func() error {
 				fmt.Println("\n👋 See you later!")
 				return nil
@@ -342,8 +305,8 @@ func runBrowseSearchMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📝 Recent Notes",
-			Description: "View recently modified notes across all brains",
+			Label:       lang.GetText("menu.browse.recent_label"),
+			Description: lang.GetText("menu.browse.recent_desc"),
 			Action: func() error {
 				if err := showRecentNotes(20); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -354,8 +317,8 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
-			Label:       "🔍 Search Notes",
-			Description: "Search for notes by keyword",
+			Label:       lang.GetText("menu.browse.search_label"),
+			Description: lang.GetText("menu.browse.search_desc"),
 			Action: func() error {
 				fmt.Print("\n🔍 Enter search query: ")
 				var query string
@@ -370,8 +333,8 @@ func runBrowseSearchMenu() error {
 
 				// Ask if content search is needed
 				contentPrompt := promptui.Select{
-					Label:     "Search in",
-					Items:     []string{"Filename only (fast)", "Filename and content (slower)"},
+					Label:     lang.GetText("prompts.search_in"),
+					Items:     []string{lang.GetText("prompts.search_filename_only"), lang.GetText("prompts.search_filename_content")},
 					Templates: createSimpleSelectTemplates(),
 					HideHelp:  true,
 				}
@@ -392,8 +355,8 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
-			Label:       "📋 Browse Tasks",
-			Description: "View and manage tasks across all brains",
+			Label:       lang.GetText("menu.browse.tasks_label"),
+			Description: lang.GetText("menu.browse.tasks_desc"),
 			Action: func() error {
 				if err := runTaskBrowseMenu(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -404,8 +367,8 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "",
+			Label:       lang.GetText("menu.browse.back_label"),
+			Description: lang.GetText("menu.browse.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -441,56 +404,56 @@ func runCreateNewMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📝 Note",
-			Description: "Create a new note",
+			Label:       lang.GetText("menu.create.note_label"),
+			Description: lang.GetText("menu.create.note_desc"),
 			Action: func() error {
 				if err := runCreateNote(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📅 Meeting Note",
-			Description: "Create a new meeting note",
+			Label:       lang.GetText("menu.create.meeting_label"),
+			Description: lang.GetText("menu.create.meeting_desc"),
 			Action: func() error {
 				if err := runCreateMeeting(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📔 Daily Journal",
-			Description: "Create a new daily journal entry",
+			Label:       lang.GetText("menu.create.journal_label"),
+			Description: lang.GetText("menu.create.journal_desc"),
 			Action: func() error {
 				if err := runCreateJournal(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "✅ Task",
-			Description: "Create a new task",
+			Label:       lang.GetText("menu.create.task_label"),
+			Description: lang.GetText("menu.create.task_desc"),
 			Action: func() error {
 				if err := runCreateTask(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "Return to main menu",
+			Label:       lang.GetText("menu.create.back_label"),
+			Description: lang.GetText("menu.create.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}

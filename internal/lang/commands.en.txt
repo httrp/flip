@@ -1,0 +1,41 @@
+=== Flip Commands ===
+
+Content Creation (Flexible Syntax):
+  flip note [new]              # Create note (default action)
+  flip note n                  # Create note (shortcut)
+  flip new note                # Create note (alternative)
+
+  flip meeting-note [new]      # Create meeting note
+  flip meeting-note n          # Create meeting note (shortcut)
+  flip new meeting-note        # Create meeting note (alternative)
+
+  flip journal [new]           # Create/open journal
+  flip journal n               # Create/open journal (shortcut)
+  flip new journal             # Create/open journal (alternative)
+
+  flip task [new]              # Create task
+  flip task n                  # Create task (shortcut)
+  flip new task                # Create task (alternative)
+
+Task Management:
+  flip task list [--status open]   # List tasks
+  flip task list --priority high   # Filter by priority
+  flip task list --due today       # Filter by due date
+
+Workspace Management:
+  flip workspace create <name>     # Create workspace
+  flip workspace new <name>        # Same as create
+  flip workspace add <name>        # Same as create
+  flip workspace switch <name>     # Switch workspace
+
+Brain Management:
+  flip brain add <path>            # Add existing brain
+  flip brain new                   # Create new brain
+  flip brain create                # Same as new
+  flip brain set-default <name>    # Set default brain
+  flip brain scan <path>           # Scan for brains
+
+Other:
+  flip status                      # Show status
+  flip intro                       # Introduction
+  flip help                        # This help

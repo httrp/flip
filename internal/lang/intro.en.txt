@@ -1,0 +1,21 @@
+===============================================================
+Welcome to Flip
+===============================================================
+
+Flip manages external knowledge bases without moving your notes.
+
+Key concepts:
+  🧠 Brain: A single knowledge base directory (Obsidian, Logseq, Dendron, markdown)
+  📁 Workspace: A named collection of related brains
+     - The 'default' workspace contains all brains Flip knows about on this machine
+
+Quick start:
+  flip quickstart           # Guided onboarding
+  flip brain new            # Create a new brain with a compatible structure
+  flip brain add <path>     # Connect an existing brain directory
+  flip status               # See your workspaces and brains
+
+Tips:
+  - Use 'flip workspace create <name>' to organize brains by context (e.g., personal/work)
+  - Set a default brain per workspace with 'flip brain set-default <name>'
+  - Repair your registry anytime with 'flip workspace repair'
