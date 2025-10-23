@@ -502,6 +502,11 @@ func runManageResourcesMenu() error {
 			Action:      runManageBrainsMenu,
 		},
 		{
+			Label:       "View/Edit workspace config",
+			Description: "View or edit the global workspace configuration",
+			Action:      runViewWorkspaceConfig,
+		},
+		{
 			Label:       lang.GetText("menu.manage.templates_label"),
 			Description: lang.GetText("menu.manage.templates_desc"),
 			Action:      runEditManageMenu, // Reuse existing template management
@@ -1228,16 +1233,89 @@ func runEditBrainMenu() error {
 
 				fmt.Println(strings.Repeat("━", 60))
 				fmt.Println("\nOptions:")
+				fmt.Println("  v) View brain config (.flip.yaml)")
 				fmt.Println("  e) Edit path")
 				fmt.Println("  o) Open folder")
+				fmt.Println("  c) Edit config file (ADVANCED)")
 				fmt.Println("  b) Back to menu")
-				fmt.Printf("\nChoose (e/o/b) [default: b]: ")
+				fmt.Printf("\nChoose (v/e/o/c/b) [default: b]: ")
 
 				reader := bufio.NewReader(os.Stdin)
 				choice, _ := reader.ReadString('\n')
 				choice = strings.TrimSpace(strings.ToLower(choice))
 
 				switch choice {
+				case "v":
+					// View brain config
+					configPath := filepath.Join(brain.Path, ".flip.yaml")
+					if _, err := os.Stat(configPath); os.IsNotExist(err) {
+						fmt.Printf("\n%s Brain config not found: %s\n", IconError, configPath)
+					} else {
+						content, err := os.ReadFile(configPath)
+						if err != nil {
+							fmt.Printf("\n%s Error reading config: %v\n", IconError, err)
+						} else {
+							fmt.Println("\n" + strings.Repeat("━", 60))
+							fmt.Printf("Brain Config: %s\n", brain.Name)
+							fmt.Printf("File: %s\n", configPath)
+							fmt.Println(strings.Repeat("━", 60))
+							fmt.Println(string(content))
+							fmt.Println(strings.Repeat("━", 60))
+						}
+					}
+				case "c":
+					// Edit config file with warning
+					configPath := filepath.Join(brain.Path, ".flip.yaml")
+					if _, err := os.Stat(configPath); os.IsNotExist(err) {
+						fmt.Printf("\n%s Brain config not found: %s\n", IconError, configPath)
+					} else {
+						fmt.Println("\n" + strings.Repeat("━", 60))
+						fmt.Println("⚠️  WARNING: Manual Config Editing")
+						fmt.Println(strings.Repeat("━", 60))
+						fmt.Println("Editing config files manually can break your brain setup!")
+						fmt.Println()
+						fmt.Println("Recommended: Use 'flip' commands instead:")
+						fmt.Println("  • flip brain rename <name>")
+						fmt.Println("  • flip brain repair")
+						fmt.Println("  • Use menu options for safe changes")
+						fmt.Println()
+						fmt.Println("Only proceed if you know what you're doing.")
+						fmt.Println(strings.Repeat("━", 60))
+						fmt.Printf("\n? Open config in editor anyway? (yes/no) [default: no]: ")
+						confirm, _ := reader.ReadString('\n')
+						confirm = strings.TrimSpace(strings.ToLower(confirm))
+
+						if confirm == "yes" || confirm == "y" {
+							// Try different editors
+							editors := []string{"code", "nano", "vim", "vi"}
+							opened := false
+							for _, editor := range editors {
+								cmd := exec.Command(editor, configPath)
+								if editor == "code" {
+									// VS Code: just launch and return
+									cmd.Start()
+									fmt.Printf("\n%s Opening in VS Code...\n", IconCheck)
+									opened = true
+									break
+								} else {
+									// Terminal editors: run interactively
+									cmd.Stdin = os.Stdin
+									cmd.Stdout = os.Stdout
+									cmd.Stderr = os.Stderr
+									if err := cmd.Run(); err == nil {
+										opened = true
+										break
+									}
+								}
+							}
+							if !opened {
+								fmt.Printf("\n%s Could not find a suitable editor\n", IconError)
+								fmt.Printf("   Config file: %s\n", configPath)
+							}
+						} else {
+							fmt.Println("\n✓ Cancelled. Smart choice!")
+						}
+					}
 				case "e":
 					// Edit path
 					fmt.Printf("\nCurrent path: %s\n", brain.Path)
@@ -1667,4 +1745,122 @@ func runTaskBrowseMenu() error {
 
 	fmt.Println()
 	return menuItems[idx].Action()
+}
+
+// runViewWorkspaceConfig shows and optionally edits the workspace configuration
+func runViewWorkspaceConfig() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+
+	configPath, err := getConfigPath()
+	if err != nil {
+		fmt.Printf("\n%s Error: Failed to get config path: %v\n", IconError, err)
+		fmt.Println(lang.GetText("prompts.continue"))
+		fmt.Scanln()
+		return runManageResourcesMenu()
+	}
+
+	// Check if config exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		fmt.Printf("%s Workspace configuration not found\n", IconWarning)
+		fmt.Printf("   Expected at: %s\n", configPath)
+		fmt.Printf("\n%s Configuration will be created when you add your first workspace or brain.\n", IconInfo)
+		fmt.Println(lang.GetText("prompts.continue"))
+		fmt.Scanln()
+		return runManageResourcesMenu()
+	}
+
+	// Read and display config
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		fmt.Printf("\n%s Error reading config: %v\n", IconError, err)
+		fmt.Println(lang.GetText("prompts.continue"))
+		fmt.Scanln()
+		return runManageResourcesMenu()
+	}
+
+	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println("📋 Workspace Configuration")
+	fmt.Printf("File: %s\n", configPath)
+	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(string(content))
+	fmt.Println(strings.Repeat("━", 60))
+
+	fmt.Println("\nOptions:")
+	fmt.Println("  e) Edit configuration (ADVANCED - BE CAREFUL!)")
+	fmt.Println("  b) Back to menu")
+	fmt.Printf("\nChoose (e/b) [default: b]: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(strings.ToLower(choice))
+
+	if choice == "e" {
+		fmt.Println("\n" + strings.Repeat("━", 60))
+		fmt.Println("⚠️  DANGER: Manual Configuration Editing")
+		fmt.Println(strings.Repeat("━", 60))
+		fmt.Println("⚠️  Editing this file incorrectly can BREAK flip completely!")
+		fmt.Println()
+		fmt.Println("This file contains:")
+		fmt.Println("  • All workspace definitions")
+		fmt.Println("  • Brain paths and configurations")
+		fmt.Println("  • Active workspace settings")
+		fmt.Println()
+		fmt.Println("Mistakes can cause:")
+		fmt.Println("  ✗ Loss of access to all your brains")
+		fmt.Println("  ✗ Broken workspace switching")
+		fmt.Println("  ✗ Data inconsistency")
+		fmt.Println()
+		fmt.Println("Recommended: Use safe commands instead:")
+		fmt.Println("  • flip workspace add/remove/switch")
+		fmt.Println("  • flip brain add/remove/rename")
+		fmt.Println("  • Menu options for all operations")
+		fmt.Println(strings.Repeat("━", 60))
+		fmt.Printf("\n⚠️  Are you ABSOLUTELY SURE you want to edit this? (type 'YES' to confirm): ")
+		confirm, _ := reader.ReadString('\n')
+		confirm = strings.TrimSpace(confirm)
+
+		if confirm == "YES" {
+			// Create backup first
+			backupPath := configPath + ".backup"
+			if err := os.WriteFile(backupPath, content, 0644); err != nil {
+				fmt.Printf("\n%s Warning: Could not create backup: %v\n", IconWarning, err)
+			} else {
+				fmt.Printf("\n%s Backup created: %s\n", IconCheck, backupPath)
+			}
+
+			// Try different editors
+			editors := []string{"code", "nano", "vim", "vi"}
+			opened := false
+			for _, editor := range editors {
+				cmd := exec.Command(editor, configPath)
+				if editor == "code" {
+					cmd.Start()
+					fmt.Printf("\n%s Opening in VS Code...\n", IconCheck)
+					fmt.Printf("   Backup: %s\n", backupPath)
+					opened = true
+					break
+				} else {
+					cmd.Stdin = os.Stdin
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err := cmd.Run(); err == nil {
+						opened = true
+						break
+					}
+				}
+			}
+			if !opened {
+				fmt.Printf("\n%s Could not find a suitable editor\n", IconError)
+				fmt.Printf("   Config file: %s\n", configPath)
+			}
+		} else {
+			fmt.Println("\n✓ Cancelled. Good decision!")
+		}
+	}
+
+	fmt.Println(lang.GetText("prompts.continue"))
+	fmt.Scanln()
+	return runManageResourcesMenu()
 }

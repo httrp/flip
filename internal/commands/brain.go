@@ -32,6 +32,7 @@ func NewBrainCommand() *cobra.Command {
 	cmd.AddCommand(newBrainSetDefaultCommand())
 	cmd.AddCommand(newBrainRenameCommand())
 	cmd.AddCommand(newBrainRepairCommand())
+	cmd.AddCommand(newBrainCheckCommand())
 
 	return cmd
 }
@@ -95,6 +96,16 @@ func runBrainAdd(path, name string, setDefault bool) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Resolve symlinks to get real path
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// If symlink evaluation fails, use absPath
+		realPath = absPath
+	} else if realPath != absPath {
+		fmt.Printf("%s Path is a symlink, using real path: %s\n", IconInfo, realPath)
+		absPath = realPath
 	}
 
 	// Check if path exists
@@ -233,6 +244,21 @@ func runBrainRemove(name string) error {
 		return err
 	}
 
+	// Confirmation prompt
+	fmt.Printf("\n⚠️  Are you sure you want to remove brain '%s'?\n", name)
+	fmt.Println("   This will remove the brain from flip's configuration.")
+	fmt.Println("   Your files will NOT be deleted.")
+	fmt.Printf("\n? Continue? (yes/no) [default: no]: ")
+
+	var confirm string
+	fmt.Scanln(&confirm)
+	confirm = strings.TrimSpace(strings.ToLower(confirm))
+
+	if confirm != "yes" && confirm != "y" {
+		fmt.Println("\n✓ Cancelled")
+		return nil
+	}
+
 	// Find and remove brain
 	found := false
 	for i := range config.Workspaces {
@@ -242,7 +268,7 @@ func runBrainRemove(name string) error {
 			for _, b := range config.Workspaces[i].Brains {
 				if b.Name == name {
 					found = true
-					fmt.Printf("%s Removing brain '%s' from workspace '%s'\n", IconWarning, name, ws.Name)
+					fmt.Printf("\n%s Removing brain '%s' from workspace '%s'\n", IconWarning, name, ws.Name)
 					fmt.Printf("   (Files at %s stay intact)\n", b.Path)
 				} else {
 					newBrains = append(newBrains, b)

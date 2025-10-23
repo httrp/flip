@@ -10,6 +10,7 @@ import (
 
 // WorkspaceConfig is the root configuration
 type WorkspaceConfig struct {
+	Warning         string      `json:"_warning,omitempty"` // Warning message for manual edits
 	Version         string      `json:"version"`
 	ActiveWorkspace string      `json:"active_workspace"` // Name of currently active workspace
 	Workspaces      []Workspace `json:"workspaces"`
@@ -136,6 +137,11 @@ func saveWorkspaceConfig(config *WorkspaceConfig) error {
 	configPath, err := getConfigPath()
 	if err != nil {
 		return err
+	}
+
+	// Add warning message if not present
+	if config.Warning == "" {
+		config.Warning = "⚠️  DO NOT EDIT MANUALLY! Use 'flip workspace' and 'flip brain' commands. Manual edits can break flip completely!"
 	}
 
 	data, err := json.MarshalIndent(config, "", "  ")

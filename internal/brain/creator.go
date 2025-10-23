@@ -557,7 +557,23 @@ Main note content here.
 }
 
 func (c *Creator) createConfiguration(basePath string, config Config) error {
-	configContent := fmt.Sprintf(`repositories:
+	configContent := fmt.Sprintf(`# ==================================================================
+# FLIP BRAIN CONFIGURATION
+# ==================================================================
+# ⚠️  WARNING: Manual editing can break your brain setup!
+# 
+# This file configures the behavior of your flip brain.
+# 
+# Recommended: Use 'flip' commands for safe changes:
+#   flip brain rename <name>    - Rename your brain
+#   flip brain repair           - Fix configuration issues
+#   Use the flip menu           - Interactive, safe operations
+#
+# Only edit manually if you understand the format and implications.
+# Invalid YAML or incorrect paths can prevent flip from working!
+# ==================================================================
+
+repositories:
   - name: "primary"
     path: "."
     type: "primary"
@@ -582,6 +598,7 @@ llm:
   provider: "ollama"
   model: "llama2"
   endpoint: "http://localhost:11434"
+  # Note: LLM integration is planned for future releases
 `, config.Author, config.DefaultOrganization)
 	return c.writeFile(filepath.Join(basePath, ".flip.yaml"), configContent)
 }

@@ -405,48 +405,21 @@ func runNewBrain() error {
 		path = recommended
 	}
 
-	// Validate: path should end with brain name OR be a non-existing directory
 	target := path
-	baseName := filepath.Base(target)
 
-	// Check if path already exists
-	if stat, err := os.Stat(target); err == nil {
-		// Path exists - check if it's a directory
-		if !stat.IsDir() {
-			fmt.Printf("\n✗ Error: Path exists but is not a directory: %s\n", target)
-			return runNewBrain()
-		}
-
-		// Check if directory is empty
-		entries, err := os.ReadDir(target)
-		if err != nil {
-			return fmt.Errorf("failed to read directory: %w", err)
-		}
-
-		if len(entries) > 0 {
-			fmt.Printf("\n✗ Error: Directory already exists and is not empty: %s\n", target)
-			fmt.Printf("   A brain must be created in a NEW directory to avoid conflicts.\n")
-			fmt.Printf("   Please choose a different path or create a subdirectory.\n")
-			return runNewBrain()
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check path: %w", err)
+	// Comprehensive path validation
+	if err := validateBrainPath(target, name); err != nil {
+		fmt.Printf("\n✗ Error: %v\n\n", err)
+		fmt.Println("💡 Tip: Use the recommended path or ensure:")
+		fmt.Println("   - Path is a NEW directory (doesn't exist or is empty)")
+		fmt.Println("   - Path is NOT inside another brain")
+		fmt.Println("   - Path ends with the brain name")
+		fmt.Println()
+		return runNewBrain()
 	}
 
-	// Warn if path doesn't end with brain name
-	if baseName != name && baseName != normalizePathName(name) {
-		fmt.Printf("\n⚠️  Warning: Path does not end with brain name '%s'\n", name)
-		fmt.Printf("   Path will be: %s\n", target)
-		fmt.Printf("   Suggested: %s\n", filepath.Join(filepath.Dir(target), name))
-		fmt.Printf("\n? Continue anyway? (yes/no) [default: no]: ")
-		confirm, _ := reader.ReadString('\n')
-		confirm = strings.TrimSpace(strings.ToLower(confirm))
-
-		if confirm != "yes" && confirm != "y" {
-			fmt.Println("\n✗ Cancelled. Please specify the full path including the brain name.")
-			return runNewBrain()
-		}
-	}
+	// Path validated - ensure it's absolute
+	target, _ = filepath.Abs(target)
 
 	// Safety: Prevent using the flip project/source folder as the target
 	projectMarkers := []string{"go.mod", "internal/commands/init.go", "internal/brain/creator.go"}
@@ -575,4 +548,128 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isInsideExistingBrain checks if a path is inside an existing brain by looking for .flip.yaml in parent directories
+func isInsideExistingBrain(targetPath string) (bool, string, error) {
+	absPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return false, "", err
+	}
+
+	// Check each parent directory for .flip.yaml
+	currentPath := filepath.Dir(absPath)
+	for {
+		markerPath := filepath.Join(currentPath, ".flip.yaml")
+		if _, err := os.Stat(markerPath); err == nil {
+			return true, currentPath, nil
+		}
+
+		// Move to parent
+		parent := filepath.Dir(currentPath)
+		if parent == currentPath {
+			// Reached root
+			break
+		}
+		currentPath = parent
+	}
+
+	return false, "", nil
+}
+
+// containsExistingBrain checks if the target path contains any existing brains (subdirectories with .flip.yaml)
+func containsExistingBrain(targetPath string) (bool, []string, error) {
+	absPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return false, nil, err
+	}
+
+	// Path doesn't exist yet, so it can't contain brains
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return false, nil, nil
+	}
+
+	var foundBrains []string
+
+	// Walk through subdirectories looking for .flip.yaml
+	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the target path itself
+		if path == absPath {
+			return nil
+		}
+
+		// Check if this directory has .flip.yaml
+		if info.IsDir() {
+			markerPath := filepath.Join(path, ".flip.yaml")
+			if _, err := os.Stat(markerPath); err == nil {
+				relPath, _ := filepath.Rel(absPath, path)
+				foundBrains = append(foundBrains, relPath)
+				// Don't descend into this brain
+				return filepath.SkipDir
+			}
+		}
+
+		return nil
+	})
+
+	return len(foundBrains) > 0, foundBrains, err
+}
+
+// validateBrainPath performs comprehensive validation of a brain path
+func validateBrainPath(targetPath, brainName string) error {
+	absPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+
+	// 1. Check if path is inside an existing brain
+	isInside, parentBrain, err := isInsideExistingBrain(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to check parent brains: %w", err)
+	}
+	if isInside {
+		return fmt.Errorf("cannot create brain inside another brain\n   Parent brain found at: %s\n   Brains must not be nested.", parentBrain)
+	}
+
+	// 2. Check if path already exists
+	stat, err := os.Stat(absPath)
+	if err == nil {
+		// Path exists
+		if !stat.IsDir() {
+			return fmt.Errorf("path exists but is not a directory: %s", absPath)
+		}
+
+		// Check if directory is empty
+		entries, err := os.ReadDir(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to read directory: %w", err)
+		}
+
+		if len(entries) > 0 {
+			return fmt.Errorf("directory already exists and is not empty: %s\n   A brain MUST be created in a NEW, empty directory.\n   Please choose a different path.", absPath)
+		}
+
+		// Empty directory is OK, but check for nested brains
+		containsBrains, foundBrains, err := containsExistingBrain(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to check for nested brains: %w", err)
+		}
+		if containsBrains {
+			return fmt.Errorf("path contains existing brain(s): %v\n   Cannot create brain containing other brains.", foundBrains)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to check path: %w", err)
+	}
+
+	// 3. Warn if path doesn't end with brain name
+	baseName := filepath.Base(absPath)
+	if baseName != brainName && baseName != normalizePathName(brainName) {
+		return fmt.Errorf("path should end with brain name '%s'\n   Current path: %s\n   Suggested: %s", brainName, absPath, filepath.Join(filepath.Dir(absPath), brainName))
+	}
+
+	return nil
 }
