@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/httrp/flip/internal/tasks"
@@ -220,37 +221,246 @@ func displayTaskList(taskList []*tasks.Task) {
 
 // selectAndActOnTask shows interactive menu for task actions
 func selectAndActOnTask(taskList []*tasks.Task) error {
-	items := []string{
-		"📝 Open task file in editor",
+	if len(taskList) == 0 {
+		return nil
+	}
+
+	// First, let user select a task
+	items := make([]string, len(taskList))
+	for i, task := range taskList {
+		statusIcon := "⭕"
+		switch task.Status {
+		case tasks.StatusInProgress:
+			statusIcon = "�"
+		case tasks.StatusDone:
+			statusIcon = "✅"
+		case tasks.StatusDeferred:
+			statusIcon = "⏸️"
+		case tasks.StatusCancelled:
+			statusIcon = "❌"
+		}
+		priorityIcon := tasks.PriorityIcon(task.Priority)
+		dueInfo := ""
+		if task.Due != nil {
+			dueInfo = fmt.Sprintf(" %s", formatTaskDueDate(task.Due))
+		}
+		items[i] = fmt.Sprintf("%s %s %s%s | %s", statusIcon, priorityIcon, task.Description, dueInfo, task.Context.FileName)
+	}
+
+	selectPrompt := promptui.Select{
+		Label: "Select a task",
+		Items: items,
+		Size:  10,
+	}
+
+	taskIdx, _, err := selectPrompt.Run()
+	if err != nil {
+		return nil // User cancelled
+	}
+
+	selectedTask := taskList[taskIdx]
+
+	// Then show action menu
+	actionItems := []string{
+		"�📝 Open task file in editor",
 		"✅ Mark task as done",
 		"🔄 Mark as in-progress",
+		"⭕ Mark as open",
+		"📋 Update task properties",
 		"◀️  Back",
 	}
 
-	prompt := promptui.Select{
+	actionPrompt := promptui.Select{
 		Label: "What would you like to do?",
-		Items: items,
+		Items: actionItems,
 	}
 
-	idx, _, err := prompt.Run()
+	actionIdx, _, err := actionPrompt.Run()
 	if err != nil {
 		return nil
 	}
 
-	switch idx {
+	switch actionIdx {
 	case 0: // Open file
-		if len(taskList) > 0 {
-			return openInEditor(taskList[0].Context.FilePath)
-		}
+		return openInEditor(selectedTask.Context.FilePath)
+
 	case 1: // Mark done
-		fmt.Println("Task completion coming soon!")
+		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusDone); err != nil {
+			return fmt.Errorf("failed to mark task as done: %w", err)
+		}
+		fmt.Printf("\n✅ Task marked as done: %s\n", selectedTask.Description)
+		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
+
 	case 2: // Mark in-progress
-		fmt.Println("Task status update coming soon!")
-	case 3: // Back
+		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusInProgress); err != nil {
+			return fmt.Errorf("failed to mark task as in-progress: %w", err)
+		}
+		fmt.Printf("\n🔄 Task started: %s\n", selectedTask.Description)
+		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
+
+	case 3: // Mark open
+		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusOpen); err != nil {
+			return fmt.Errorf("failed to mark task as open: %w", err)
+		}
+		fmt.Printf("\n⭕ Task marked as open: %s\n", selectedTask.Description)
+		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
+
+	case 4: // Update properties
+		return runTaskUpdateInteractive(selectedTask)
+
+	case 5: // Back
 		return nil
 	}
 
 	return nil
+}
+
+// runTaskUpdateInteractive updates a task interactively
+func runTaskUpdateInteractive(task *tasks.Task) error {
+	propertyPrompt := promptui.Select{
+		Label: "What would you like to update?",
+		Items: []string{
+			"📝 Description",
+			"📅 Due Date",
+			"⏫ Priority",
+			"🏷️  Tags",
+			"📂 Project",
+			"❌ Cancel",
+		},
+	}
+
+	propIdx, _, err := propertyPrompt.Run()
+	if err != nil || propIdx == 5 {
+		return nil // User cancelled
+	}
+
+	switch propIdx {
+	case 0: // Description
+		descPrompt := promptui.Prompt{
+			Label:   "New description",
+			Default: task.Description,
+		}
+		newDesc, err := descPrompt.Run()
+		if err != nil {
+			return nil
+		}
+		task.Description = strings.TrimSpace(newDesc)
+
+	case 1: // Due Date
+		dueDatePrompt := promptui.Prompt{
+			Label:   "Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next week', or leave empty to remove)",
+			Default: "",
+		}
+		dueDateStr, err := dueDatePrompt.Run()
+		if err != nil {
+			return nil
+		}
+		dueDateStr = strings.TrimSpace(dueDateStr)
+
+		if dueDateStr == "" {
+			task.Due = nil
+		} else {
+			dueDate, err := parseDueDateFromString(dueDateStr)
+			if err != nil {
+				return fmt.Errorf("invalid due date: %w", err)
+			}
+			task.Due = &dueDate
+		}
+
+	case 2: // Priority
+		priorityPrompt := promptui.Select{
+			Label: "Select priority",
+			Items: []string{
+				"⏫ High",
+				"🔼 Medium",
+				"🔽 Low",
+				"   None",
+			},
+		}
+		prioIdx, _, err := priorityPrompt.Run()
+		if err != nil {
+			return nil
+		}
+		switch prioIdx {
+		case 0:
+			task.Priority = tasks.PriorityHigh
+		case 1:
+			task.Priority = tasks.PriorityMedium
+		case 2:
+			task.Priority = tasks.PriorityLow
+		case 3:
+			task.Priority = tasks.PriorityNone
+		}
+
+	case 3: // Tags
+		currentTags := ""
+		if len(task.Tags) > 0 {
+			currentTags = "#" + strings.Join(task.Tags, " #")
+		}
+		tagsPrompt := promptui.Prompt{
+			Label:   "Tags (space-separated, with #)",
+			Default: currentTags,
+		}
+		tagsStr, err := tagsPrompt.Run()
+		if err != nil {
+			return nil
+		}
+		tagsStr = strings.TrimSpace(tagsStr)
+		if tagsStr == "" {
+			task.Tags = nil
+		} else {
+			// Parse #tag1 #tag2 format
+			task.Tags = nil
+			for _, tag := range strings.Fields(tagsStr) {
+				tag = strings.TrimPrefix(tag, "#")
+				if tag != "" {
+					task.Tags = append(task.Tags, tag)
+				}
+			}
+		}
+
+	case 4: // Project
+		projectPrompt := promptui.Prompt{
+			Label:   "Project name",
+			Default: task.Project,
+		}
+		project, err := projectPrompt.Run()
+		if err != nil {
+			return nil
+		}
+		task.Project = strings.TrimSpace(project)
+	}
+
+	// Update the task in file
+	if err := tasks.UpdateTaskInFile(task.Context.FilePath, task.Context.LineNumber, task); err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+
+	fmt.Printf("\n✅ Task updated: %s\n", task.Description)
+	fmt.Printf("   📄 File: %s (line %d)\n\n", task.Context.FilePath, task.Context.LineNumber)
+
+	return nil
+}
+
+// parseDueDateFromString parses various date formats
+func parseDueDateFromString(input string) (time.Time, error) {
+	input = strings.ToLower(strings.TrimSpace(input))
+
+	switch input {
+	case "today":
+		return time.Now().Truncate(24 * time.Hour), nil
+	case "tomorrow":
+		return time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour), nil
+	case "next week":
+		return time.Now().Add(7 * 24 * time.Hour).Truncate(24 * time.Hour), nil
+	default:
+		// Try parsing as YYYY-MM-DD
+		parsed, err := time.Parse("2006-01-02", input)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("invalid date format (use YYYY-MM-DD, 'today', 'tomorrow', or 'next week')")
+		}
+		return parsed, nil
+	}
 }
 
 // Helper functions for filtering
