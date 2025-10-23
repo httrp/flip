@@ -76,9 +76,121 @@ func runCreateMeeting() error {
 
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
-	// Prompt for meeting title
+	// Step 1: Ask if single meeting or series
+	promptMeetingType := promptui.Select{
+		Label: "Meeting type",
+		Items: []string{"Single meeting", "Part of a series"},
+	}
+
+	_, meetingType, err := promptMeetingType.Run()
+	if err != nil {
+		return fmt.Errorf("meeting type selection cancelled: %w", err)
+	}
+
+	var seriesName string
+	var title string
+	var participants string
+	var organization string
+	var project string
+	var context string
+	var tags string
+
+	if meetingType == "Part of a series" {
+		// Step 2: New or existing series?
+		promptSeriesChoice := promptui.Select{
+			Label: "Series",
+			Items: []string{"Create new series", "Add to existing series"},
+		}
+
+		_, seriesChoice, err := promptSeriesChoice.Run()
+		if err != nil {
+			return fmt.Errorf("series choice cancelled: %w", err)
+		}
+
+		if seriesChoice == "Add to existing series" {
+			// Find existing series
+			series, err := findMeetingSeries(activeBrain.Path, detection.Type)
+			if err != nil {
+				return fmt.Errorf("failed to find series: %w", err)
+			}
+
+			if len(series) == 0 {
+				fmt.Println("\n⚠️  No existing series found. Creating new series instead.")
+				seriesChoice = "Create new series"
+			} else {
+				// Select from existing series
+				seriesNames := make([]string, len(series))
+				for i, s := range series {
+					seriesNames[i] = fmt.Sprintf("%s (%d meetings)", s.Name, s.Count)
+				}
+
+				promptSelectSeries := promptui.Select{
+					Label: "Select series",
+					Items: seriesNames,
+					Size:  10,
+				}
+
+				idx, _, err := promptSelectSeries.Run()
+				if err != nil {
+					return fmt.Errorf("series selection cancelled: %w", err)
+				}
+
+				selectedSeries := series[idx]
+				seriesName = selectedSeries.Name
+
+				// Load metadata from most recent meeting in series
+				seriesMeta, err := loadSeriesMetadata(selectedSeries.LatestFile)
+				if err != nil {
+					fmt.Printf("⚠️  Could not load series metadata: %v\n", err)
+				} else {
+					// Copy metadata from series
+					title = seriesMeta.Title
+					participants = seriesMeta.Participants
+					organization = seriesMeta.Organization
+					project = seriesMeta.Project
+					context = seriesMeta.Context
+					tags = seriesMeta.Tags
+
+					fmt.Printf("\n✅ Loaded metadata from series: %s\n", seriesName)
+					fmt.Printf("   Title: %s\n", title)
+					if organization != "" {
+						fmt.Printf("   Organization: %s\n", organization)
+					}
+					if project != "" {
+						fmt.Printf("   Project: %s\n", project)
+					}
+					if context != "" {
+						fmt.Printf("   Context: %s\n", context)
+					}
+					fmt.Println()
+				}
+			}
+		}
+
+		if seriesChoice == "Create new series" {
+			// Prompt for series name
+			promptSeriesName := promptui.Prompt{
+				Label: "Series name (e.g., 'Weekly Standup', 'Sprint Planning')",
+				Validate: func(input string) error {
+					if strings.TrimSpace(input) == "" {
+						return fmt.Errorf("series name cannot be empty")
+					}
+					return nil
+				},
+			}
+
+			seriesName, err = promptSeriesName.Run()
+			if err != nil {
+				return fmt.Errorf("series name prompt cancelled: %w", err)
+			}
+			seriesName = strings.TrimSpace(seriesName)
+		}
+	}
+
+	// Prompt for meeting title (or use series title as default)
 	promptTitle := promptui.Prompt{
-		Label: "Meeting title",
+		Label:   "Meeting title",
+		Default: title, // Will be empty for single meetings, or series title for series
 		Validate: func(input string) error {
 			if strings.TrimSpace(input) == "" {
 				return fmt.Errorf("title cannot be empty")
@@ -87,22 +199,21 @@ func runCreateMeeting() error {
 		},
 	}
 
-	title, err := promptTitle.Run()
+	title, err = promptTitle.Run()
 	if err != nil {
 		return fmt.Errorf("title prompt cancelled: %w", err)
 	}
 	title = strings.TrimSpace(title)
 
-	// Prompt for participants - optional, can be filled in later
+	// Prompt for participants - optional, can be filled in later (use Default if from series)
 	promptParticipants := promptui.Prompt{
 		Label:   "Participants (optional, press Enter to skip)",
-		Default: "",
+		Default: participants,
 	}
 
-	participants, err := promptParticipants.Run()
+	participants, err = promptParticipants.Run()
 	if err != nil {
-		// If cancelled, continue with empty participants
-		participants = ""
+		// If cancelled, keep existing value
 	} else {
 		participants = strings.TrimSpace(participants)
 	}
@@ -110,12 +221,12 @@ func runCreateMeeting() error {
 	// Prompt for organization
 	promptOrganization := promptui.Prompt{
 		Label:   "Organization (e.g., P1174, DANORAMA, press Enter to skip)",
-		Default: "",
+		Default: organization,
 	}
 
-	organization, err := promptOrganization.Run()
+	organization, err = promptOrganization.Run()
 	if err != nil {
-		organization = ""
+		// If cancelled, keep existing value
 	} else {
 		organization = strings.TrimSpace(organization)
 	}
@@ -123,12 +234,12 @@ func runCreateMeeting() error {
 	// Prompt for project
 	promptProject := promptui.Prompt{
 		Label:   "Project (press Enter to skip)",
-		Default: "",
+		Default: project,
 	}
 
-	project, err := promptProject.Run()
+	project, err = promptProject.Run()
 	if err != nil {
-		project = ""
+		// If cancelled, keep existing value
 	} else {
 		project = strings.TrimSpace(project)
 	}
@@ -136,12 +247,12 @@ func runCreateMeeting() error {
 	// Prompt for context
 	promptContext := promptui.Prompt{
 		Label:   "Context (e.g., BACKEND, FINANCE, press Enter to skip)",
-		Default: "",
+		Default: context,
 	}
 
-	context, err := promptContext.Run()
+	context, err = promptContext.Run()
 	if err != nil {
-		context = ""
+		// If cancelled, keep existing value
 	} else {
 		context = strings.TrimSpace(context)
 	}
@@ -149,18 +260,20 @@ func runCreateMeeting() error {
 	// Prompt for tags
 	promptTags := promptui.Prompt{
 		Label:   "Tags (comma-separated, optional)",
-		Default: "meeting",
+		Default: tags,
 	}
 
-	tags, err := promptTags.Run()
+	tags, err = promptTags.Run()
 	if err != nil {
-		tags = "meeting" // Keep default if cancelled
+		if tags == "" {
+			tags = "meeting" // Keep default if cancelled and no value yet
+		}
 	} else {
 		tags = strings.TrimSpace(tags)
 	}
 
 	// Generate filename
-	filename := generateMeetingFilename(title, detection.Type)
+	filename := generateMeetingFilename(title, seriesName, detection.Type, activeBrain.Path)
 
 	// Determine base notes directory
 	baseDir := getNotesDirectory(activeBrain.Path, detection.Type)
@@ -188,7 +301,7 @@ func runCreateMeeting() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content
-	content := generateMeetingContent(title, participants, organization, project, context, tags, detection.Type, activeBrain.Path)
+	content := generateMeetingContent(title, participants, organization, project, context, tags, seriesName, detection.Type, activeBrain.Path)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -208,9 +321,47 @@ func runCreateMeeting() error {
 }
 
 // generateMeetingFilename creates a filename for meeting notes
-func generateMeetingFilename(title string, brainType brain.BrainType) string {
+func generateMeetingFilename(title, seriesName string, brainType brain.BrainType, brainPath string) string {
 	safeName := sanitizeFilename(title)
 	now := time.Now()
+
+	// If this is part of a series, append a counter to make the filename unique
+	if seriesName != "" {
+		// Determine meetings directory based on brain type
+		var meetingsPath string
+		switch brainType {
+		case brain.BrainTypeLogseq:
+			meetingsPath = filepath.Join(brainPath, "pages")
+		case brain.BrainTypeObsidian:
+			meetingsPath = filepath.Join(brainPath, "Meetings")
+		case brain.BrainTypeDendron:
+			meetingsPath = brainPath
+		case brain.BrainTypeFlip:
+			meetingsPath = filepath.Join(brainPath, "meetings")
+		default:
+			meetingsPath = filepath.Join(brainPath, "meetings")
+		}
+
+		// Count existing meetings in this series
+		counter := 1
+		files, err := os.ReadDir(meetingsPath)
+		if err == nil {
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+
+				filePath := filepath.Join(meetingsPath, file.Name())
+				existingSeries, err := extractSeriesNameFromFile(filePath)
+				if err == nil && existingSeries == seriesName {
+					counter++
+				}
+			}
+		}
+
+		// Append counter to the filename
+		safeName = fmt.Sprintf("%s-%02d", safeName, counter)
+	}
 
 	switch brainType {
 	case brain.BrainTypeLogseq:
@@ -227,7 +378,7 @@ func generateMeetingFilename(title string, brainType brain.BrainType) string {
 }
 
 // generateMeetingContent creates meeting note content
-func generateMeetingContent(title, participants, organization, project, context, tags string, brainType brain.BrainType, brainPath string) string {
+func generateMeetingContent(title, participants, organization, project, context, tags, seriesName string, brainType brain.BrainType, brainPath string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
@@ -264,7 +415,7 @@ func generateMeetingContent(title, participants, organization, project, context,
 	if err != nil {
 		// Fallback to hardcoded template if file not found
 		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		return generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, brainType, now, dateStr, timeStr, author)
+		return generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, seriesName, brainType, now, dateStr, timeStr, author)
 	}
 
 	// Prepare template variables
@@ -275,7 +426,8 @@ func generateMeetingContent(title, participants, organization, project, context,
 		"participants": participantList,
 		"organization": organization,
 		"project":      project,
-		"context":      context,
+		"contextTag":   context,
+		"series":       seriesName,
 		"tags":         tagList,
 		"author":       author,
 		"id":           uuid.New().String(), // Proper UUID for Dendron compatibility
@@ -287,7 +439,7 @@ func generateMeetingContent(title, participants, organization, project, context,
 }
 
 // generateDefaultMeetingContent provides fallback templates when template files don't exist
-func generateDefaultMeetingContent(title, participantList, organization, project, context, tagList string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
+func generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, seriesName string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
 	// Build frontmatter fields
 	frontmatterOrg := ""
 	if organization != "" {
@@ -300,6 +452,10 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 	frontmatterCtx := ""
 	if context != "" {
 		frontmatterCtx = fmt.Sprintf("\ncontext: %s", context)
+	}
+	frontmatterSeries := ""
+	if seriesName != "" {
+		frontmatterSeries = fmt.Sprintf("\nseries: %s", seriesName)
 	}
 
 	switch brainType {
@@ -316,6 +472,10 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 		if context != "" {
 			ctxField = fmt.Sprintf("- context:: %s\n", context)
 		}
+		seriesField := ""
+		if seriesName != "" {
+			seriesField = fmt.Sprintf("- series:: %s\n", seriesName)
+		}
 
 		return fmt.Sprintf(`- title:: %s
 - type:: meeting
@@ -323,7 +483,7 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 - time:: %s
 - author:: %s
 - tags:: %s
-%s%s%s
+%s%s%s%s
 ## %s
 
 ### Participants
@@ -338,7 +498,7 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 ### Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, author, tagList, orgField, projField, ctxField, title, participantList)
+`, title, dateStr, timeStr, author, tagList, orgField, projField, ctxField, seriesField, title, participantList)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
@@ -347,7 +507,7 @@ type: meeting
 date: %s
 time: %s
 author: %s
-tags: [%s]%s%s%s
+tags: [%s]%s%s%s%s
 ---
 
 # %s
@@ -364,7 +524,7 @@ tags: [%s]%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
+`, title, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -376,7 +536,7 @@ date: %s
 author: %s
 updated: %d
 created: %d
-tags: [%s]%s%s%s
+tags: [%s]%s%s%s%s
 ---
 
 # %s
@@ -393,7 +553,7 @@ tags: [%s]%s%s%s
 ## Related
 - [[related-note]]
 
-`, uuid.New().String(), title, dateStr, author, now.Unix(), now.Unix(), tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
+`, uuid.New().String(), title, dateStr, author, now.Unix(), now.Unix(), tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -404,7 +564,7 @@ type: meeting
 date: %s
 time: %s
 author: %s
-tags: [%s]%s%s%s
+tags: [%s]%s%s%s%s
 ---
 
 # %s
@@ -421,14 +581,14 @@ tags: [%s]%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, dateStr, dateStr, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
+`, title, dateStr, dateStr, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	default:
 		return fmt.Sprintf(`---
 title: %s
 type: meeting
 date: %s
-tags: [%s]%s%s%s
+tags: [%s]%s%s%s%s
 ---
 
 # %s
@@ -445,6 +605,180 @@ tags: [%s]%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, dateStr, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, title, participantList)
+`, title, dateStr, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 	}
+}
+
+// MeetingSeries represents a meeting series
+type MeetingSeries struct {
+	Name       string
+	Count      int
+	LatestFile string
+}
+
+// SeriesMetadata holds metadata from a series meeting
+type SeriesMetadata struct {
+	Title        string
+	Participants string
+	Organization string
+	Project      string
+	Context      string
+	Tags         string
+}
+
+// findMeetingSeries scans for existing meeting series
+func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSeries, error) {
+	seriesMap := make(map[string]*MeetingSeries)
+
+	// Get meetings directory
+	baseDir := getNotesDirectory(brainPath, brainType)
+	meetingsDir := filepath.Join(baseDir, "meetings")
+
+	// If meetings directory doesn't exist, return empty list
+	if _, err := os.Stat(meetingsDir); os.IsNotExist(err) {
+		return []MeetingSeries{}, nil
+	}
+
+	// Walk through meetings directory
+	err := filepath.Walk(meetingsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only process markdown files
+		if !strings.HasSuffix(strings.ToLower(path), ".md") {
+			return nil
+		}
+
+		// Try to extract series name from frontmatter
+		seriesName, err := extractSeriesNameFromFile(path)
+		if err != nil || seriesName == "" {
+			return nil
+		}
+
+		// Add or update series
+		if series, exists := seriesMap[seriesName]; exists {
+			series.Count++
+			// Update latest file if this one is newer
+			if info.ModTime().After(getFileModTime(series.LatestFile)) {
+				series.LatestFile = path
+			}
+		} else {
+			seriesMap[seriesName] = &MeetingSeries{
+				Name:       seriesName,
+				Count:      1,
+				LatestFile: path,
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert map to slice
+	result := make([]MeetingSeries, 0, len(seriesMap))
+	for _, series := range seriesMap {
+		result = append(result, *series)
+	}
+
+	return result, nil
+}
+
+// extractSeriesNameFromFile reads the series field from frontmatter
+func extractSeriesNameFromFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	inFrontmatter := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "---" {
+			if !inFrontmatter {
+				inFrontmatter = true
+				continue
+			} else {
+				break // End of frontmatter
+			}
+		}
+
+		if !inFrontmatter {
+			continue
+		}
+
+		// Look for series: field
+		if strings.HasPrefix(trimmed, "series:") {
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "series:"))
+			return strings.Trim(value, "\"'"), nil
+		}
+	}
+
+	return "", nil
+}
+
+// loadSeriesMetadata loads metadata from a series file
+func loadSeriesMetadata(filePath string) (*SeriesMetadata, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	inFrontmatter := false
+
+	meta := &SeriesMetadata{}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "---" {
+			if !inFrontmatter {
+				inFrontmatter = true
+				continue
+			} else {
+				break // End of frontmatter
+			}
+		}
+
+		if !inFrontmatter {
+			continue
+		}
+
+		// Parse frontmatter fields
+		if strings.HasPrefix(trimmed, "title:") {
+			meta.Title = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "title:")), "\"'")
+		} else if strings.HasPrefix(trimmed, "participants:") {
+			meta.Participants = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "participants:")), "\"'")
+		} else if strings.HasPrefix(trimmed, "organization:") {
+			meta.Organization = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "organization:")), "\"'")
+		} else if strings.HasPrefix(trimmed, "project:") {
+			meta.Project = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "project:")), "\"'")
+		} else if strings.HasPrefix(trimmed, "context:") {
+			meta.Context = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "context:")), "\"'")
+		} else if strings.HasPrefix(trimmed, "tags:") {
+			meta.Tags = strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "tags:")), "\"'[]")
+		}
+	}
+
+	return meta, nil
+}
+
+// getFileModTime returns the modification time of a file
+func getFileModTime(filePath string) time.Time {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
 }
