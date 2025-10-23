@@ -25,6 +25,7 @@ func NewTaskCommand() *cobra.Command {
 
 	// Add subcommands
 	cmd.AddCommand(NewTaskListCommand())
+	cmd.AddCommand(NewTaskBrowseCommand())
 	cmd.AddCommand(NewTaskNewCommand())
 	cmd.AddCommand(NewTaskDoneCommand())
 	cmd.AddCommand(NewTaskStartCommand())
@@ -43,7 +44,9 @@ func runTaskMenu() error {
 	fmt.Println("Use 'flip task --help' to see all available commands")
 	fmt.Println()
 	fmt.Println("Quick commands:")
+	fmt.Println("  flip task browse         - Interactive task browser (TUI)")
 	fmt.Println("  flip task list           - List all open tasks")
+	fmt.Println("  flip task list -g        - List tasks grouped by file")
 	fmt.Println("  flip task new            - Create a new task")
 	fmt.Println("  flip task list --today   - Show tasks due today")
 	fmt.Println("  flip task stats          - Show task statistics")
