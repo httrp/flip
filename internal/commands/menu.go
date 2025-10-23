@@ -9,7 +9,66 @@ import (
 	"github.com/httrp/flip/internal/tasks"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
+
+// getTerminalSize returns width and height of terminal, with safe defaults
+func getTerminalSize() (width, height int) {
+	w, h, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		// Safe defaults if we can't detect terminal size
+		return 80, 24
+	}
+	return w, h
+}
+
+// truncateString truncates a string to fit in terminal width, leaving room for UI elements
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return "..."
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// createSimpleSelectTemplates creates templates without multi-line details
+func createSimpleSelectTemplates() *promptui.SelectTemplates {
+	return &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ . | cyan | bold }}",
+		Inactive: "  {{ . }}",
+		Selected: "{{ . | green | bold }}",
+	}
+}
+
+// createMenuItemSelectTemplates creates templates for menu items with inline description
+func createMenuItemSelectTemplates() *promptui.SelectTemplates {
+	return &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   "▸ {{ .Label | cyan | bold }}",
+		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+	}
+}
+
+// calculateMenuSize determines optimal menu size based on terminal height
+func calculateMenuSize(itemCount int) int {
+	_, height := getTerminalSize()
+	// Leave room for: title (2 lines), help text (2 lines), prompt (1 line), padding (3 lines)
+	availableLines := height - 8
+	if availableLines < 5 {
+		availableLines = 5 // Minimum
+	}
+	if availableLines > 15 {
+		availableLines = 15 // Maximum for usability
+	}
+	if itemCount < availableLines {
+		return itemCount
+	}
+	return availableLines
+}
 
 func NewMenuCommand() *cobra.Command {
 	return &cobra.Command{
@@ -147,22 +206,15 @@ func runInteractiveMenu() error {
 		},
 	}
 
-	// Create interactive select
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	// Create interactive select with improved rendering
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "What would you like to do?",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      6,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true, // Hide "Use arrow keys" message
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -259,21 +311,14 @@ func runCreateAddMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "What would you like to create or add?",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      8,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -325,8 +370,10 @@ func runBrowseSearchMenu() error {
 
 				// Ask if content search is needed
 				contentPrompt := promptui.Select{
-					Label: "Search in",
-					Items: []string{"Filename only (fast)", "Filename and content (slower)"},
+					Label:     "Search in",
+					Items:     []string{"Filename only (fast)", "Filename and content (slower)"},
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				contentIdx, _, err := contentPrompt.Run()
@@ -363,21 +410,14 @@ func runBrowseSearchMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green }}",
-		Details: `
---------- Browse & Search ---------
-{{ "Description:" | faint }}	{{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Browse & Search Notes",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -455,21 +495,14 @@ func runCreateNewMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Create New Content",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -514,21 +547,14 @@ func runManageResourcesMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Manage Resources",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -617,21 +643,14 @@ func runManageBrainsMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Manage Brains",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -702,8 +721,11 @@ func runSwitchContextMenu() error {
 				}
 
 				prompt := promptui.Select{
-					Label: "Select default brain",
-					Items: brainNames,
+					Label:     "Select default brain",
+					Items:     brainNames,
+					Templates: createSimpleSelectTemplates(),
+					Size:      calculateMenuSize(len(brainNames)),
+					HideHelp:  true,
 				}
 
 				idx, _, err := prompt.Run()
@@ -729,21 +751,14 @@ func runSwitchContextMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Switch Context",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -842,21 +857,14 @@ func runBrainMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Brain Options",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      6,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -900,14 +908,11 @@ func runSwitchWorkspaceMenu() error {
 	items = append(items, "◀️  Back to Main Menu")
 
 	selectMenu := promptui.Select{
-		Label: "Select workspace to switch to",
-		Items: items,
-		Size:  10,
-		Templates: &promptui.SelectTemplates{
-			Active:   "▸ {{ . | cyan | bold }}",
-			Inactive: "  {{ . }}",
-			Selected: "{{ . | green | bold }}",
-		},
+		Label:     "Select workspace to switch to",
+		Items:     items,
+		Size:      calculateMenuSize(len(items)),
+		Templates: createSimpleSelectTemplates(),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -977,21 +982,14 @@ func runEditManageMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "What would you like to edit or manage?",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      5,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -1040,9 +1038,11 @@ func runEditWorkspaceMenu() error {
 				}
 
 				selectWS := promptui.Select{
-					Label: "Select workspace to rename",
-					Items: wsNames,
-					Size:  10,
+					Label:     "Select workspace to rename",
+					Items:     wsNames,
+					Size:      calculateMenuSize(len(wsNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				idx, _, err := selectWS.Run()
@@ -1117,9 +1117,11 @@ func runEditWorkspaceMenu() error {
 				}
 
 				selectWS := promptui.Select{
-					Label: "Select workspace to remove",
-					Items: wsNames,
-					Size:  10,
+					Label:     "Select workspace to remove",
+					Items:     wsNames,
+					Size:      calculateMenuSize(len(wsNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				idx, _, err := selectWS.Run()
@@ -1159,21 +1161,14 @@ func runEditWorkspaceMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Workspace Management",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      6,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -1222,9 +1217,11 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label: "Select brain to rename",
-					Items: brainNames,
-					Size:  10,
+					Label:     "Select brain to rename",
+					Items:     brainNames,
+					Size:      calculateMenuSize(len(brainNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				idx, _, err := selectBrain.Run()
@@ -1324,9 +1321,11 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label: "Select brain to set as default",
-					Items: items,
-					Size:  10,
+					Label:     "Select brain to set as default",
+					Items:     items,
+					Size:      calculateMenuSize(len(items)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				idx, _, err := selectBrain.Run()
@@ -1383,9 +1382,11 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label: "Select brain to remove",
-					Items: brainNames,
-					Size:  10,
+					Label:     "Select brain to remove",
+					Items:     brainNames,
+					Size:      calculateMenuSize(len(brainNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
 				}
 
 				idx, _, err := selectBrain.Run()
@@ -1425,21 +1426,14 @@ func runEditBrainMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Brain Management",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      7,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -1557,21 +1551,14 @@ func runTaskBrowseMenu() error {
 		},
 	}
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
-		Details: `
---------- Details ----------
-{{ "Description:" | faint }}  {{ .Description }}`,
-	}
+	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Task Management",
 		Items:     menuItems,
 		Templates: templates,
-		Size:      10,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()

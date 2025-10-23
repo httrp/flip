@@ -415,7 +415,12 @@ func (c *Creator) getMeetingTemplate(brainType BrainType) string {
 - ## Decisions
   - 
 - ## Action Items
-  - TODO [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
+  - TODO Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
+    - created:: {{.Date}}
+    - due:: 2025-10-30
+    - priority:: high
+    - assigned:: @[PERSON]
+    - project:: [[{{.Organization}}]]
 - ## Next Steps
   - `
 
@@ -438,7 +443,12 @@ func (c *Creator) getMeetingTemplate(brainType BrainType) string {
 - 
 
 ## Action Items
-- [ ] [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
+- [ ] Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
+  created:: {{date:YYYY-MM-DD}}
+  due:: 2025-10-30
+  priority:: high
+  assigned:: @[PERSON]
+  project:: [[{{.Organization}}]]
 
 ## Next Steps
 - `
@@ -462,7 +472,12 @@ func (c *Creator) getMeetingTemplate(brainType BrainType) string {
 - 
 
 ## Action Items
-- [ ] [Task] - @[PER] - [{{.Organization}}] - due: YYYY-MM-DD
+- [ ] Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
+  created:: {{.Date}}
+  due:: 2025-10-30
+  priority:: high
+  assigned:: @[PERSON]
+  project:: [[{{.Organization}}]]
 
 ## Next Steps
 - `
