@@ -282,6 +282,15 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 		statusIcon = "[-]"
 	}
 
+	// Organization/Context metadata
+	metaStr := ""
+	if task.Organization != "" {
+		metaStr = fmt.Sprintf(" [%s]", task.Organization)
+	}
+	if task.ContextTag != "" {
+		metaStr += fmt.Sprintf(" ctx:%s", task.ContextTag)
+	}
+
 	// Due date
 	dueStr := ""
 	if task.Due != nil {
@@ -306,10 +315,11 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 	}
 
 	// Build line
-	line := fmt.Sprintf("%s %s %s%s%s",
+	line := fmt.Sprintf("%s %s %s%s%s%s",
 		priorityIcon,
 		statusIcon,
 		truncate(task.Description, 60),
+		metaStr,
 		dueStr,
 		tagsStr,
 	)

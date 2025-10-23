@@ -25,6 +25,13 @@ var (
 
 	// Regex to match wiki links: [[Link]]
 	wikiLinkPattern = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+
+	// Regex to match organization/context patterns:
+	// [ORG], [ORG:CTX], [ORG:PROJ:CTX]
+	orgContextPattern = regexp.MustCompile(`\[([A-Z0-9\-]+)(?::([^\]:]+))?(?::([^\]]+))?\]`)
+
+	// Regex to match key:value metadata (org:VALUE, ctx:VALUE, proj:VALUE)
+	keyValuePattern = regexp.MustCompile(`\b(org|ctx|proj|context|organization|project):([A-Z0-9\-]+)\b`)
 )
 
 // ParseTask extracts a task from a markdown line
@@ -67,6 +74,45 @@ func parseInlineMetadata(text string) (cleanDescription string, metadata map[str
 	metadata = make(map[string]string)
 	cleanText := text
 
+	// Extract organization/context patterns [ORG] or [ORG:CTX] or [ORG:PROJ:CTX]
+	if matches := orgContextPattern.FindStringSubmatch(text); matches != nil {
+		// matches[1] = ORG (always present)
+		// matches[2] = second part (optional - could be CTX or PROJ)
+		// matches[3] = third part (optional - CTX if PROJ exists)
+
+		metadata["organization"] = matches[1]
+
+		if matches[3] != "" {
+			// Three parts: [ORG:PROJ:CTX]
+			metadata["project"] = matches[2]
+			metadata["context"] = matches[3]
+		} else if matches[2] != "" {
+			// Two parts: [ORG:CTX]
+			metadata["context"] = matches[2]
+		}
+		// One part: [ORG] - only organization set
+
+		cleanText = strings.Replace(cleanText, matches[0], "", 1)
+	}
+
+	// Extract key:value patterns (org:VALUE, ctx:VALUE, proj:VALUE)
+	kvMatches := keyValuePattern.FindAllStringSubmatch(text, -1)
+	for _, match := range kvMatches {
+		key := strings.ToLower(match[1])
+		value := match[2]
+
+		switch key {
+		case "org", "organization":
+			metadata["organization"] = value
+		case "ctx", "context":
+			metadata["context"] = value
+		case "proj", "project":
+			metadata["project"] = value
+		}
+
+		cleanText = strings.Replace(cleanText, match[0], "", 1)
+	}
+
 	// Extract due date (📅 2025-10-30)
 	if matches := inlineDatePattern.FindStringSubmatch(text); matches != nil {
 		metadata["due"] = matches[1]
@@ -93,8 +139,10 @@ func parseInlineMetadata(text string) (cleanDescription string, metadata map[str
 	// Extract wiki links ([[Project]])
 	links := wikiLinkPattern.FindAllStringSubmatch(text, -1)
 	if len(links) > 0 {
-		// First link could be project
-		metadata["project"] = links[0][1]
+		// First link could be project (if not already set by other patterns)
+		if _, exists := metadata["project"]; !exists {
+			metadata["project"] = links[0][1]
+		}
 		// Don't remove from description - links are part of the description
 	}
 
@@ -107,6 +155,21 @@ func parseInlineMetadata(text string) (cleanDescription string, metadata map[str
 
 // applyInlineMetadata applies extracted metadata to a task
 func applyInlineMetadata(task *Task, metadata map[string]string) {
+	// Apply organization
+	if org, ok := metadata["organization"]; ok {
+		task.Organization = org
+	}
+
+	// Apply context
+	if ctx, ok := metadata["context"]; ok {
+		task.ContextTag = ctx
+	}
+
+	// Apply project
+	if project, ok := metadata["project"]; ok {
+		task.Project = project
+	}
+
 	// Apply due date
 	if dueStr, ok := metadata["due"]; ok {
 		if dueDate, err := time.Parse("2006-01-02", dueStr); err == nil {
@@ -126,11 +189,6 @@ func applyInlineMetadata(task *Task, metadata map[string]string) {
 		for i, tag := range task.Tags {
 			task.Tags[i] = strings.TrimSpace(tag)
 		}
-	}
-
-	// Apply project
-	if project, ok := metadata["project"]; ok {
-		task.Project = project
 	}
 }
 
@@ -175,9 +233,13 @@ func ParseTaskMetadata(task *Task, lines []string) error {
 					task.Tags = append(task.Tags, tag)
 				}
 			}
-		case "project":
+		case "project", "proj":
 			// Remove [[ ]] if present
 			task.Project = strings.Trim(value, "[]")
+		case "organization", "org":
+			task.Organization = value
+		case "context", "ctx":
+			task.ContextTag = value
 		case "assigned":
 			task.Assigned = strings.TrimPrefix(value, "@")
 		case "notes":

@@ -17,6 +17,8 @@ func NewTaskListCommand() *cobra.Command {
 		priorityFilter string
 		tagFilter      string
 		projectFilter  string
+		orgFilter      string
+		contextFilter  string
 		dueToday       bool
 		dueThisWeek    bool
 		overdue        bool
@@ -46,6 +48,12 @@ func NewTaskListCommand() *cobra.Command {
 			if projectFilter != "" {
 				filter.Project = projectFilter
 			}
+			if orgFilter != "" {
+				filter.Organization = orgFilter
+			}
+			if contextFilter != "" {
+				filter.Context = contextFilter
+			}
 
 			return runListTasks(filter, groupByFile)
 		},
@@ -55,6 +63,8 @@ func NewTaskListCommand() *cobra.Command {
 	cmd.Flags().StringVar(&priorityFilter, "priority", "", "Filter by priority (high, medium, low)")
 	cmd.Flags().StringVar(&tagFilter, "tag", "", "Filter by tag")
 	cmd.Flags().StringVar(&projectFilter, "project", "", "Filter by project")
+	cmd.Flags().StringVar(&orgFilter, "org", "", "Filter by organization")
+	cmd.Flags().StringVar(&contextFilter, "context", "", "Filter by context")
 	cmd.Flags().BoolVar(&dueToday, "today", false, "Show tasks due today")
 	cmd.Flags().BoolVar(&dueThisWeek, "week", false, "Show tasks due this week")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "Show overdue tasks")
@@ -202,6 +212,18 @@ func displayTaskList(taskList []*tasks.Task) {
 			icon = "  "
 		}
 
+		// Organization/Context metadata
+		metaStr := ""
+		if task.Organization != "" {
+			metaStr = fmt.Sprintf("[%s]", task.Organization)
+		}
+		if task.ContextTag != "" {
+			if metaStr != "" {
+				metaStr += " "
+			}
+			metaStr += fmt.Sprintf("ctx:%s", task.ContextTag)
+		}
+
 		dueStr := ""
 		if task.Due != nil {
 			dueStr = formatTaskDueDate(task.Due)
@@ -220,13 +242,22 @@ func displayTaskList(taskList []*tasks.Task) {
 			brain = fmt.Sprintf("[%s]", task.Context.BrainName)
 		}
 
-		fmt.Printf("  %s %s %s %s %s\n",
-			icon,
-			truncate(task.Description, 50),
-			dueStr,
-			tags,
-			brain,
-		)
+		// Build output line
+		parts := []string{icon, truncate(task.Description, 50)}
+		if metaStr != "" {
+			parts = append(parts, metaStr)
+		}
+		if dueStr != "" {
+			parts = append(parts, dueStr)
+		}
+		if tags != "" {
+			parts = append(parts, tags)
+		}
+		if brain != "" {
+			parts = append(parts, brain)
+		}
+
+		fmt.Printf("  %s\n", strings.Join(parts, " "))
 	}
 }
 
@@ -592,6 +623,15 @@ func displayTaskLine(task *tasks.Task, showContext bool) {
 		statusIcon = "[-]"
 	}
 
+	// Organization/Context metadata
+	metaStr := ""
+	if task.Organization != "" {
+		metaStr = fmt.Sprintf(" [%s]", task.Organization)
+	}
+	if task.ContextTag != "" {
+		metaStr += fmt.Sprintf(" ctx:%s", task.ContextTag)
+	}
+
 	// Due date
 	dueStr := ""
 	if task.Due != nil {
@@ -614,10 +654,11 @@ func displayTaskLine(task *tasks.Task, showContext bool) {
 		contextStr = fmt.Sprintf(" › %s", task.Context.Section)
 	}
 
-	fmt.Printf("  %s %s %s%s%s%s\n",
+	fmt.Printf("  %s %s %s%s%s%s%s\n",
 		icon,
 		statusIcon,
 		truncate(task.Description, 60),
+		metaStr,
 		dueStr,
 		tagsStr,
 		contextStr,

@@ -8,17 +8,19 @@ import (
 
 // TaskFilter defines criteria for filtering tasks
 type TaskFilter struct {
-	Status      Status
-	Priority    Priority
-	Tags        []string
-	Project     string
-	DueBefore   *time.Time
-	DueAfter    *time.Time
-	Overdue     bool
-	DueToday    bool
-	DueThisWeek bool
-	SearchText  string
-	SortBy      string // "due", "priority", "created"
+	Status       Status
+	Priority     Priority
+	Tags         []string
+	Project      string
+	Organization string
+	Context      string
+	DueBefore    *time.Time
+	DueAfter     *time.Time
+	Overdue      bool
+	DueToday     bool
+	DueThisWeek  bool
+	SearchText   string
+	SortBy       string // "due", "priority", "created"
 }
 
 // TaskIndex provides fast task queries and filtering
@@ -124,6 +126,16 @@ func (idx *TaskIndex) applyFilters(tasks []*Task, filter TaskFilter) []*Task {
 
 		// Project filter
 		if filter.Project != "" && task.Project != filter.Project {
+			continue
+		}
+
+		// Organization filter
+		if filter.Organization != "" && task.Organization != filter.Organization {
+			continue
+		}
+
+		// Context filter
+		if filter.Context != "" && task.ContextTag != filter.Context {
 			continue
 		}
 

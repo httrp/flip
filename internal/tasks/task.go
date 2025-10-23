@@ -44,11 +44,13 @@ type Task struct {
 	Effort   string // "2h", "1d", "3w"
 
 	// Categorization
-	Tags     []string
-	Project  string // [[Project Name]]
-	Assigned string
+	Tags         []string
+	Project      string // [[Project Name]] or proj:NAME
+	Organization string // [ORG] or org:NAME
+	ContextTag   string // ctx:VALUE or [ORG:CTX] - business context/area
+	Assigned     string
 
-	// Context - where this task lives
+	// Location Context - where this task lives (file location)
 	Context TaskContext
 
 	// Relationships

@@ -73,6 +73,10 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 		return nil, err
 	}
 
+	// Parse frontmatter at the beginning of the file
+	frontmatter, fmErr := ParseFrontmatter(filePath)
+	// Ignore frontmatter errors - not all files have frontmatter
+
 	lines := strings.Split(string(content), "\n")
 	var tasks []Task
 	var currentTask *Task
@@ -101,6 +105,12 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 				if len(metadataLines) > 0 {
 					ParseTaskMetadata(currentTask, metadataLines)
 				}
+
+				// Apply frontmatter after all other metadata (lowest precedence)
+				if fmErr == nil && frontmatter != nil {
+					ApplyFrontmatterToTask(currentTask, frontmatter)
+				}
+
 				tasks = append(tasks, *currentTask)
 				metadataLines = nil
 			}
@@ -128,6 +138,12 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 				if len(metadataLines) > 0 {
 					ParseTaskMetadata(currentTask, metadataLines)
 				}
+
+				// Apply frontmatter after all other metadata (lowest precedence)
+				if fmErr == nil && frontmatter != nil {
+					ApplyFrontmatterToTask(currentTask, frontmatter)
+				}
+
 				tasks = append(tasks, *currentTask)
 				currentTask = nil
 				metadataLines = nil
@@ -140,6 +156,12 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 		if len(metadataLines) > 0 {
 			ParseTaskMetadata(currentTask, metadataLines)
 		}
+
+		// Apply frontmatter after all other metadata (lowest precedence)
+		if fmErr == nil && frontmatter != nil {
+			ApplyFrontmatterToTask(currentTask, frontmatter)
+		}
+
 		tasks = append(tasks, *currentTask)
 	}
 
