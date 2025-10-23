@@ -204,72 +204,72 @@ func runCreateAddMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📁 Workspace",
-			Description: "Create a new workspace",
+			Label:       lang.GetText("menu.create.workspace_label"),
+			Description: lang.GetText("menu.create.workspace_desc"),
 			Action: func() error {
 				if err := runNewWorkspace(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🧠 Brain",
-			Description: "Create new or add existing brain",
+			Label:       lang.GetText("menu.create.brain_label"),
+			Description: lang.GetText("menu.create.brain_desc"),
 			Action:      runBrainMenu,
 		},
 		{
-			Label:       "📝 Note",
-			Description: "Create a new note",
+			Label:       lang.GetText("menu.create.note_label"),
+			Description: lang.GetText("menu.create.note_desc"),
 			Action: func() error {
 				if err := runCreateNote(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📅 Meeting Note",
-			Description: "Create a meeting note",
+			Label:       lang.GetText("menu.create.meeting_label"),
+			Description: lang.GetText("menu.create.meeting_desc"),
 			Action: func() error {
 				if err := runCreateMeeting(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📔 Daily Journal",
-			Description: "Create or open daily journal note",
+			Label:       lang.GetText("menu.create.journal_label"),
+			Description: lang.GetText("menu.create.journal_desc"),
 			Action: func() error {
 				if err := runCreateJournal(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "✅ Task",
-			Description: "Create a new task",
+			Label:       lang.GetText("menu.create.task_label"),
+			Description: lang.GetText("menu.create.task_desc"),
 			Action: func() error {
 				// TODO: Implement task creation
 				fmt.Println("\n🚧 Task creation coming soon!")
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "Return to main menu",
+			Label:       lang.GetText("menu.create.back_label"),
+			Description: lang.GetText("menu.create.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -310,7 +310,7 @@ func runBrowseSearchMenu() error {
 			Action: func() error {
 				if err := showRecentNotes(20); err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 				}
 				return runBrowseSearchMenu()
@@ -326,7 +326,7 @@ func runBrowseSearchMenu() error {
 
 				if query == "" {
 					fmt.Println("No query entered")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runBrowseSearchMenu()
 				}
@@ -348,7 +348,7 @@ func runBrowseSearchMenu() error {
 
 				if err := searchNotes(query, searchContent); err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 				}
 				return runBrowseSearchMenu()
@@ -360,7 +360,7 @@ func runBrowseSearchMenu() error {
 			Action: func() error {
 				if err := runTaskBrowseMenu(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 				}
 				return runBrowseSearchMenu()
@@ -489,23 +489,23 @@ func runManageResourcesMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📁 Workspaces",
-			Description: "Create, edit, rename, or remove workspaces",
+			Label:       lang.GetText("menu.manage.workspaces_label"),
+			Description: lang.GetText("menu.manage.workspaces_desc"),
 			Action:      runEditWorkspaceMenu,
 		},
 		{
-			Label:       "🧠 Brains",
-			Description: "Create, add, scan, edit, or remove brains",
+			Label:       lang.GetText("menu.manage.brains_label"),
+			Description: lang.GetText("menu.manage.brains_desc"),
 			Action:      runManageBrainsMenu,
 		},
 		{
-			Label:       "📋 Templates",
-			Description: "Manage note templates",
+			Label:       lang.GetText("menu.manage.templates_label"),
+			Description: lang.GetText("menu.manage.templates_desc"),
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "Return to main menu",
+			Label:       lang.GetText("menu.manage.back_label"),
+			Description: lang.GetText("menu.manage.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -541,20 +541,20 @@ func runManageBrainsMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "✨ Create New Brain",
-			Description: "Create a brand new brain",
+			Label:       lang.GetText("menu.manage_brains.create_label"),
+			Description: lang.GetText("menu.manage_brains.create_desc"),
 			Action: func() error {
 				if err := runNewBrain(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📂 Init/Add Existing Brain",
-			Description: "Initialize or add an existing brain directory",
+			Label:       lang.GetText("menu.manage_brains.add_label"),
+			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
 				prompt := promptui.Prompt{
 					Label: "Path to existing brain directory",
@@ -566,14 +566,14 @@ func runManageBrainsMenu() error {
 				if err := runDirectoryInit(path, "", false); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🔍 Scan for Brains",
-			Description: "Scan directories to find existing brains",
+			Label:       lang.GetText("menu.manage_brains.scan_label"),
+			Description: lang.GetText("menu.manage_brains.scan_desc"),
 			Action: func() error {
 				prompt := promptui.Prompt{
 					Label:   "Path to scan (leave empty for home directory)",
@@ -589,19 +589,19 @@ func runManageBrainsMenu() error {
 				if err := runScan(scanPath); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "✏️  Edit/Rename Brain",
-			Description: "Edit or rename existing brains",
+			Label:       lang.GetText("menu.manage_brains.edit_label"),
+			Description: lang.GetText("menu.manage_brains.edit_desc"),
 			Action:      runEditBrainMenu,
 		},
 		{
-			Label:       "◀️  Back",
-			Description: "Return to manage menu",
+			Label:       lang.GetText("menu.manage_brains.back_label"),
+			Description: lang.GetText("menu.manage_brains.back_desc"),
 			Action:      runManageResourcesMenu,
 		},
 	}
@@ -637,26 +637,26 @@ func runSwitchContextMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📁 Workspace",
-			Description: "Switch to a different workspace",
+			Label:       lang.GetText("menu.switch.workspace_label"),
+			Description: lang.GetText("menu.switch.workspace_desc"),
 			Action:      runSwitchWorkspaceMenu,
 		},
 		{
-			Label:       "🧠 Active Brain",
-			Description: "Set default brain for current workspace",
+			Label:       lang.GetText("menu.switch.brain_label"),
+			Description: lang.GetText("menu.switch.brain_desc"),
 			Action: func() error {
 				// Load config
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if config.ActiveWorkspace == "" {
 					fmt.Println("\n❌ No active workspace")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -671,8 +671,8 @@ func runSwitchContextMenu() error {
 				}
 
 				if activeWs == nil || len(activeWs.Brains) == 0 {
-					fmt.Println("\n❌ No brains in workspace")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("errors.no_brains"))
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -684,7 +684,7 @@ func runSwitchContextMenu() error {
 				}
 
 				prompt := promptui.Select{
-					Label:     "Select default brain",
+					Label:     lang.GetText("prompts.select_brain_default"),
 					Items:     brainNames,
 					Templates: createSimpleSelectTemplates(),
 					Size:      calculateMenuSize(len(brainNames)),
@@ -702,14 +702,14 @@ func runSwitchContextMenu() error {
 					fmt.Printf("\n✓ Set '%s' as default brain\n", brainNames[idx])
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "Return to main menu",
+			Label:       lang.GetText("menu.switch.back_label"),
+			Description: lang.GetText("menu.switch.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -745,20 +745,20 @@ func runBrainMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "✨ Create New Brain",
-			Description: "Create a brand new knowledge base",
+			Label:       lang.GetText("menu.manage_brains.create_label"),
+			Description: lang.GetText("menu.manage_brains.create_desc"),
 			Action: func() error {
 				if err := runNewBrain(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "📂 Init/Add Existing Brain",
-			Description: "Initialize or add an existing brain to workspace",
+			Label:       lang.GetText("menu.manage_brains.add_label"),
+			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
 				home, _ := os.UserHomeDir()
 				examples := []string{
@@ -784,14 +784,14 @@ func runBrainMenu() error {
 				} else {
 					fmt.Printf("\n✓ Brain initialized successfully at: %s\n", path)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🔍 Scan for Brains",
-			Description: "Scan directories for existing brains",
+			Label:       lang.GetText("menu.manage_brains.scan_label"),
+			Description: lang.GetText("menu.manage_brains.scan_desc"),
 			Action: func() error {
 				promptPath := promptui.Prompt{
 					Label:   "Path to scan (leave empty for home directory)",
@@ -808,13 +808,13 @@ func runBrainMenu() error {
 				if err := runScan(path); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back",
+			Label:       lang.GetText("menu.manage_brains.back_label"),
 			Description: "Return to Create/Add menu",
 			Action:      runCreateAddMenu,
 		},
@@ -848,14 +848,14 @@ func runSwitchWorkspaceMenu() error {
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		fmt.Printf("Error loading workspaces: %v\n", err)
-		fmt.Println("\nPress Enter to return to menu...")
+		fmt.Println(lang.GetText("prompts.continue"))
 		fmt.Scanln()
 		return runInteractiveMenu()
 	}
 
 	if len(config.Workspaces) == 0 {
-		fmt.Println("📭 No workspaces found. Create one first!")
-		fmt.Println("\nPress Enter to return to menu...")
+		fmt.Println(lang.GetText("errors.no_workspaces"))
+		fmt.Println(lang.GetText("prompts.continue"))
 		fmt.Scanln()
 		return runInteractiveMenu()
 	}
@@ -900,7 +900,7 @@ func runSwitchWorkspaceMenu() error {
 		}
 	}
 
-	fmt.Println("\nPress Enter to return to menu...")
+	fmt.Println(lang.GetText("prompts.continue"))
 	fmt.Scanln()
 	return runInteractiveMenu()
 }
@@ -917,30 +917,30 @@ func runEditManageMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📁 Edit Workspace",
-			Description: "Rename, repair, or remove workspaces",
+			Label:       lang.GetText("menu.edit_manage.workspace_label"),
+			Description: lang.GetText("menu.edit_manage.workspace_desc"),
 			Action:      runEditWorkspaceMenu,
 		},
 		{
-			Label:       "🧠 Edit Brain",
-			Description: "Rename, repair, or remove brains",
+			Label:       lang.GetText("menu.edit_manage.brain_label"),
+			Description: lang.GetText("menu.edit_manage.brain_desc"),
 			Action:      runEditBrainMenu,
 		},
 		{
-			Label:       "🎨 Manage Templates",
-			Description: "Edit and manage note templates",
+			Label:       lang.GetText("menu.edit_manage.templates_label"),
+			Description: lang.GetText("menu.edit_manage.templates_desc"),
 			Action: func() error {
 				if err := runTemplateMenu(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back to Main Menu",
-			Description: "Return to main menu",
+			Label:       lang.GetText("menu.edit_manage.back_label"),
+			Description: lang.GetText("menu.edit_manage.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -976,20 +976,20 @@ func runEditWorkspaceMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "✏️  Rename Workspace",
-			Description: "Change the name of a workspace",
+			Label:       lang.GetText("menu.edit_workspace.rename_label"),
+			Description: lang.GetText("menu.edit_workspace.rename_desc"),
 			Action: func() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1001,7 +1001,7 @@ func runEditWorkspaceMenu() error {
 				}
 
 				selectWS := promptui.Select{
-					Label:     "Select workspace to rename",
+					Label:     lang.GetText("prompts.select_workspace_rename"),
 					Items:     wsNames,
 					Size:      calculateMenuSize(len(wsNames)),
 					Templates: createSimpleSelectTemplates(),
@@ -1018,7 +1018,7 @@ func runEditWorkspaceMenu() error {
 				// Don't allow renaming default
 				if oldName == "default" {
 					fmt.Println("\n❌ Cannot rename 'default' workspace - it's reserved")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1037,38 +1037,38 @@ func runEditWorkspaceMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🔧 Repair Workspaces",
-			Description: "Validate paths and re-detect brain types in all workspaces",
+			Label:       lang.GetText("menu.edit_workspace.repair_label"),
+			Description: lang.GetText("menu.edit_workspace.repair_desc"),
 			Action: func() error {
 				if err := runWorkspaceRepair(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🗑️  Remove Workspace",
-			Description: "Remove a workspace (brains stay intact)",
+			Label:       lang.GetText("menu.edit_workspace.remove_label"),
+			Description: lang.GetText("menu.edit_workspace.remove_desc"),
 			Action: func() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1080,7 +1080,7 @@ func runEditWorkspaceMenu() error {
 				}
 
 				selectWS := promptui.Select{
-					Label:     "Select workspace to remove",
+					Label:     lang.GetText("prompts.select_workspace_remove"),
 					Items:     wsNames,
 					Size:      calculateMenuSize(len(wsNames)),
 					Templates: createSimpleSelectTemplates(),
@@ -1103,7 +1103,7 @@ func runEditWorkspaceMenu() error {
 				_, err = promptConfirm.Run()
 				if err != nil {
 					fmt.Println("\n❌ Cancelled")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1112,14 +1112,14 @@ func runEditWorkspaceMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back",
-			Description: "Return to Edit/Manage menu",
+			Label:       lang.GetText("menu.edit_workspace.back_label"),
+			Description: lang.GetText("menu.edit_workspace.back_desc"),
 			Action:      runEditManageMenu,
 		},
 	}
@@ -1155,20 +1155,20 @@ func runEditBrainMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "✏️  Rename Brain",
-			Description: "Change the name of a brain in active workspace",
+			Label:       lang.GetText("menu.edit_brain.rename_label"),
+			Description: lang.GetText("menu.edit_brain.rename_desc"),
 			Action: func() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if len(ws.Brains) == 0 {
-					fmt.Println("\n📭 No brains in active workspace.")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("errors.no_brains"))
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1180,7 +1180,7 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label:     "Select brain to rename",
+					Label:     lang.GetText("prompts.select_brain_rename"),
 					Items:     brainNames,
 					Size:      calculateMenuSize(len(brainNames)),
 					Templates: createSimpleSelectTemplates(),
@@ -1249,26 +1249,26 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "⭐ Set Default Brain",
-			Description: "Set the default brain for active workspace",
+			Label:       lang.GetText("menu.edit_brain.default_label"),
+			Description: lang.GetText("menu.edit_brain.default_desc"),
 			Action: func() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if len(ws.Brains) == 0 {
-					fmt.Println("\n📭 No brains in active workspace.")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("errors.no_brains"))
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1284,7 +1284,7 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label:     "Select brain to set as default",
+					Label:     lang.GetText("prompts.select_brain_default_set"),
 					Items:     items,
 					Size:      calculateMenuSize(len(items)),
 					Templates: createSimpleSelectTemplates(),
@@ -1302,38 +1302,38 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🔧 Repair Brains",
-			Description: "Validate paths and re-detect types in active workspace",
+			Label:       lang.GetText("menu.edit_brain.repair_label"),
+			Description: lang.GetText("menu.edit_brain.repair_desc"),
 			Action: func() error {
 				if err := runBrainRepair(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "🗑️  Remove Brain",
-			Description: "Remove a brain from active workspace (files stay intact)",
+			Label:       lang.GetText("menu.edit_brain.remove_label"),
+			Description: lang.GetText("menu.edit_brain.remove_desc"),
 			Action: func() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
 
 				if len(ws.Brains) == 0 {
-					fmt.Println("\n📭 No brains in active workspace.")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("errors.no_brains"))
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1345,7 +1345,7 @@ func runEditBrainMenu() error {
 				}
 
 				selectBrain := promptui.Select{
-					Label:     "Select brain to remove",
+					Label:     lang.GetText("prompts.select_brain_remove"),
 					Items:     brainNames,
 					Size:      calculateMenuSize(len(brainNames)),
 					Templates: createSimpleSelectTemplates(),
@@ -1368,7 +1368,7 @@ func runEditBrainMenu() error {
 				_, err = promptConfirm.Run()
 				if err != nil {
 					fmt.Println("\n❌ Cancelled")
-					fmt.Println("\nPress Enter to return to menu...")
+					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()
 				}
@@ -1377,14 +1377,14 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runInteractiveMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back",
-			Description: "Return to Edit/Manage menu",
+			Label:       lang.GetText("menu.edit_brain.back_label"),
+			Description: lang.GetText("menu.edit_brain.back_desc"),
 			Action:      runEditManageMenu,
 		},
 	}
@@ -1420,8 +1420,8 @@ func runTaskBrowseMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "📋 All Open Tasks",
-			Description: "View all open tasks across all brains",
+			Label:       lang.GetText("menu.tasks.all_open_label"),
+			Description: lang.GetText("menu.tasks.all_open_desc"),
 			Action: func() error {
 				filter := tasks.TaskFilter{
 					Status: tasks.StatusOpen,
@@ -1429,14 +1429,14 @@ func runTaskBrowseMenu() error {
 				if err := runListTasks(filter); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "📅 Due Today",
-			Description: "Tasks due today",
+			Label:       lang.GetText("menu.tasks.due_today_label"),
+			Description: lang.GetText("menu.tasks.due_today_desc"),
 			Action: func() error {
 				filter := tasks.TaskFilter{
 					DueToday: true,
@@ -1444,14 +1444,14 @@ func runTaskBrowseMenu() error {
 				if err := runListTasks(filter); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "📆 Due This Week",
-			Description: "Tasks due within the next 7 days",
+			Label:       lang.GetText("menu.tasks.due_week_label"),
+			Description: lang.GetText("menu.tasks.due_week_desc"),
 			Action: func() error {
 				filter := tasks.TaskFilter{
 					DueThisWeek: true,
@@ -1459,14 +1459,14 @@ func runTaskBrowseMenu() error {
 				if err := runListTasks(filter); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "🚨 Overdue Tasks",
-			Description: "Tasks past their due date",
+			Label:       lang.GetText("menu.tasks.overdue_label"),
+			Description: lang.GetText("menu.tasks.overdue_desc"),
 			Action: func() error {
 				filter := tasks.TaskFilter{
 					Overdue: true,
@@ -1474,14 +1474,14 @@ func runTaskBrowseMenu() error {
 				if err := runListTasks(filter); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "⏫ High Priority",
-			Description: "View high priority tasks",
+			Label:       lang.GetText("menu.tasks.high_priority_label"),
+			Description: lang.GetText("menu.tasks.high_priority_desc"),
 			Action: func() error {
 				filter := tasks.TaskFilter{
 					Priority: tasks.PriorityHigh,
@@ -1490,26 +1490,26 @@ func runTaskBrowseMenu() error {
 				if err := runListTasks(filter); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "📊 Task Statistics",
-			Description: "View task statistics and completion rates",
+			Label:       lang.GetText("menu.tasks.stats_label"),
+			Description: lang.GetText("menu.tasks.stats_desc"),
 			Action: func() error {
 				if err := runTaskStats(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println("\nPress Enter to return to menu...")
+				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runTaskBrowseMenu()
 			},
 		},
 		{
-			Label:       "◀️  Back",
-			Description: "Return to Browse & Search menu",
+			Label:       lang.GetText("menu.tasks.back_label"),
+			Description: lang.GetText("menu.tasks.back_desc"),
 			Action:      runBrowseSearchMenu,
 		},
 	}
