@@ -67,6 +67,8 @@ func NewTaskBrowser(taskList []*tasks.Task) taskBrowserModel {
 		filterMode:    "all",
 		groupByFile:   true,
 		showHelp:      true,
+		width:         80, // Default width
+		height:        24, // Default height
 	}
 }
 
@@ -152,9 +154,15 @@ func (m taskBrowserModel) View() string {
 
 	// Header
 	header := titleStyle.Render("📋 Task Browser")
-	filterInfo := dimmedStyle.Render(fmt.Sprintf(" [Filter: %s | %d tasks]", m.filterMode, len(m.filteredTasks)))
+	filterInfo := dimmedStyle.Render(fmt.Sprintf(" [Filter: %s | %d tasks | cursor: %d]", m.filterMode, len(m.filteredTasks), m.cursor))
 	b.WriteString(header + filterInfo + "\n")
-	b.WriteString(strings.Repeat("─", m.width) + "\n\n")
+
+	// Use max of actual width or default
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	b.WriteString(strings.Repeat("─", width) + "\n\n")
 
 	// Tasks
 	if len(m.filteredTasks) == 0 {
@@ -169,7 +177,11 @@ func (m taskBrowserModel) View() string {
 
 	// Footer / Help
 	if m.showHelp {
-		b.WriteString("\n" + strings.Repeat("─", m.width) + "\n")
+		width := m.width
+		if width == 0 {
+			width = 80
+		}
+		b.WriteString("\n" + strings.Repeat("─", width) + "\n")
 		help := []string{
 			"↑/k: up",
 			"↓/j: down",
