@@ -23,7 +23,7 @@ func NewTaskBrowseCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&filterMode, "filter", "f", "all", "Initial filter (all, today, week, overdue, high)")
+	cmd.Flags().StringVarP(&filterMode, "filter", "f", "open", "Initial filter (open, all, today, week, overdue, high)")
 
 	return cmd
 }
@@ -82,7 +82,23 @@ func runTaskBrowser(initialFilter string) error {
 
 	// Create and run the browser
 	model := NewTaskBrowser(taskPointers)
-	model.filterMode = initialFilter
+
+	// Map old filter parameter to new two-axis system
+	// For backward compatibility with command-line flags
+	switch initialFilter {
+	case "open", "inprogress", "done", "deferred", "cancelled":
+		model.statusFilter = initialFilter
+		model.scopeFilter = "all"
+	case "today", "week", "overdue", "high":
+		model.scopeFilter = initialFilter
+		model.statusFilter = "open"
+	case "all":
+		model.scopeFilter = "all"
+		model.statusFilter = "all"
+	default:
+		// Keep defaults from NewTaskBrowser (all scope, open status)
+	}
+
 	model.applyFilter()
 
 	p := tea.NewProgram(model, tea.WithAltScreen())

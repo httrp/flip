@@ -1,0 +1,25 @@
+#!/bin/bash
+# Test script for task save functionality
+
+echo "=== Task Browser Save Test ==="
+echo ""
+echo "Test file: test_tasks.md"
+echo ""
+echo "Original content:"
+cat test_tasks.md
+echo ""
+echo "----------------------------------------"
+echo ""
+echo "Instructions:"
+echo "1. Run: ./flip task browse"
+echo "2. Navigate to a task with arrow keys or j/k"
+echo "3. Press 'd' to toggle done status"
+echo "4. You should see: ✅ Task updated"
+echo "5. Press 'q' to quit"
+echo "6. Run this script again to see if changes persisted"
+echo ""
+echo "Expected behavior:"
+echo "- Task checkboxes should change: [ ] <-> [x]"
+echo "- Changes should persist to the file"
+echo "- Message should appear at bottom of screen"
+echo ""

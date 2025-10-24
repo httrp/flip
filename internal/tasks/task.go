@@ -3,6 +3,9 @@ package tasks
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -188,4 +191,59 @@ func PriorityFromIcon(icon string) Priority {
 	default:
 		return PriorityNone
 	}
+}
+
+// SaveToFile updates the task's status in its markdown file
+func (t *Task) SaveToFile() error {
+	// Read file
+	content, err := os.ReadFile(t.Context.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Split into lines
+	lines := strings.Split(string(content), "\n")
+
+	// Validate line number
+	if t.Context.LineNumber < 1 || t.Context.LineNumber > len(lines) {
+		return fmt.Errorf("invalid line number: %d (file has %d lines)", t.Context.LineNumber, len(lines))
+	}
+
+	// Update the task line with new status
+	oldLine := lines[t.Context.LineNumber-1]
+	newLine := updateTaskStatusInLine(oldLine, t.Status)
+	lines[t.Context.LineNumber-1] = newLine
+
+	// Write back to file
+	newContent := strings.Join(lines, "\n")
+	if err := os.WriteFile(t.Context.FilePath, []byte(newContent), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// updateTaskStatusInLine replaces the status marker in a task line
+func updateTaskStatusInLine(line string, newStatus Status) string {
+	// Determine new marker
+	var newMarker string
+	switch newStatus {
+	case StatusOpen:
+		newMarker = "[ ]"
+	case StatusDone:
+		newMarker = "[x]"
+	case StatusInProgress:
+		newMarker = "[>]"
+	case StatusDeferred:
+		newMarker = "[~]"
+	case StatusCancelled:
+		newMarker = "[-]"
+	default:
+		newMarker = "[ ]"
+	}
+
+	// Find and replace checkbox marker
+	// Pattern: - [ ], - [x], - [>], etc. (also supports * and + list markers)
+	re := regexp.MustCompile(`^(\s*[-*+]\s+)\[.\]`)
+	return re.ReplaceAllString(line, "${1}"+newMarker)
 }
