@@ -1597,6 +1597,30 @@ func runEditBrainMenu() error {
 			},
 		},
 		{
+			Label:       "Show Git status",
+			Description: "Display git repository status for brains",
+			Action: func() error {
+				if err := runBrainGitStatus(false); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runEditBrainMenu()
+			},
+		},
+		{
+			Label:       "Show Git commit history",
+			Description: "Display recent git commits for brains",
+			Action: func() error {
+				if err := runBrainGitLog(10, false); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runEditBrainMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.edit_brain.back_label"),
 			Description: lang.GetText("menu.edit_brain.back_desc"),
 			Action:      runEditManageMenu,
