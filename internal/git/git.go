@@ -291,13 +291,29 @@ func getAheadBehind(repoPath string) (string, error) {
 	// This prevents triggering authentication prompts for repos without remotes
 	checkCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
 	checkCmd.Dir = repoPath
-	if err := checkCmd.Run(); err != nil {
+	upstreamOutput, err := checkCmd.Output()
+	if err != nil {
 		// No upstream configured - this is fine for local-only repos
 		return "", err
 	}
 
-	// Only check ahead/behind if upstream exists
-	cmd := exec.Command("git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+	upstream := strings.TrimSpace(string(upstreamOutput))
+	if upstream == "" {
+		return "", fmt.Errorf("no upstream branch")
+	}
+
+	// Check if the upstream ref exists locally (from last fetch)
+	// This avoids triggering authentication by only comparing local refs
+	checkRefCmd := exec.Command("git", "rev-parse", "--verify", "--quiet", upstream)
+	checkRefCmd.Dir = repoPath
+	if err := checkRefCmd.Run(); err != nil {
+		// Upstream ref doesn't exist locally - need to fetch first
+		// Return empty instead of forcing network access
+		return "", fmt.Errorf("upstream ref not found locally")
+	}
+
+	// Only check ahead/behind if upstream ref exists locally
+	cmd := exec.Command("git", "rev-list", "--left-right", "--count", "HEAD..."+upstream)
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
