@@ -155,6 +155,11 @@ func runCreateJournal() error {
 	fmt.Printf("  Path: %s\n", filePath)
 	fmt.Printf("  Brain: %s (%s)\n\n", activeBrain.Name, detection.Type)
 
+	// Optional git commit
+	if err := autoCommitFile(activeBrain.Path, filePath, "journal entry"); err != nil {
+		fmt.Printf("⚠️  Git commit failed: %v\n", err)
+	}
+
 	// Ask if user wants to edit
 	if err := promptAndOpenEditor(filePath); err != nil {
 		fmt.Printf("⚠️  Could not open editor: %v\n", err)
