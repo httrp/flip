@@ -663,9 +663,6 @@ func NewMenuCommand() *cobra.Command {
 }
 
 func runInteractiveMenu() error {
-	// Check for remote updates at startup
-	checkRemoteUpdatesOnStart()
-	
 	// Load banner from embedded files
 	banner := lang.GetBanner()
 
