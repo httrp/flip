@@ -208,6 +208,29 @@ flip brain set-default <name>                    # Set default brain
 flip brain remove <name>                         # Remove brain (files stay)
 ```
 
+### Git Integration Commands
+
+Flip integrates with Git to track changes in your brains.
+
+```bash
+flip brain git-status              # Show git status for default brain
+flip brain git-status --all        # Show git status for all brains
+flip brain git-log                 # Show last 10 commits for default brain
+flip brain git-log -n 20 --all     # Show last 20 commits for all brains
+```
+
+**Auto-Commit for Content Creation:**
+
+- When creating notes, meetings, or journal entries, flip can automatically commit changes
+- Interactive prompt asks if you want to commit (default behavior)
+- Set `FLIP_AUTO_COMMIT=always` to always commit without asking
+- Set `FLIP_AUTO_COMMIT=never` to never commit
+
+**Status Display:**
+
+- Git status is shown in `flip status` and the status header
+- Shows: branch, uncommitted changes, last commit, sync status with remote
+
 ### Other Commands
 
 ```bash
