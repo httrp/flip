@@ -1092,6 +1092,38 @@ func runManageResourcesMenu() error {
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
+			Label:       "Git: Show status",
+			Description: "Display git repository status for brains",
+			Action: func() error {
+				if err := runBrainGitStatus(false); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runManageResourcesMenu()
+			},
+		},
+		{
+			Label:       "Git: Pull updates",
+			Description: "Pull updates from remote repositories",
+			Action: func() error {
+				checkRemoteUpdatesOnStart()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runManageResourcesMenu()
+			},
+		},
+		{
+			Label:       "Git: Commit changes",
+			Description: "Commit uncommitted changes in brains",
+			Action: func() error {
+				checkUncommittedChangesOnExit()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runManageResourcesMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.manage.back_label"),
 			Description: lang.GetText("menu.manage.back_desc"),
 			Action:      runInteractiveMenu,
