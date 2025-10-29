@@ -104,10 +104,12 @@ func GetStatus(repoPath string) (*RepoStatus, error) {
 		status.RemoteURL = remote
 	}
 
-	// Get ahead/behind info
+	// Get ahead/behind info (skip if no remote or can't connect)
+	// This is optional and shouldn't block on network issues
 	if aheadBehind, err := getAheadBehind(repoPath); err == nil {
 		status.AheadBehind = aheadBehind
 	}
+	// Silently ignore errors - we don't want to force network access
 
 	return status, nil
 }
@@ -285,6 +287,16 @@ func getRemoteURL(repoPath string) (string, error) {
 }
 
 func getAheadBehind(repoPath string) (string, error) {
+	// First check if an upstream branch is configured
+	// This prevents triggering authentication prompts for repos without remotes
+	checkCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+	checkCmd.Dir = repoPath
+	if err := checkCmd.Run(); err != nil {
+		// No upstream configured - this is fine for local-only repos
+		return "", err
+	}
+
+	// Only check ahead/behind if upstream exists
 	cmd := exec.Command("git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
@@ -348,4 +360,268 @@ func HasUncommittedChanges(repoPath string) bool {
 		return false
 	}
 	return strings.TrimSpace(string(output)) != ""
+}
+
+// PullOptions configures how a pull is performed
+type PullOptions struct {
+	Rebase       bool // Use rebase instead of merge
+	AutoStash    bool // Automatically stash/unstash local changes
+	AllowDirty   bool // Allow pull even with uncommitted changes
+}
+
+// Pull pulls changes from the remote repository
+func Pull(repoPath string) error {
+	return PullWithOptions(repoPath, PullOptions{
+		Rebase:     true, // Default to rebase for cleaner history
+		AutoStash:  false,
+		AllowDirty: false,
+	})
+}
+
+// PullWithOptions pulls changes with specific options
+func PullWithOptions(repoPath string, opts PullOptions) error {
+	if !IsGitRepo(repoPath) {
+		return fmt.Errorf("not a git repository: %s", repoPath)
+	}
+
+	// Check for uncommitted changes
+	if HasUncommittedChanges(repoPath) && !opts.AllowDirty && !opts.AutoStash {
+		return fmt.Errorf("you have uncommitted changes. Please commit or stash them first")
+	}
+
+	// Build pull command
+	args := []string{"pull"}
+	if opts.Rebase {
+		args = append(args, "--rebase")
+	}
+	if opts.AutoStash {
+		args = append(args, "--autostash")
+	}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		// Check if it's a merge conflict
+		if HasMergeConflicts(repoPath) {
+			return fmt.Errorf("merge conflicts detected - please resolve them manually")
+		}
+		return fmt.Errorf("failed to pull: %w", err)
+	}
+
+	return nil
+}
+
+// HasMergeConflicts checks if there are unresolved merge conflicts
+func HasMergeConflicts(repoPath string) bool {
+	// Check for conflict markers in git status
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	// Look for "UU" (both modified) or "AA" (both added) status
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if len(line) >= 2 {
+			status := line[:2]
+			if status == "UU" || status == "AA" || status == "DD" {
+				return true
+			}
+		}
+	}
+
+	// Also check if we're in the middle of a rebase/merge
+	_, rebaseErr := os.Stat(filepath.Join(repoPath, ".git", "rebase-merge"))
+	_, mergeErr := os.Stat(filepath.Join(repoPath, ".git", "MERGE_HEAD"))
+	
+	return rebaseErr == nil || mergeErr == nil
+}
+
+// GetConflictedFiles returns a list of files with merge conflicts
+func GetConflictedFiles(repoPath string) ([]string, error) {
+	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U")
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var files []string
+	for _, line := range lines {
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+
+	return files, nil
+}
+
+// AbortMerge aborts an ongoing merge or rebase
+func AbortMerge(repoPath string) error {
+	// Try rebase abort first
+	cmd := exec.Command("git", "rebase", "--abort")
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+
+	// Try merge abort
+	cmd = exec.Command("git", "merge", "--abort")
+	cmd.Dir = repoPath
+	return cmd.Run()
+}
+
+// ResolveConflictUseOurs resolves conflict by keeping local version
+func ResolveConflictUseOurs(repoPath, filePath string) error {
+	cmd := exec.Command("git", "checkout", "--ours", filePath)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to resolve conflict: %w", err)
+	}
+
+	// Stage the resolved file
+	return AddFile(repoPath, filePath)
+}
+
+// ResolveConflictUseTheirs resolves conflict by keeping remote version
+func ResolveConflictUseTheirs(repoPath, filePath string) error {
+	cmd := exec.Command("git", "checkout", "--theirs", filePath)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to resolve conflict: %w", err)
+	}
+
+	// Stage the resolved file
+	return AddFile(repoPath, filePath)
+}
+
+// ResolveConflictMergeBoth merges both versions for content files (Markdown)
+// This is safer for content as it prevents data loss
+func ResolveConflictMergeBoth(repoPath, filePath string) error {
+	fullPath := filepath.Join(repoPath, filePath)
+	
+	// Read the conflicted file
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+	
+	// Check if file actually has conflict markers
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "<<<<<<<") {
+		// No conflict markers, file is already resolved
+		return AddFile(repoPath, filePath)
+	}
+	
+	// Extract both versions from conflict markers
+	// Format: <<<<<<< HEAD (local) ... ======= ... >>>>>>> remote
+	var merged strings.Builder
+	lines := strings.Split(contentStr, "\n")
+	
+	inConflict := false
+	var localContent []string
+	var remoteContent []string
+	collectingLocal := false
+	
+	for _, line := range lines {
+		if strings.HasPrefix(line, "<<<<<<<") {
+			inConflict = true
+			collectingLocal = true
+			continue
+		} else if strings.HasPrefix(line, "=======") && inConflict {
+			collectingLocal = false
+			continue
+		} else if strings.HasPrefix(line, ">>>>>>>") && inConflict {
+			// End of conflict - merge both versions
+			merged.WriteString("<!-- ═══════════════════════════════════════════════════════ -->\n")
+			merged.WriteString("<!-- MERGED CONTENT: Both local and remote versions included -->\n")
+			merged.WriteString("<!-- Please review and clean up as needed -->\n")
+			merged.WriteString("<!-- ═══════════════════════════════════════════════════════ -->\n\n")
+			
+			if len(localContent) > 0 {
+				merged.WriteString("<!-- LOCAL VERSION: -->\n")
+				merged.WriteString(strings.Join(localContent, "\n"))
+				merged.WriteString("\n\n")
+			}
+			
+			if len(remoteContent) > 0 {
+				merged.WriteString("<!-- REMOTE VERSION: -->\n")
+				merged.WriteString(strings.Join(remoteContent, "\n"))
+				merged.WriteString("\n")
+			}
+			
+			merged.WriteString("\n<!-- END MERGED CONTENT -->\n\n")
+			
+			// Reset for next conflict
+			inConflict = false
+			localContent = nil
+			remoteContent = nil
+			continue
+		}
+		
+		if inConflict {
+			if collectingLocal {
+				localContent = append(localContent, line)
+			} else {
+				remoteContent = append(remoteContent, line)
+			}
+		} else {
+			merged.WriteString(line)
+			merged.WriteString("\n")
+		}
+	}
+	
+	// Write merged content back
+	if err := os.WriteFile(fullPath, []byte(merged.String()), 0644); err != nil {
+		return fmt.Errorf("failed to write merged file: %w", err)
+	}
+	
+	// Stage the resolved file
+	return AddFile(repoPath, filePath)
+}
+
+// ContinueRebase continues a rebase after conflicts are resolved
+func ContinueRebase(repoPath string) error {
+	cmd := exec.Command("git", "rebase", "--continue")
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Fetch fetches changes from remote without merging
+func Fetch(repoPath string) error {
+	if !IsGitRepo(repoPath) {
+		return fmt.Errorf("not a git repository: %s", repoPath)
+	}
+
+	cmd := exec.Command("git", "fetch")
+	cmd.Dir = repoPath
+	// Run silently
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to fetch: %w", err)
+	}
+
+	return nil
+}
+
+// HasRemoteUpdates checks if there are updates available from remote
+// Returns true if local branch is behind remote
+func HasRemoteUpdates(repoPath string) bool {
+	// First try to fetch (silently)
+	_ = Fetch(repoPath)
+
+	// Check if behind remote
+	aheadBehind, err := getAheadBehind(repoPath)
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(aheadBehind, "behind")
 }
