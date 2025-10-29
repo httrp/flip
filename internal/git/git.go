@@ -104,12 +104,11 @@ func GetStatus(repoPath string) (*RepoStatus, error) {
 		status.RemoteURL = remote
 	}
 
-	// Get ahead/behind info (skip if no remote or can't connect)
-	// This is optional and shouldn't block on network issues
-	if aheadBehind, err := getAheadBehind(repoPath); err == nil {
-		status.AheadBehind = aheadBehind
-	}
-	// Silently ignore errors - we don't want to force network access
+	// Skip ahead/behind info by default to avoid authentication prompts
+	// Users can explicitly check sync status via Pull command
+	// if aheadBehind, err := getAheadBehind(repoPath); err == nil {
+	// 	status.AheadBehind = aheadBehind
+	// }
 
 	return status, nil
 }
