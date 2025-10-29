@@ -146,7 +146,12 @@ func runCreateNote() error {
 	fmt.Printf("  Path: %s\n", filePath)
 	fmt.Printf("  Brain: %s (%s)\n\n", activeBrain.Name, detection.Type)
 
-	// STEP 5: Ask if user wants to edit the note
+	// STEP 6: Optional git commit
+	if err := autoCommitFile(activeBrain.Path, filePath, "note"); err != nil {
+		fmt.Printf("⚠️  Git commit failed: %v\n", err)
+	}
+
+	// STEP 7: Ask if user wants to edit the note
 	if err := promptAndOpenEditor(filePath); err != nil {
 		// Don't fail if editor opening fails, note is already created
 		fmt.Printf("⚠️  Could not open editor: %v\n", err)

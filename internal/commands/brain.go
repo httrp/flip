@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +35,9 @@ func NewBrainCommand() *cobra.Command {
 	cmd.AddCommand(newBrainRenameCommand())
 	cmd.AddCommand(newBrainRepairCommand())
 	cmd.AddCommand(newBrainCheckCommand())
+	// Git integration commands
+	cmd.AddCommand(newBrainGitStatusCommand())
+	cmd.AddCommand(newBrainGitLogCommand())
 
 	return cmd
 }
@@ -548,4 +553,267 @@ func runBrainRepair() error {
 	fmt.Println()
 	fmt.Printf("[OK] Repair complete: %d updated, %d removed\n", repaired, removed)
 	return nil
+}
+
+// Git integration commands
+
+func newBrainGitStatusCommand() *cobra.Command {
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "git-status",
+		Short: "Show git status for brain(s)",
+		Long:  "Display git repository status for the default brain or all brains in the active workspace.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runBrainGitStatus(all)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Show git status for all brains in workspace")
+
+	return cmd
+}
+
+func newBrainGitLogCommand() *cobra.Command {
+	var count int
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "git-log",
+		Short: "Show git commit history for brain(s)",
+		Long:  "Display recent git commit history for the default brain or all brains in the active workspace.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runBrainGitLog(count, all)
+		},
+	}
+
+	cmd.Flags().IntVarP(&count, "count", "n", 10, "Number of commits to show")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Show git log for all brains in workspace")
+
+	return cmd
+}
+
+func runBrainGitStatus(showAll bool) error {
+	ws, err := getActiveWorkspace()
+	if err != nil {
+		return err
+	}
+
+	if len(ws.Brains) == 0 {
+		fmt.Println("No brains in active workspace")
+		return nil
+	}
+
+	fmt.Println("\n🔍 Git Status")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	// Determine which brains to show
+	var brainsToShow []Brain
+	if showAll {
+		brainsToShow = ws.Brains
+	} else {
+		// Just default brain
+		if ws.DefaultBrain != "" {
+			for _, b := range ws.Brains {
+				if b.Name == ws.DefaultBrain {
+					brainsToShow = []Brain{b}
+					break
+				}
+			}
+		}
+		if len(brainsToShow) == 0 && len(ws.Brains) > 0 {
+			brainsToShow = []Brain{ws.Brains[0]}
+		}
+	}
+
+	for _, brain := range brainsToShow {
+		fmt.Printf("🧠 %s (%s)\n", brain.Name, brain.Type)
+		fmt.Printf("   Path: %s\n", brain.Path)
+
+		// Import git package
+		status, err := getGitStatus(brain.Path)
+		if err != nil {
+			fmt.Printf("   ❌ Error: %v\n\n", err)
+			continue
+		}
+
+		if !status.IsRepo {
+			fmt.Printf("   ℹ️  Not a git repository\n\n")
+			continue
+		}
+
+		// Display status
+		fmt.Printf("   ⎇  Branch: %s\n", status.Branch)
+
+		if status.RemoteURL != "" {
+			fmt.Printf("   🌐 Remote: %s\n", status.RemoteURL)
+		}
+
+		if status.AheadBehind != "" {
+			fmt.Printf("   🔄 Sync: %s\n", status.AheadBehind)
+		}
+
+		if status.HasChanges {
+			fmt.Printf("   ⚡ Changes:\n")
+			if status.StagedFiles > 0 {
+				fmt.Printf("      📦 %d staged\n", status.StagedFiles)
+			}
+			if status.ModifiedFiles > 0 {
+				fmt.Printf("      📝 %d modified\n", status.ModifiedFiles)
+			}
+			if status.UntrackedFiles > 0 {
+				fmt.Printf("      ❓ %d untracked\n", status.UntrackedFiles)
+			}
+		} else {
+			fmt.Printf("   ✅ Working tree clean\n")
+		}
+
+		if status.LastCommitHash != "" {
+			fmt.Printf("   📝 Last commit: %s - %s\n", status.LastCommitHash, status.LastCommitMsg)
+			fmt.Printf("      Author: %s\n", formatTimeSince(status.LastCommitDate))
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func runBrainGitLog(count int, showAll bool) error {
+	ws, err := getActiveWorkspace()
+	if err != nil {
+		return err
+	}
+
+	if len(ws.Brains) == 0 {
+		fmt.Println("No brains in active workspace")
+		return nil
+	}
+
+	fmt.Printf("\n📚 Git Commit History (last %d commits)\n", count)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	// Determine which brains to show
+	var brainsToShow []Brain
+	if showAll {
+		brainsToShow = ws.Brains
+	} else {
+		// Just default brain
+		if ws.DefaultBrain != "" {
+			for _, b := range ws.Brains {
+				if b.Name == ws.DefaultBrain {
+					brainsToShow = []Brain{b}
+					break
+				}
+			}
+		}
+		if len(brainsToShow) == 0 && len(ws.Brains) > 0 {
+			brainsToShow = []Brain{ws.Brains[0]}
+		}
+	}
+
+	for _, brain := range brainsToShow {
+		fmt.Printf("🧠 %s\n", brain.Name)
+		fmt.Printf("   Path: %s\n", brain.Path)
+
+		// Import git package
+		commits, err := getGitHistory(brain.Path, count)
+		if err != nil {
+			fmt.Printf("   ❌ Error: %v\n\n", err)
+			continue
+		}
+
+		if len(commits) == 0 {
+			fmt.Printf("   ℹ️  No commits found\n\n")
+			continue
+		}
+
+		fmt.Println()
+		for i, commit := range commits {
+			fmt.Printf("   %s %s %s\n",
+				commit.Hash,
+				truncate(commit.Message, 60),
+				formatTimeSince(commit.Date))
+			fmt.Printf("   │  %s\n", commit.Author)
+
+			// Add separator between commits (except last one)
+			if i < len(commits)-1 {
+				fmt.Printf("   │\n")
+			}
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
+// Helper functions that wrap git package functions
+// (These avoid import cycle by wrapping in commands package)
+
+func getGitStatus(path string) (*gitStatus, error) {
+	// Inline import to avoid package cycle
+	status, err := git.GetStatus(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to local type to avoid exposing git package
+	return &gitStatus{
+		IsRepo:         status.IsRepo,
+		HasChanges:     status.HasChanges,
+		UntrackedFiles: status.UntrackedFiles,
+		ModifiedFiles:  status.ModifiedFiles,
+		StagedFiles:    status.StagedFiles,
+		Branch:         status.Branch,
+		LastCommitHash: status.LastCommitHash,
+		LastCommitMsg:  status.LastCommitMsg,
+		LastCommitDate: status.LastCommitDate,
+		RemoteURL:      status.RemoteURL,
+		AheadBehind:    status.AheadBehind,
+	}, nil
+}
+
+func getGitHistory(path string, count int) ([]*commitInfo, error) {
+	commits, err := git.GetCommitHistory(path, count)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to local type
+	result := make([]*commitInfo, len(commits))
+	for i, c := range commits {
+		result[i] = &commitInfo{
+			Hash:    c.Hash,
+			Message: c.Message,
+			Author:  c.Author,
+			Date:    c.Date,
+		}
+	}
+
+	return result, nil
+}
+
+// Local types to avoid direct dependency on git package in command signatures
+type gitStatus struct {
+	IsRepo         bool
+	HasChanges     bool
+	UntrackedFiles int
+	ModifiedFiles  int
+	StagedFiles    int
+	Branch         string
+	LastCommitHash string
+	LastCommitMsg  string
+	LastCommitDate time.Time
+	RemoteURL      string
+	AheadBehind    string
+}
+
+type commitInfo struct {
+	Hash    string
+	Message string
+	Author  string
+	Date    time.Time
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -486,6 +487,65 @@ func runNewBrain() error {
 	}
 
 	fmt.Println("\n✓ New brain created and initialized successfully!")
+
+	// Ask if user wants to initialize as git repository
+	fmt.Println()
+	fmt.Println("? Would you like to initialize this brain as a Git repository?")
+	fmt.Println("  This allows you to:")
+	fmt.Println("  - Track changes to your notes")
+	fmt.Println("  - Sync with remote repositories (GitHub, GitLab, etc.)")
+	fmt.Println("  - Collaborate with others")
+	fmt.Println()
+	fmt.Printf("Initialize Git? (y/n) [default: y]: ")
+	
+	gitChoice, _ := reader.ReadString('\n')
+	gitChoice = strings.TrimSpace(strings.ToLower(gitChoice))
+	
+	if gitChoice == "" || gitChoice == "y" || gitChoice == "yes" {
+		fmt.Println("> Initializing Git repository...")
+		
+		cmd := exec.Command("git", "init")
+		cmd.Dir = target
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("⚠️  Warning: Failed to initialize Git repository: %v\n", err)
+		} else {
+			// Create initial .gitignore
+			gitignoreContent := `# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+.~*
+`
+			gitignorePath := filepath.Join(target, ".gitignore")
+			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+				fmt.Printf("⚠️  Warning: Failed to create .gitignore: %v\n", err)
+			}
+			
+			// Create initial commit
+			addCmd := exec.Command("git", "add", ".")
+			addCmd.Dir = target
+			if err := addCmd.Run(); err == nil {
+				commitCmd := exec.Command("git", "commit", "-m", "Initial commit: Initialize "+name+" brain")
+				commitCmd.Dir = target
+				if err := commitCmd.Run(); err != nil {
+					fmt.Printf("⚠️  Warning: Failed to create initial commit: %v\n", err)
+				} else {
+					fmt.Println("✓ Git repository initialized with initial commit")
+				}
+			}
+		}
+	} else {
+		fmt.Println("→ Skipped Git initialization")
+	}
 
 	// Ask if user wants to create another brain
 	fmt.Println()
