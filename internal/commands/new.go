@@ -692,7 +692,7 @@ func validateBrainPath(targetPath, brainName string) error {
 		return fmt.Errorf("failed to check parent brains: %w", err)
 	}
 	if isInside {
-		return fmt.Errorf("cannot create brain inside another brain\n   Parent brain found at: %s\n   Brains must not be nested.", parentBrain)
+		return fmt.Errorf("cannot create brain inside another brain (parent brain found at: %s)", parentBrain)
 	}
 
 	// 2. Check if path already exists
@@ -710,7 +710,7 @@ func validateBrainPath(targetPath, brainName string) error {
 		}
 
 		if len(entries) > 0 {
-			return fmt.Errorf("directory already exists and is not empty: %s\n   A brain MUST be created in a NEW, empty directory.\n   Please choose a different path.", absPath)
+			return fmt.Errorf("directory already exists and is not empty: %s (a brain must be created in a new, empty directory)", absPath)
 		}
 
 		// Empty directory is OK, but check for nested brains
@@ -719,7 +719,7 @@ func validateBrainPath(targetPath, brainName string) error {
 			return fmt.Errorf("failed to check for nested brains: %w", err)
 		}
 		if containsBrains {
-			return fmt.Errorf("path contains existing brain(s): %v\n   Cannot create brain containing other brains.", foundBrains)
+			return fmt.Errorf("path contains existing brain(s): %v (cannot create brain containing other brains)", foundBrains)
 		}
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check path: %w", err)

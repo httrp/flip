@@ -1,5 +1,4 @@
 package tasks
-package tasks
 
 import (
 	"testing"
