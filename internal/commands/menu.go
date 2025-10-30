@@ -7,7 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/git"
 	"github.com/httrp/flip/internal/lang"
 	"github.com/httrp/flip/internal/tasks"
@@ -47,12 +49,37 @@ func createSimpleSelectTemplates() *promptui.SelectTemplates {
 	}
 }
 
+// MenuItem represents a menu item with label, description, command, and action
+type MenuItem struct {
+	Label       string
+	Description string
+	Command     string // CLI command for this action
+	Action      func() error
+}
+
 // createMenuItemSelectTemplates creates templates for menu items with inline description
 func createMenuItemSelectTemplates() *promptui.SelectTemplates {
 	return &promptui.SelectTemplates{
 		Label:    "{{ . }}",
 		Active:   "▸ {{ .Label | cyan | bold }}",
 		Inactive: "  {{ .Label }}",
+		Selected: "{{ .Label | green | bold }}",
+	}
+}
+
+// createMenuItemWithCommandTemplates creates templates showing commands alongside labels
+func createMenuItemWithCommandTemplates() *promptui.SelectTemplates {
+	width, _ := getTerminalSize()
+	// Reserve space for: prompt (4 chars) + label (variable) + command (variable) + padding (4 chars)
+	maxLabelWidth := width - 50 // Reserve ~50 chars for command display
+	if maxLabelWidth < 30 {
+		maxLabelWidth = 30
+	}
+
+	return &promptui.SelectTemplates{
+		Label:    "{{ . }}",
+		Active:   fmt.Sprintf("▸ {{ printf \"%%-%ds\" .Label | cyan | bold }}  {{ .Command | faint }}", maxLabelWidth),
+		Inactive: fmt.Sprintf("  {{ printf \"%%-%ds\" .Label }}  {{ .Command | faint }}", maxLabelWidth),
 		Selected: "{{ .Label | green | bold }}",
 	}
 }
@@ -74,13 +101,22 @@ func calculateMenuSize(itemCount int) int {
 	return availableLines
 }
 
+// showBreadcrumb displays navigation breadcrumb
+func showBreadcrumb(path ...string) {
+	if len(path) == 0 {
+		return
+	}
+	fmt.Printf("  %s\n", strings.Join(path, " › "))
+	fmt.Println()
+}
+
 // handleMergeConflicts helps user resolve merge conflicts
 func handleMergeConflicts(brain Brain) {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("⚠️  MERGE CONFLICTS")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	
+
 	// Get list of conflicted files
 	conflicts, err := git.GetConflictedFiles(brain.Path)
 	if err != nil || len(conflicts) == 0 {
@@ -88,12 +124,12 @@ func handleMergeConflicts(brain Brain) {
 		fmt.Println("Please resolve conflicts manually.")
 		return
 	}
-	
+
 	fmt.Println("\nConflicted files:")
 	markdownFiles := 0
 	for _, file := range conflicts {
-		isMarkdown := strings.HasSuffix(strings.ToLower(file), ".md") || 
-		             strings.HasSuffix(strings.ToLower(file), ".markdown")
+		isMarkdown := strings.HasSuffix(strings.ToLower(file), ".md") ||
+			strings.HasSuffix(strings.ToLower(file), ".markdown")
 		marker := ""
 		if isMarkdown {
 			marker = " 📝"
@@ -101,25 +137,25 @@ func handleMergeConflicts(brain Brain) {
 		}
 		fmt.Printf("  • %s%s\n", file, marker)
 	}
-	
+
 	fmt.Println()
-	
+
 	// For markdown files, suggest merging both versions to prevent data loss
 	if markdownFiles > 0 {
 		fmt.Println("📝 Detected markdown/content files with conflicts.")
 		fmt.Println("⚠️  To prevent data loss, we recommend merging both versions.")
 		fmt.Println()
 	}
-	
+
 	fmt.Println("How would you like to proceed?")
-	
+
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}",
 		Active:   "▸ {{ . | cyan | bold }}",
 		Inactive: "  {{ . }}",
 		Selected: "{{ . | green | bold }}",
 	}
-	
+
 	options := []string{
 		"Merge both versions (SAFE - keeps all content)",
 		"Keep my local version only",
@@ -127,19 +163,19 @@ func handleMergeConflicts(brain Brain) {
 		"Abort and revert changes",
 		"Skip - I'll resolve manually",
 	}
-	
+
 	prompt := promptui.Select{
 		Label:     "Choose action",
 		Items:     options,
 		Templates: templates,
 		Size:      len(options),
 	}
-	
+
 	idx, _, err := prompt.Run()
 	if err != nil {
 		return
 	}
-	
+
 	switch idx {
 	case 0: // Merge both
 		fmt.Println("\n→ Merging both versions (safe merge)...")
@@ -155,7 +191,7 @@ func handleMergeConflicts(brain Brain) {
 				fmt.Printf("   ✓ Resolved %s (merged both versions)\n", file)
 			}
 		}
-		
+
 		if allResolved {
 			fmt.Println("\n→ Continuing rebase...")
 			if err := git.ContinueRebase(brain.Path); err != nil {
@@ -169,7 +205,7 @@ func handleMergeConflicts(brain Brain) {
 				}
 			}
 		}
-		
+
 	case 1: // Keep local
 		fmt.Println("\n→ Keeping local versions...")
 		fmt.Println("   ⚠️  Remote changes will be DISCARDED!")
@@ -182,7 +218,7 @@ func handleMergeConflicts(brain Brain) {
 				fmt.Printf("   ✓ Resolved %s (kept local)\n", file)
 			}
 		}
-		
+
 		if allResolved {
 			fmt.Println("\n→ Continuing rebase...")
 			if err := git.ContinueRebase(brain.Path); err != nil {
@@ -192,7 +228,7 @@ func handleMergeConflicts(brain Brain) {
 				fmt.Println("   ✓ Rebase completed successfully!")
 			}
 		}
-		
+
 	case 2: // Use remote
 		fmt.Println("\n→ Using remote versions...")
 		fmt.Println("   ⚠️  Local changes will be DISCARDED!")
@@ -205,7 +241,7 @@ func handleMergeConflicts(brain Brain) {
 				fmt.Printf("   ✓ Resolved %s (used remote)\n", file)
 			}
 		}
-		
+
 		if allResolved {
 			fmt.Println("\n→ Continuing rebase...")
 			if err := git.ContinueRebase(brain.Path); err != nil {
@@ -215,7 +251,7 @@ func handleMergeConflicts(brain Brain) {
 				fmt.Println("   ✓ Rebase completed successfully!")
 			}
 		}
-		
+
 	case 3: // Abort
 		fmt.Println("\n→ Aborting merge/rebase...")
 		if err := git.AbortMerge(brain.Path); err != nil {
@@ -223,7 +259,7 @@ func handleMergeConflicts(brain Brain) {
 		} else {
 			fmt.Println("   ✓ Changes reverted successfully")
 		}
-		
+
 	case 4: // Manual
 		fmt.Println("\n→ Skipping automatic resolution")
 		fmt.Printf("\n💡 To resolve manually:\n")
@@ -233,7 +269,7 @@ func handleMergeConflicts(brain Brain) {
 		fmt.Printf("   4. git rebase --continue\n")
 		fmt.Printf("\n   Or abort with: git rebase --abort\n")
 	}
-	
+
 	fmt.Println()
 }
 
@@ -263,15 +299,15 @@ func checkRemoteUpdatesOnStart() {
 
 	// Check each brain for remote updates and uncommitted changes
 	type BrainWithUpdates struct {
-		Brain          Brain
+		Brain           Brain
 		HasLocalChanges bool
 	}
 	brainsWithUpdates := []BrainWithUpdates{}
-	
+
 	for _, brain := range activeWs.Brains {
 		if git.IsGitRepo(brain.Path) && git.HasRemoteUpdates(brain.Path) {
 			brainsWithUpdates = append(brainsWithUpdates, BrainWithUpdates{
-				Brain:          brain,
+				Brain:           brain,
 				HasLocalChanges: git.HasUncommittedChanges(brain.Path),
 			})
 		}
@@ -288,7 +324,7 @@ func checkRemoteUpdatesOnStart() {
 	fmt.Println("📥 Remote updates available:")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
-	
+
 	hasConflictRisk := false
 	for _, bwu := range brainsWithUpdates {
 		status := "✓"
@@ -301,7 +337,7 @@ func checkRemoteUpdatesOnStart() {
 		fmt.Printf("%s %s%s\n", status, bwu.Brain.Name, note)
 	}
 	fmt.Println()
-	
+
 	if hasConflictRisk {
 		fmt.Println("⚠️  Note: Some brains have uncommitted changes.")
 		fmt.Println("   They will be automatically stashed and restored after pulling.")
@@ -315,7 +351,7 @@ func checkRemoteUpdatesOnStart() {
 		Inactive: "  {{ . }}",
 		Selected: "{{ . | green | bold }}",
 	}
-	
+
 	prompt := promptui.Select{
 		Label:     "Would you like to pull these updates now?",
 		Items:     []string{"Yes, pull all", "No, pull later"},
@@ -335,13 +371,13 @@ func checkRemoteUpdatesOnStart() {
 	fmt.Println()
 	for _, bwu := range brainsWithUpdates {
 		fmt.Printf("📥 Pulling updates for '%s'...\n", bwu.Brain.Name)
-		
+
 		// Use autostash if there are local changes
 		opts := git.PullOptions{
 			Rebase:    true,
 			AutoStash: bwu.HasLocalChanges,
 		}
-		
+
 		err := git.PullWithOptions(bwu.Brain.Path, opts)
 		if err != nil {
 			if git.HasMergeConflicts(bwu.Brain.Path) {
@@ -352,10 +388,10 @@ func checkRemoteUpdatesOnStart() {
 			}
 			continue
 		}
-		
+
 		fmt.Printf("   ✓ Updated successfully\n")
 	}
-	
+
 	fmt.Println()
 	fmt.Println("✅ Pull operation completed!")
 	fmt.Println()
@@ -391,7 +427,7 @@ func checkUncommittedChangesOnExit() {
 		Changes []string
 	}
 	brainsWithChanges := []BrainWithChanges{}
-	
+
 	for _, brain := range activeWs.Brains {
 		if git.IsGitRepo(brain.Path) && git.HasUncommittedChanges(brain.Path) {
 			changes, err := git.GetChangedFiles(brain.Path)
@@ -431,7 +467,7 @@ func checkUncommittedChangesOnExit() {
 		Inactive: "  {{ . }}",
 		Selected: "{{ . | green | bold }}",
 	}
-	
+
 	prompt := promptui.Select{
 		Label:     "Would you like to commit these changes now?",
 		Items:     []string{"Yes, commit all", "No, commit later"},
@@ -451,20 +487,20 @@ func checkUncommittedChangesOnExit() {
 	fmt.Println()
 	for _, bwc := range brainsWithChanges {
 		fmt.Printf("📝 Committing changes in '%s'...\n", bwc.Brain.Name)
-		
+
 		// Generate smart commit message
 		commitMsg := generateSmartCommitMessage(bwc.Changes)
-		
+
 		// Perform commit
 		err := git.AddAndCommit(bwc.Brain.Path, commitMsg)
 		if err != nil {
 			fmt.Printf("   ✗ Failed to commit: %v\n", err)
 			continue
 		}
-		
+
 		fmt.Printf("   ✓ Committed: %s\n", commitMsg)
 	}
-	
+
 	fmt.Println()
 	fmt.Println("✅ All changes committed successfully!")
 }
@@ -480,25 +516,25 @@ func generateSmartCommitMessage(changes []string) string {
 		Name   string
 		Status string // A=added, M=modified, D=deleted, etc.
 	}
-	
+
 	type ChangeCategory struct {
-		newNotes     []FileChange
-		updatedNotes []FileChange
-		newMeetings  []FileChange
+		newNotes        []FileChange
+		updatedNotes    []FileChange
+		newMeetings     []FileChange
 		updatedMeetings []FileChange
-		newJournal   []FileChange
-		updatedJournal []FileChange
-		newTasks     []FileChange
-		updatedTasks []FileChange
-		other        []FileChange
+		newJournal      []FileChange
+		updatedJournal  []FileChange
+		newTasks        []FileChange
+		updatedTasks    []FileChange
+		other           []FileChange
 	}
-	
+
 	cat := ChangeCategory{}
-	
+
 	for _, change := range changes {
 		var status string
 		var filePath string
-		
+
 		// Parse git status format (e.g., "M  file.md", "?? file.md", "A  file.md")
 		if len(change) > 3 && (change[1] == ' ' || change[0] == '?') {
 			if change[0] == '?' {
@@ -515,13 +551,13 @@ func generateSmartCommitMessage(changes []string) string {
 			status = "M"
 			filePath = change
 		}
-		
+
 		fileName := filepath.Base(filePath)
 		filePathLower := strings.ToLower(filePath)
-		
+
 		fc := FileChange{Name: fileName, Status: status}
 		isNew := (status == "A" || status == "?")
-		
+
 		// Categorize by path
 		switch {
 		case strings.Contains(filePathLower, "/notes/"):
@@ -552,10 +588,10 @@ func generateSmartCommitMessage(changes []string) string {
 			cat.other = append(cat.other, fc)
 		}
 	}
-	
+
 	// Build structured commit message
 	var sections []string
-	
+
 	// New Notes
 	if len(cat.newNotes) > 0 {
 		section := "New Notes\n========="
@@ -564,7 +600,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// Updated Notes
 	if len(cat.updatedNotes) > 0 {
 		section := "Updated Notes\n============="
@@ -573,7 +609,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// New Meetings
 	if len(cat.newMeetings) > 0 {
 		section := "New Meetings\n============"
@@ -582,7 +618,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// Updated Meetings
 	if len(cat.updatedMeetings) > 0 {
 		section := "Updated Meetings\n================"
@@ -591,7 +627,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// New Journal Entries
 	if len(cat.newJournal) > 0 {
 		section := "New Journal Entries\n==================="
@@ -600,7 +636,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// Updated Journal Entries
 	if len(cat.updatedJournal) > 0 {
 		section := "Updated Journal Entries\n======================="
@@ -609,7 +645,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// New Tasks
 	if len(cat.newTasks) > 0 {
 		section := "New Tasks\n========="
@@ -618,7 +654,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// Updated Tasks
 	if len(cat.updatedTasks) > 0 {
 		section := "Updated Tasks\n============="
@@ -627,7 +663,7 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	// Other Files
 	if len(cat.other) > 0 {
 		section := "Other Changes\n============="
@@ -642,11 +678,11 @@ func generateSmartCommitMessage(changes []string) string {
 		}
 		sections = append(sections, section)
 	}
-	
+
 	if len(sections) == 0 {
 		return "Update content"
 	}
-	
+
 	// Join sections with double newline
 	return strings.Join(sections, "\n\n")
 }
@@ -677,72 +713,42 @@ func runInteractiveMenu() error {
 	displayStatusHeader()
 	fmt.Println()
 
-	// Main menu options
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
+	// Main menu options with commands
+	menuItems := []MenuItem{
 		{
-			Label:       lang.GetText("menu.main.quickstart_label"),
-			Description: lang.GetText("menu.main.quickstart_desc"),
-			Action: func() error {
-				if err := runQuickstart(); err != nil {
-					fmt.Printf("\nError: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
+			Label:       lang.GetText("menu.main.create_label"),
+			Description: lang.GetText("menu.main.create_desc"),
+			Command:     lang.GetText("menu.main.create_cmd"),
+			Action:      runCreateNewMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.browse_label"),
 			Description: lang.GetText("menu.main.browse_desc"),
+			Command:     lang.GetText("menu.main.browse_cmd"),
 			Action:      runBrowseSearchMenu,
-		},
-		{
-			Label:       lang.GetText("menu.main.create_label"),
-			Description: lang.GetText("menu.main.create_desc"),
-			Action:      runCreateNewMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.manage_label"),
 			Description: lang.GetText("menu.main.manage_desc"),
+			Command:     lang.GetText("menu.main.manage_cmd"),
 			Action:      runManageResourcesMenu,
-		},
-		{
-			Label:       lang.GetText("menu.main.switch_label"),
-			Description: lang.GetText("menu.main.switch_desc"),
-			Action:      runSwitchContextMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.status_label"),
 			Description: lang.GetText("menu.main.status_desc"),
-			Action: func() error {
-				if err := runStatus(); err != nil {
-					return err
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
+			Command:     lang.GetText("menu.main.status_cmd"),
+			Action:      runStatusMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.help_label"),
 			Description: lang.GetText("menu.main.help_desc"),
-			Action: func() error {
-				fmt.Println()
-				fmt.Println(lang.GetTemplate("commands"))
-				fmt.Println()
-				fmt.Println("For detailed help: flip <command> --help")
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
+			Command:     lang.GetText("menu.main.help_cmd"),
+			Action:      runHelpMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.exit_label"),
 			Description: lang.GetText("menu.main.exit_desc"),
+			Command:     lang.GetText("menu.main.exit_cmd"),
 			Action: func() error {
 				checkUncommittedChangesOnExit()
 				fmt.Println("👋 See you later!")
@@ -751,15 +757,15 @@ func runInteractiveMenu() error {
 		},
 	}
 
-	// Create interactive select with improved rendering
-	templates := createMenuItemSelectTemplates()
+	// Create interactive select with command display
+	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "What would you like to do?",
+		Label:     "Main Menu",
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true, // Hide "Use arrow keys" message
+		HideHelp:  true,
 	}
 
 	idx, _, err := selectMenu.Run()
@@ -881,15 +887,13 @@ func runBrowseSearchMenu() error {
 	fmt.Println()
 	displayStatusHeader()
 	fmt.Println()
+	showBreadcrumb("Main", "Browse & Search")
 
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
+	menuItems := []MenuItem{
 		{
 			Label:       lang.GetText("menu.browse.recent_label"),
 			Description: lang.GetText("menu.browse.recent_desc"),
+			Command:     lang.GetText("menu.browse.recent_cmd"),
 			Action: func() error {
 				if err := showRecentNotes(20); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -902,6 +906,7 @@ func runBrowseSearchMenu() error {
 		{
 			Label:       lang.GetText("menu.browse.search_label"),
 			Description: lang.GetText("menu.browse.search_desc"),
+			Command:     lang.GetText("menu.browse.search_cmd"),
 			Action: func() error {
 				fmt.Print("\n🔍 Enter search query: ")
 				var query string
@@ -938,10 +943,12 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
-			Label:       lang.GetText("menu.browse.tasks_label"),
-			Description: lang.GetText("menu.browse.tasks_desc"),
+			Label:       lang.GetText("menu.browse.task_browser_label"),
+			Description: lang.GetText("menu.browse.task_browser_desc"),
+			Command:     lang.GetText("menu.browse.task_browser_cmd"),
 			Action: func() error {
-				if err := runTaskBrowseMenu(); err != nil {
+				// Call task browser directly with default filter
+				if err := runTaskBrowser(""); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
@@ -952,14 +959,15 @@ func runBrowseSearchMenu() error {
 		{
 			Label:       lang.GetText("menu.browse.back_label"),
 			Description: lang.GetText("menu.browse.back_desc"),
+			Command:     "",
 			Action:      runInteractiveMenu,
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
+	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Browse & Search Notes",
+		Label:     "Browse & Search",
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -980,71 +988,99 @@ func runCreateNewMenu() error {
 	fmt.Println()
 	displayStatusHeader()
 	fmt.Println()
+	showBreadcrumb("Main", "Create")
 
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
+	menuItems := []MenuItem{
 		{
 			Label:       lang.GetText("menu.create.note_label"),
 			Description: lang.GetText("menu.create.note_desc"),
+			Command:     lang.GetText("menu.create.note_cmd"),
 			Action: func() error {
 				if err := runCreateNote(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runCreateNewMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.create.meeting_label"),
 			Description: lang.GetText("menu.create.meeting_desc"),
+			Command:     lang.GetText("menu.create.meeting_cmd"),
 			Action: func() error {
 				if err := runCreateMeeting(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runCreateNewMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.create.journal_label"),
 			Description: lang.GetText("menu.create.journal_desc"),
+			Command:     lang.GetText("menu.create.journal_cmd"),
 			Action: func() error {
 				if err := runCreateJournal(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runCreateNewMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.create.task_label"),
 			Description: lang.GetText("menu.create.task_desc"),
+			Command:     lang.GetText("menu.create.task_cmd"),
 			Action: func() error {
 				if err := runCreateTask(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.brain_label"),
+			Description: lang.GetText("menu.create.brain_desc"),
+			Command:     lang.GetText("menu.create.brain_cmd"),
+			Action: func() error {
+				if err := runNewBrain(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.workspace_label"),
+			Description: lang.GetText("menu.create.workspace_desc"),
+			Command:     lang.GetText("menu.create.workspace_cmd"),
+			Action: func() error {
+				if err := runNewWorkspace(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.create.back_label"),
 			Description: lang.GetText("menu.create.back_desc"),
+			Command:     "",
 			Action:      runInteractiveMenu,
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
+	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Create New Content",
+		Label:     "Create",
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1064,36 +1100,38 @@ func runCreateNewMenu() error {
 func runManageResourcesMenu() error {
 	fmt.Println()
 	displayStatusHeader()
+	showBreadcrumb("Main › Manage")
 	fmt.Println()
 
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
+	menuItems := []MenuItem{
 		{
 			Label:       lang.GetText("menu.manage.workspaces_label"),
 			Description: lang.GetText("menu.manage.workspaces_desc"),
+			Command:     lang.GetText("menu.manage.workspaces_command"),
 			Action:      runEditWorkspaceMenu,
 		},
 		{
 			Label:       lang.GetText("menu.manage.brains_label"),
 			Description: lang.GetText("menu.manage.brains_desc"),
+			Command:     lang.GetText("menu.manage.brains_command"),
 			Action:      runManageBrainsMenu,
 		},
 		{
 			Label:       "View/Edit workspace config",
 			Description: "View or edit the global workspace configuration",
+			Command:     "",
 			Action:      runViewWorkspaceConfig,
 		},
 		{
 			Label:       lang.GetText("menu.manage.templates_label"),
 			Description: lang.GetText("menu.manage.templates_desc"),
+			Command:     lang.GetText("menu.manage.templates_command"),
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
 			Label:       "Git: Show status",
 			Description: "Display git repository status for brains",
+			Command:     "",
 			Action: func() error {
 				if err := runBrainGitStatus(false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -1106,6 +1144,7 @@ func runManageResourcesMenu() error {
 		{
 			Label:       "Git: Pull updates",
 			Description: "Pull updates from remote repositories",
+			Command:     "",
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1116,6 +1155,7 @@ func runManageResourcesMenu() error {
 		{
 			Label:       "Git: Commit changes",
 			Description: "Commit uncommitted changes in brains",
+			Command:     "",
 			Action: func() error {
 				checkUncommittedChangesOnExit()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1126,11 +1166,12 @@ func runManageResourcesMenu() error {
 		{
 			Label:       lang.GetText("menu.manage.back_label"),
 			Description: lang.GetText("menu.manage.back_desc"),
+			Command:     "",
 			Action:      runInteractiveMenu,
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
+	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Manage Resources",
@@ -1160,6 +1201,58 @@ func runManageBrainsMenu() error {
 		Description string
 		Action      func() error
 	}{
+		{
+			Label:       "View Brain Details",
+			Description: "View detailed information about a brain",
+			Action: func() error {
+				// Get active workspace
+				workspace, err := getActiveWorkspace()
+				if err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageResourcesMenu()
+				}
+
+				if len(workspace.Brains) == 0 {
+					fmt.Println("\n🧠 No brains in active workspace.")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageResourcesMenu()
+				}
+
+				// Select brain to view with status indicators
+				var brainNames []string
+				for _, b := range workspace.Brains {
+					indicator := "  "
+					if workspace.DefaultBrain == b.Name {
+						indicator = "⭐"
+					}
+					// Check if brain has git changes
+					statusIcon := ""
+					if git.IsGitRepo(b.Path) && git.HasUncommittedChanges(b.Path) {
+						statusIcon = " ●"
+					}
+					brainNames = append(brainNames, fmt.Sprintf("%s %s (%s)%s", indicator, b.Name, b.Type, statusIcon))
+				}
+
+				selectBrain := promptui.Select{
+					Label:     "Select brain to view",
+					Items:     brainNames,
+					Size:      calculateMenuSize(len(brainNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
+				}
+
+				idx, _, err := selectBrain.Run()
+				if err != nil {
+					return runManageResourcesMenu()
+				}
+
+				// Show detail view
+				return runBrainDetails(workspace.Brains[idx])()
+			},
+		},
 		{
 			Label:       lang.GetText("menu.manage_brains.create_label"),
 			Description: lang.GetText("menu.manage_brains.create_desc"),
@@ -1595,6 +1688,52 @@ func runEditWorkspaceMenu() error {
 		Description string
 		Action      func() error
 	}{
+		{
+			Label:       "View Workspace Details",
+			Description: "View detailed information about a workspace",
+			Action: func() error {
+				config, err := loadWorkspaceConfig()
+				if err != nil {
+					fmt.Printf("\nError: %v\n", err)
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageResourcesMenu()
+				}
+
+				if len(config.Workspaces) == 0 {
+					fmt.Println("\n📭 No workspaces found.")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageResourcesMenu()
+				}
+
+				// Select workspace to view with status indicators
+				var wsNames []string
+				for _, ws := range config.Workspaces {
+					indicator := "  "
+					if config.ActiveWorkspace == ws.Name {
+						indicator = "⭐"
+					}
+					wsNames = append(wsNames, fmt.Sprintf("%s %s (%d brains)", indicator, ws.Name, len(ws.Brains)))
+				}
+
+				selectWS := promptui.Select{
+					Label:     "Select workspace to view",
+					Items:     wsNames,
+					Size:      calculateMenuSize(len(wsNames)),
+					Templates: createSimpleSelectTemplates(),
+					HideHelp:  true,
+				}
+
+				idx, _, err := selectWS.Run()
+				if err != nil {
+					return runManageResourcesMenu()
+				}
+
+				// Show detail view
+				return runWorkspaceDetails(config.Workspaces[idx])()
+			},
+		},
 		{
 			Label:       lang.GetText("menu.edit_workspace.rename_label"),
 			Description: lang.GetText("menu.edit_workspace.rename_desc"),
@@ -2519,4 +2658,501 @@ func runViewWorkspaceConfig() error {
 	fmt.Println(lang.GetText("prompts.continue"))
 	fmt.Scanln()
 	return runManageResourcesMenu()
+}
+
+// runStatusMenu shows status and git operations menu
+func runStatusMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+	showBreadcrumb("Main", "Status & Git")
+
+	menuItems := []MenuItem{
+		{
+			Label:       lang.GetText("menu.status.overview_label"),
+			Description: lang.GetText("menu.status.overview_desc"),
+			Command:     lang.GetText("menu.status.overview_cmd"),
+			Action: func() error {
+				if err := runStatus(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runStatusMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.status.git_status_label"),
+			Description: lang.GetText("menu.status.git_status_desc"),
+			Command:     lang.GetText("menu.status.git_status_cmd"),
+			Action: func() error {
+				if err := runBrainGitStatus(true); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runStatusMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.status.git_log_label"),
+			Description: lang.GetText("menu.status.git_log_desc"),
+			Command:     lang.GetText("menu.status.git_log_cmd"),
+			Action: func() error {
+				if err := runBrainGitLog(10, true); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runStatusMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.status.git_commit_label"),
+			Description: lang.GetText("menu.status.git_commit_desc"),
+			Command:     lang.GetText("menu.status.git_commit_cmd"),
+			Action: func() error {
+				checkUncommittedChangesOnExit()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runStatusMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.status.git_pull_label"),
+			Description: lang.GetText("menu.status.git_pull_desc"),
+			Command:     lang.GetText("menu.status.git_pull_cmd"),
+			Action: func() error {
+				checkRemoteUpdatesOnStart()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runStatusMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.status.back_label"),
+			Description: lang.GetText("menu.status.back_desc"),
+			Command:     "",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := createMenuItemWithCommandTemplates()
+
+	selectMenu := promptui.Select{
+		Label:     "Status & Git",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runHelpMenu shows help and documentation menu
+func runHelpMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+	showBreadcrumb("Main", "Help & Documentation")
+
+	menuItems := []MenuItem{
+		{
+			Label:       lang.GetText("menu.help.quickstart_label"),
+			Description: lang.GetText("menu.help.quickstart_desc"),
+			Command:     lang.GetText("menu.help.quickstart_cmd"),
+			Action: func() error {
+				if err := runQuickstart(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runHelpMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.help.commands_label"),
+			Description: lang.GetText("menu.help.commands_desc"),
+			Command:     lang.GetText("menu.help.commands_cmd"),
+			Action: func() error {
+				fmt.Println()
+				fmt.Println(lang.GetTemplate("commands"))
+				fmt.Println()
+				fmt.Println("For detailed help: flip <command> --help")
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runHelpMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.help.intro_label"),
+			Description: lang.GetText("menu.help.intro_desc"),
+			Command:     lang.GetText("menu.help.intro_cmd"),
+			Action: func() error {
+				if err := runIntro(); err != nil {
+					fmt.Printf("\nError: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runHelpMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.help.config_label"),
+			Description: lang.GetText("menu.help.config_desc"),
+			Command:     lang.GetText("menu.help.config_cmd"),
+			Action: func() error {
+				configPath, err := getConfigPath()
+				if err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				} else {
+					fmt.Printf("\n📁 Configuration Location:\n")
+					fmt.Printf("   %s\n", configPath)
+					if _, err := os.Stat(configPath); os.IsNotExist(err) {
+						fmt.Printf("\n%s File does not exist yet (will be created on first use)\n", IconWarning)
+					}
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runHelpMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.help.back_label"),
+			Description: lang.GetText("menu.help.back_desc"),
+			Command:     "",
+			Action:      runInteractiveMenu,
+		},
+	}
+
+	templates := createMenuItemWithCommandTemplates()
+
+	selectMenu := promptui.Select{
+		Label:     "Help & Documentation",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runWorkspaceDetails shows detailed information and actions for a specific workspace
+func runWorkspaceDetails(workspace Workspace) func() error {
+	return func() error {
+		showBreadcrumb("Main › Manage › Workspaces › " + workspace.Name)
+		fmt.Println()
+
+		// Get current config to check if this workspace is active
+		config, err := loadWorkspaceConfig()
+		isActive := err == nil && config.ActiveWorkspace == workspace.Name
+
+		// Display workspace details
+		fmt.Printf("📁 Workspace: %s\n", workspace.Name)
+		if workspace.Description != "" {
+			fmt.Printf("   Description: %s\n", workspace.Description)
+		}
+		fmt.Printf("   Active: %t\n", isActive)
+		fmt.Printf("   Brains: %d\n", len(workspace.Brains))
+		if workspace.DefaultBrain != "" {
+			fmt.Printf("   Default Brain: %s\n", workspace.DefaultBrain)
+		}
+
+		fmt.Println()
+
+		// Build action menu
+		menuItems := []MenuItem{
+			{
+				Label:       lang.GetText("menu.workspace_details.rename_label"),
+				Description: lang.GetText("menu.workspace_details.rename_desc"),
+				Command:     lang.GetText("menu.workspace_details.rename_command"),
+				Action: func() error {
+					fmt.Println("⚠️  Rename workspace not yet implemented")
+					time.Sleep(2 * time.Second)
+					return runWorkspaceDetails(workspace)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.workspace_details.remove_label"),
+				Description: lang.GetText("menu.workspace_details.remove_desc"),
+				Command:     lang.GetText("menu.workspace_details.remove_command"),
+				Action: func() error {
+					fmt.Println("⚠️  Remove workspace not yet implemented")
+					time.Sleep(2 * time.Second)
+					return runWorkspaceDetails(workspace)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.workspace_details.switch_label"),
+				Description: lang.GetText("menu.workspace_details.switch_desc"),
+				Command:     lang.GetText("menu.workspace_details.switch_command"),
+				Action: func() error {
+					// Switch to this workspace
+					config, err := loadWorkspaceConfig()
+					if err != nil {
+						fmt.Printf("❌ Error loading config: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runWorkspaceDetails(workspace)()
+					}
+					config.ActiveWorkspace = workspace.Name
+					if err := saveWorkspaceConfig(config); err != nil {
+						fmt.Printf("❌ Error switching workspace: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runWorkspaceDetails(workspace)()
+					}
+					fmt.Printf("✅ Switched to workspace: %s\n", workspace.Name)
+					time.Sleep(1 * time.Second)
+					return runInteractiveMenu()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.workspace_details.back_label"),
+				Description: lang.GetText("menu.workspace_details.back_desc"),
+				Command:     "",
+				Action:      runManageResourcesMenu,
+			},
+		}
+
+		templates := createMenuItemWithCommandTemplates()
+
+		selectMenu := promptui.Select{
+			Label:     "Workspace Actions",
+			Items:     menuItems,
+			Templates: templates,
+			Size:      calculateMenuSize(len(menuItems)),
+			HideHelp:  true,
+		}
+
+		idx, _, err := selectMenu.Run()
+		if err != nil {
+			return runManageResourcesMenu()
+		}
+
+		fmt.Println()
+		return menuItems[idx].Action()
+	}
+}
+
+// runBrainDetails shows detailed information and actions for a specific brain
+func runBrainDetails(brainInfo Brain) func() error {
+	return func() error {
+		showBreadcrumb("Main › Manage › Brains › " + brainInfo.Name)
+		fmt.Println()
+
+		// Get workspace to check if this is the default brain
+		workspace, _ := getActiveWorkspace()
+		isDefault := workspace != nil && workspace.DefaultBrain == brainInfo.Name
+
+		// Display brain details
+		fmt.Printf("🧠 Brain: %s\n", brainInfo.Name)
+		fmt.Printf("   Type: %s\n", brainInfo.Type)
+		fmt.Printf("   Path: %s\n", brainInfo.Path)
+		if brainInfo.Description != "" {
+			fmt.Printf("   Description: %s\n", brainInfo.Description)
+		}
+		if isDefault {
+			fmt.Printf("   Default: ⭐ Yes\n")
+		} else {
+			fmt.Printf("   Default: ○ No\n")
+		}
+
+		// Show git status
+		if git.IsGitRepo(brainInfo.Path) {
+			if git.HasUncommittedChanges(brainInfo.Path) {
+				fmt.Printf("   Git: ● Has changes\n")
+			} else {
+				fmt.Printf("   Git: ✅ Clean\n")
+			}
+		}
+
+		// Check brain type
+		detector := brain.NewDetector()
+		if result, err := detector.DetectBrainType(brainInfo.Path); err == nil {
+			if result.Compatible {
+				fmt.Printf("   Compatible: ✅ Yes\n")
+			} else {
+				fmt.Printf("   Compatible: ⚠️  %s\n", result.Description)
+			}
+		}
+
+		fmt.Println()
+
+		// Build action menu
+		menuItems := []MenuItem{
+			{
+				Label:       lang.GetText("menu.brain_details.rename_label"),
+				Description: lang.GetText("menu.brain_details.rename_desc"),
+				Command:     lang.GetText("menu.brain_details.rename_command"),
+				Action: func() error {
+					fmt.Println("⚠️  Rename brain not yet implemented")
+					time.Sleep(2 * time.Second)
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       "⭐ Set as Default",
+				Description: "Set this brain as default for the workspace",
+				Command:     "flip brain set-default",
+				Action: func() error {
+					// Set as default brain in workspace
+					config, err := loadWorkspaceConfig()
+					if err != nil {
+						fmt.Printf("❌ Error loading config: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runBrainDetails(brainInfo)()
+					}
+
+					// Find active workspace and set default brain
+					for i := range config.Workspaces {
+						if config.Workspaces[i].Name == config.ActiveWorkspace {
+							config.Workspaces[i].DefaultBrain = brainInfo.Name
+							break
+						}
+					}
+
+					if err := saveWorkspaceConfig(config); err != nil {
+						fmt.Printf("❌ Error saving config: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runBrainDetails(brainInfo)()
+					}
+
+					fmt.Printf("✅ Set '%s' as default brain\n", brainInfo.Name)
+					time.Sleep(1 * time.Second)
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.remove_label"),
+				Description: lang.GetText("menu.brain_details.remove_desc"),
+				Command:     lang.GetText("menu.brain_details.remove_command"),
+				Action: func() error {
+					fmt.Println("⚠️  Remove brain not yet implemented")
+					time.Sleep(2 * time.Second)
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.repair_label"),
+				Description: lang.GetText("menu.brain_details.repair_desc"),
+				Command:     lang.GetText("menu.brain_details.repair_command"),
+				Action: func() error {
+					fmt.Println("⚠️  Brain repair not yet implemented in detail view")
+					time.Sleep(2 * time.Second)
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.health_label"),
+				Description: lang.GetText("menu.brain_details.health_desc"),
+				Command:     lang.GetText("menu.brain_details.health_command"),
+				Action: func() error {
+					// Show brain detection details
+					detector := brain.NewDetector()
+					if result, err := detector.DetectBrainType(brainInfo.Path); err == nil {
+						fmt.Println("\nBrain Detection Results:")
+						fmt.Printf("  Type: %s\n", result.Type)
+						fmt.Printf("  Compatible: %t\n", result.Compatible)
+						fmt.Printf("  Description: %s\n", result.Description)
+						if len(result.Indicators) > 0 {
+							fmt.Println("  Indicators:")
+							for _, ind := range result.Indicators {
+								fmt.Printf("    - %s\n", ind)
+							}
+						}
+					} else {
+						fmt.Printf("❌ Error checking brain: %v\n", err)
+					}
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.git_status_label"),
+				Description: lang.GetText("menu.brain_details.git_status_desc"),
+				Command:     lang.GetText("menu.brain_details.git_status_command"),
+				Action: func() error {
+					// Show git status
+					if !git.IsGitRepo(brainInfo.Path) {
+						fmt.Println("\n⚠️  Not a git repository")
+						fmt.Println(lang.GetText("prompts.continue"))
+						fmt.Scanln()
+						return runBrainDetails(brainInfo)()
+					}
+
+					fmt.Println("\nGit Status:")
+					if git.HasUncommittedChanges(brainInfo.Path) {
+						changes, err := git.GetChangedFiles(brainInfo.Path)
+						if err == nil {
+							fmt.Printf("  Modified files: %d\n", len(changes))
+							for _, file := range changes {
+								fmt.Printf("    - %s\n", file)
+							}
+						}
+					} else {
+						fmt.Println("  ✅ No uncommitted changes")
+					}
+
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.open_folder_label"),
+				Description: lang.GetText("menu.brain_details.open_folder_desc"),
+				Command:     lang.GetText("menu.brain_details.open_folder_command"),
+				Action: func() error {
+					// Open in file manager
+					cmd := exec.Command("xdg-open", brainInfo.Path)
+					if err := cmd.Start(); err != nil {
+						fmt.Printf("❌ Error opening folder: %v\n", err)
+						time.Sleep(2 * time.Second)
+					} else {
+						fmt.Println("✅ Opened in file manager")
+						time.Sleep(1 * time.Second)
+					}
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       lang.GetText("menu.brain_details.back_label"),
+				Description: lang.GetText("menu.brain_details.back_desc"),
+				Command:     "",
+				Action:      runManageBrainsMenu,
+			},
+		}
+
+		templates := createMenuItemWithCommandTemplates()
+
+		selectMenu := promptui.Select{
+			Label:     "Brain Actions",
+			Items:     menuItems,
+			Templates: templates,
+			Size:      calculateMenuSize(len(menuItems)),
+			HideHelp:  true,
+		}
+
+		idx, _, err := selectMenu.Run()
+		if err != nil {
+			return runManageBrainsMenu()
+		}
+
+		fmt.Println()
+		return menuItems[idx].Action()
+	}
 }
