@@ -86,16 +86,35 @@ Example:
 
 ## Quick Start
 
-### Check Status
+### Interactive Menu
+
+The easiest way to use flip is through the interactive menu:
+
+```bash
+# Open interactive menu
+flip menu
+# or simply
+flip
+```
+
+The menu provides:
+- **Create** - Create notes, meetings, journal entries, tasks
+- **Browse** - Browse notes, meetings, tasks, and journal entries  
+- **Manage** - Manage workspaces, brains, templates, and Git
+- **Status** - View current workspace and brain status
+- **Help** - Access help and CLI command reference
+- **Exit** - Exit the application
+
+### Command Line Interface
+
+#### Check Status
 
 ```bash
 # See overview of all workspaces and brains
-flip
-# or
 flip status
 ```
 
-### Create Your First Brain
+#### Create Your First Brain
 
 ```bash
 # Guided setup - creates new brain
@@ -103,7 +122,7 @@ flip status
 flip new
 ```
 
-### Or Initialize Existing Directory
+#### Or Initialize Existing Directory
 
 ```bash
 # Initialize a directory as a brain
@@ -111,7 +130,7 @@ flip new
 flip init ~/my-notes
 ```
 
-### Organize with Workspaces
+#### Organize with Workspaces
 
 ```bash
 # Create a workspace for related brains
@@ -129,7 +148,7 @@ flip workspace switch default
 flip brain list  # shows all brains on this machine
 ```
 
-### Switch Between Workspaces
+#### Switch Between Workspaces
 
 ```bash
 # List all workspaces
@@ -142,7 +161,7 @@ flip workspace switch work
 flip brain list
 ```
 
-### Manage Brains
+#### Manage Brains
 
 ```bash
 # List brains in active workspace
@@ -649,26 +668,26 @@ Flip stores workspace configuration in `~/.config/flip/workspaces.json`:
 }
 ```
 
-## Scan for Existing Workspaces
+## Scan for Existing Brains
 
-Flip kann dein Home-Verzeichnis oder einen beliebigen Pfad nach existierenden 2nd brain Workspaces durchsuchen:
+Flip can scan your home directory or any path for existing 2nd brain directories:
 
 ```bash
-# Scan Home-Verzeichnis (Standard)
+# Scan home directory (default)
 flip scan
 
-# Scan einen bestimmten Ordner
+# Scan a specific folder
 flip scan ~/Documents
 flip scan /Volumes/ExternalDrive/Notes
 ```
 
-**Scan-Erkennungskriterien:**
-- **Obsidian Vault:** `.obsidian/` Ordner + viele `.md`-Dateien
-- **Logseq Graph:** `.logseq/` Ordner + `journals/` oder `pages/` + viele `.md`-Dateien
-- **Dendron Workspace:** `dendron.yml` im Root + viele `.md`-Dateien
-- **Flip Brain:** `.flip-brain.yaml` oder `.flip.yaml` im Root
+**Scan Detection Criteria:**
+- **Obsidian Vault:** `.obsidian/` folder + many `.md` files
+- **Logseq Graph:** `.logseq/` folder + `journals/` or `pages/` + many `.md` files
+- **Dendron Workspace:** `dendron.yml` in root + many `.md` files
+- **Flip Brain:** `.flip-brain.yaml` or `.flip.yaml` in root
 
-Systemordner und irrelevante Verzeichnisse werden automatisch übersprungen. Die Scan-Tiefe ist begrenzt, um Performance zu gewährleisten. Treffer werden nur angezeigt, wenn sie die typischen Marker und ausreichend viele Markdown-Dateien enthalten.
+System folders and irrelevant directories are automatically skipped. Scan depth is limited for performance. Results are only shown if they contain typical markers and sufficient markdown files.
 
 ---
 
