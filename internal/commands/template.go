@@ -24,29 +24,72 @@ func NewTemplateCommand() *cobra.Command {
 }
 
 func runTemplateMenu() error {
-	// Select action
-	actionPrompt := promptui.Select{
-		Label: "What would you like to do?",
-		Items: []string{"Edit a template", "List templates", "Show template directory", "Back"},
+	fmt.Println("\n🔧 Template Management")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	menuItems := []struct {
+		Label       string
+		Description string
+		Action      func() error
+	}{
+		{
+			Label:       "📋 List Templates",
+			Description: "Show all available templates",
+			Action:      listTemplatesFlow,
+		},
+		{
+			Label:       "👁️  View Template",
+			Description: "View template content",
+			Action:      viewTemplateFlow,
+		},
+		{
+			Label:       "✏️  Edit Template",
+			Description: "Modify an existing template",
+			Action:      editTemplateFlow,
+		},
+		{
+			Label:       "🔄 Reset Template",
+			Description: "Restore template to default",
+			Action:      resetTemplateFlow,
+		},
+		{
+			Label:       "📂 Open Template Directory",
+			Description: "Open templates folder in file manager",
+			Action:      showTemplateDirectoryFlow,
+		},
+		{
+			Label:       "◀️  Back",
+			Description: "Return to manage menu",
+			Action: func() error {
+				return nil
+			},
+		},
 	}
 
-	actionIdx, _, err := actionPrompt.Run()
+	prompt := promptui.Select{
+		Label: "What would you like to do?",
+		Items: menuItems,
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "▸ {{ .Label | cyan }} - {{ .Description }}",
+			Inactive: "  {{ .Label }} - {{ .Description }}",
+			Selected: "{{ .Label | green }}",
+		},
+		Size:     10,
+		HideHelp: true,
+	}
+
+	idx, _, err := prompt.Run()
 	if err != nil {
 		return err
 	}
 
-	switch actionIdx {
-	case 0: // Edit template
-		return editTemplateFlow()
-	case 1: // List templates
-		return listTemplatesFlow()
-	case 2: // Show template directory
-		return showTemplateDirectoryFlow()
-	case 3: // Back
+	if idx == len(menuItems)-1 { // Back
 		return nil
 	}
 
-	return nil
+	return menuItems[idx].Action()
 }
 
 func editTemplateFlow() error {
@@ -58,7 +101,7 @@ func editTemplateFlow() error {
 
 	brainIdx, brainStr, err := brainTypePrompt.Run()
 	if err != nil {
-		return err
+		return runTemplateMenu()
 	}
 
 	var brainType brain.BrainType
@@ -76,12 +119,12 @@ func editTemplateFlow() error {
 	// Select template type
 	templatePrompt := promptui.Select{
 		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal"},
+		Items: []string{"note", "meeting", "journal", "task"},
 	}
 
 	templateIdx, _, err := templatePrompt.Run()
 	if err != nil {
-		return err
+		return runTemplateMenu()
 	}
 
 	var templateType templates.TemplateType
@@ -92,25 +135,47 @@ func editTemplateFlow() error {
 		templateType = templates.TemplateTypeMeeting
 	case 2:
 		templateType = templates.TemplateTypeJournal
+	case 3:
+		templateType = templates.TemplateTypeTask
 	}
 
 	// Get template path
 	templatePath, err := templates.GetTemplatePath(brainType, templateType)
 	if err != nil {
-		return fmt.Errorf("failed to get template path: %w", err)
+		fmt.Printf("\n❌ Error: %v\n", err)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
 	}
 
 	// Check if template exists
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		fmt.Printf("Template not found: %s\n", templatePath)
-		return nil
+		fmt.Printf("\n❌ Template not found: %s\n", templatePath)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
 	}
 
-	fmt.Printf("\nOpening template: %s\n", templatePath)
-	fmt.Printf("Available placeholders: {{title}}, {{date}}, {{time}}, {{tags}}, {{participants}}, {{id}}, {{created}}, {{updated}}\n\n")
+	fmt.Printf("\n✏️  Opening template: %s\n", templatePath)
+	fmt.Println("\nAvailable placeholders:")
+	fmt.Println("  {{title}}        - Note title")
+	fmt.Println("  {{date}}         - Current date (YYYY-MM-DD)")
+	fmt.Println("  {{time}}         - Current time (HH:MM)")
+	fmt.Println("  {{tags}}         - Tags placeholder")
+	fmt.Println("  {{participants}} - Meeting participants")
+	fmt.Println("  {{id}}           - Unique ID")
+	fmt.Println("  {{created}}      - Creation timestamp")
+	fmt.Println("  {{updated}}      - Last update timestamp")
+	fmt.Println()
 
 	// Open in editor
-	return openInEditor(templatePath)
+	if err := openInEditor(templatePath); err != nil {
+		fmt.Printf("❌ Error opening editor: %v\n", err)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+	}
+
+	return runTemplateMenu()
 }
 
 func listTemplatesFlow() error {
@@ -142,21 +207,184 @@ func listTemplatesFlow() error {
 
 		for _, t := range tmpl {
 			path, _ := templates.GetTemplatePath(bt.brainType, t)
-			fmt.Printf("  - %s (%s)\n", t, path)
+			// Check if file exists
+			if _, err := os.Stat(path); err == nil {
+				fmt.Printf("  ✅ %s\n", t)
+			} else {
+				fmt.Printf("  ❌ %s (not found)\n", t)
+			}
 		}
 	}
 
+	fmt.Println("\nPress Enter to continue...")
+	fmt.Scanln()
+	return runTemplateMenu()
+}
+
+func viewTemplateFlow() error {
+	// Select brain type
+	brainTypePrompt := promptui.Select{
+		Label: "Select brain type",
+		Items: []string{"flip", "obsidian", "logseq", "dendron"},
+	}
+
+	brainIdx, brainStr, err := brainTypePrompt.Run()
+	if err != nil {
+		return runTemplateMenu()
+	}
+
+	var brainType brain.BrainType
+	switch brainIdx {
+	case 0:
+		brainType = brain.BrainTypeFlip
+	case 1:
+		brainType = brain.BrainTypeObsidian
+	case 2:
+		brainType = brain.BrainTypeLogseq
+	case 3:
+		brainType = brain.BrainTypeDendron
+	}
+
+	// Select template type
+	templatePrompt := promptui.Select{
+		Label: fmt.Sprintf("Select template type for %s", brainStr),
+		Items: []string{"note", "meeting", "journal", "task"},
+	}
+
+	templateIdx, _, err := templatePrompt.Run()
+	if err != nil {
+		return runTemplateMenu()
+	}
+
+	var templateType templates.TemplateType
+	switch templateIdx {
+	case 0:
+		templateType = templates.TemplateTypeNote
+	case 1:
+		templateType = templates.TemplateTypeMeeting
+	case 2:
+		templateType = templates.TemplateTypeJournal
+	case 3:
+		templateType = templates.TemplateTypeTask
+	}
+
+	// Load and display template
+	content, err := templates.Load(brainType, templateType)
+	if err != nil {
+		fmt.Printf("\n❌ Error loading template: %v\n", err)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
+	}
+
+	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("Template: %s - %s\n", brainStr, templateType)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println(content)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("\nAvailable placeholders: {{title}}, {{date}}, {{time}}, {{tags}}, {{participants}}, {{id}}, {{created}}, {{updated}}")
+	fmt.Println("\nPress Enter to continue...")
+	fmt.Scanln()
+	return runTemplateMenu()
+}
+
+func resetTemplateFlow() error {
+	fmt.Println("\n⚠️  Reset Template")
+	fmt.Println("This will restore the template to its default version.")
+	fmt.Println("Note: Default templates are currently managed manually.")
 	fmt.Println()
-	return nil
+
+	// Select brain type
+	brainTypePrompt := promptui.Select{
+		Label: "Select brain type",
+		Items: []string{"flip", "obsidian", "logseq", "dendron"},
+	}
+
+	brainIdx, brainStr, err := brainTypePrompt.Run()
+	if err != nil {
+		return runTemplateMenu()
+	}
+
+	var brainType brain.BrainType
+	switch brainIdx {
+	case 0:
+		brainType = brain.BrainTypeFlip
+	case 1:
+		brainType = brain.BrainTypeObsidian
+	case 2:
+		brainType = brain.BrainTypeLogseq
+	case 3:
+		brainType = brain.BrainTypeDendron
+	}
+
+	// Select template type
+	templatePrompt := promptui.Select{
+		Label: fmt.Sprintf("Select template type for %s", brainStr),
+		Items: []string{"note", "meeting", "journal", "task"},
+	}
+
+	templateIdx, _, err := templatePrompt.Run()
+	if err != nil {
+		return runTemplateMenu()
+	}
+
+	var templateType templates.TemplateType
+	switch templateIdx {
+	case 0:
+		templateType = templates.TemplateTypeNote
+	case 1:
+		templateType = templates.TemplateTypeMeeting
+	case 2:
+		templateType = templates.TemplateTypeJournal
+	case 3:
+		templateType = templates.TemplateTypeTask
+	}
+
+	// Get template path
+	templatePath, err := templates.GetTemplatePath(brainType, templateType)
+	if err != nil {
+		fmt.Printf("\n❌ Error: %v\n", err)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
+	}
+
+	// Confirm reset
+	confirmPrompt := promptui.Prompt{
+		Label:     fmt.Sprintf("Reset %s template for %s? (yes/no)", templateType, brainStr),
+		IsConfirm: true,
+	}
+
+	_, err = confirmPrompt.Run()
+	if err != nil {
+		fmt.Println("\n❌ Cancelled")
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
+	}
+
+	fmt.Printf("\n⚠️  Template reset not yet fully implemented\n")
+	fmt.Printf("Template location: %s\n", templatePath)
+	fmt.Println("\nTo reset manually:")
+	fmt.Println("1. Delete the template file")
+	fmt.Println("2. Flip will recreate it with defaults on next use")
+	fmt.Println("\nPress Enter to continue...")
+	fmt.Scanln()
+	return runTemplateMenu()
 }
 
 func showTemplateDirectoryFlow() error {
 	templateDir, err := templates.GetTemplateDir()
 	if err != nil {
-		return fmt.Errorf("failed to get template directory: %w", err)
+		fmt.Printf("\n❌ Error: %v\n", err)
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
 	}
 
-	fmt.Printf("\nTemplate directory: %s\n\n", templateDir)
+	fmt.Printf("\n📂 Template Directory\n")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("\nLocation: %s\n\n", templateDir)
 	fmt.Println("Directory structure:")
 	fmt.Println("  templates/")
 	fmt.Println("    ├── flip/      (Flip brain templates)")
@@ -168,24 +396,29 @@ func showTemplateDirectoryFlow() error {
 	fmt.Println("  - note.md      (Regular notes)")
 	fmt.Println("  - meeting.md   (Meeting notes)")
 	fmt.Println("  - journal.md   (Daily journal/notes)")
+	fmt.Println("  - task.md      (Task notes)")
 	fmt.Println()
 
 	// Offer to open in file browser
 	openPrompt := promptui.Select{
-		Label: "Open template directory in Finder?",
+		Label: "Open template directory in file manager?",
 		Items: []string{"Yes", "No"},
 	}
 
 	idx, _, err := openPrompt.Run()
 	if err != nil {
-		return err
+		return runTemplateMenu()
 	}
 
 	if idx == 0 {
-		return openInFinder(templateDir)
+		if err := openInFinder(templateDir); err != nil {
+			fmt.Printf("\n❌ Error opening directory: %v\n", err)
+			fmt.Println("\nPress Enter to continue...")
+			fmt.Scanln()
+		}
 	}
 
-	return nil
+	return runTemplateMenu()
 }
 
 // openInFinder opens a directory in macOS Finder
