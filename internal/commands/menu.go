@@ -1100,36 +1100,38 @@ func runCreateNewMenu() error {
 func runManageResourcesMenu() error {
 	fmt.Println()
 	displayStatusHeader()
+	showBreadcrumb("Main › Manage")
 	fmt.Println()
 
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
+	menuItems := []MenuItem{
 		{
 			Label:       lang.GetText("menu.manage.workspaces_label"),
 			Description: lang.GetText("menu.manage.workspaces_desc"),
+			Command:     lang.GetText("menu.manage.workspaces_command"),
 			Action:      runEditWorkspaceMenu,
 		},
 		{
 			Label:       lang.GetText("menu.manage.brains_label"),
 			Description: lang.GetText("menu.manage.brains_desc"),
+			Command:     lang.GetText("menu.manage.brains_command"),
 			Action:      runManageBrainsMenu,
 		},
 		{
 			Label:       "View/Edit workspace config",
 			Description: "View or edit the global workspace configuration",
+			Command:     "",
 			Action:      runViewWorkspaceConfig,
 		},
 		{
 			Label:       lang.GetText("menu.manage.templates_label"),
 			Description: lang.GetText("menu.manage.templates_desc"),
+			Command:     lang.GetText("menu.manage.templates_command"),
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
 			Label:       "Git: Show status",
 			Description: "Display git repository status for brains",
+			Command:     "",
 			Action: func() error {
 				if err := runBrainGitStatus(false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -1142,6 +1144,7 @@ func runManageResourcesMenu() error {
 		{
 			Label:       "Git: Pull updates",
 			Description: "Pull updates from remote repositories",
+			Command:     "",
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1152,6 +1155,7 @@ func runManageResourcesMenu() error {
 		{
 			Label:       "Git: Commit changes",
 			Description: "Commit uncommitted changes in brains",
+			Command:     "",
 			Action: func() error {
 				checkUncommittedChangesOnExit()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -1162,11 +1166,12 @@ func runManageResourcesMenu() error {
 		{
 			Label:       lang.GetText("menu.manage.back_label"),
 			Description: lang.GetText("menu.manage.back_desc"),
+			Command:     "",
 			Action:      runInteractiveMenu,
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
+	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
 		Label:     "Manage Resources",
@@ -1216,10 +1221,19 @@ func runManageBrainsMenu() error {
 					return runManageResourcesMenu()
 				}
 
-				// Select brain to view
+				// Select brain to view with status indicators
 				var brainNames []string
-				for _, brain := range workspace.Brains {
-					brainNames = append(brainNames, brain.Name)
+				for _, b := range workspace.Brains {
+					indicator := "  "
+					if workspace.DefaultBrain == b.Name {
+						indicator = "⭐"
+					}
+					// Check if brain has git changes
+					statusIcon := ""
+					if git.IsGitRepo(b.Path) && git.HasUncommittedChanges(b.Path) {
+						statusIcon = " ●"
+					}
+					brainNames = append(brainNames, fmt.Sprintf("%s %s (%s)%s", indicator, b.Name, b.Type, statusIcon))
 				}
 
 				selectBrain := promptui.Select{
@@ -1693,10 +1707,14 @@ func runEditWorkspaceMenu() error {
 					return runManageResourcesMenu()
 				}
 
-				// Select workspace to view
+				// Select workspace to view with status indicators
 				var wsNames []string
 				for _, ws := range config.Workspaces {
-					wsNames = append(wsNames, ws.Name)
+					indicator := "  "
+					if config.ActiveWorkspace == ws.Name {
+						indicator = "⭐"
+					}
+					wsNames = append(wsNames, fmt.Sprintf("%s %s (%d brains)", indicator, ws.Name, len(ws.Brains)))
 				}
 
 				selectWS := promptui.Select{
@@ -2935,12 +2953,21 @@ func runBrainDetails(brainInfo Brain) func() error {
 		showBreadcrumb("Main › Manage › Brains › " + brainInfo.Name)
 		fmt.Println()
 
+		// Get workspace to check if this is the default brain
+		workspace, _ := getActiveWorkspace()
+		isDefault := workspace != nil && workspace.DefaultBrain == brainInfo.Name
+
 		// Display brain details
 		fmt.Printf("🧠 Brain: %s\n", brainInfo.Name)
 		fmt.Printf("   Type: %s\n", brainInfo.Type)
 		fmt.Printf("   Path: %s\n", brainInfo.Path)
 		if brainInfo.Description != "" {
 			fmt.Printf("   Description: %s\n", brainInfo.Description)
+		}
+		if isDefault {
+			fmt.Printf("   Default: ⭐ Yes\n")
+		} else {
+			fmt.Printf("   Default: ○ No\n")
 		}
 
 		// Show git status
@@ -2973,6 +3000,38 @@ func runBrainDetails(brainInfo Brain) func() error {
 				Action: func() error {
 					fmt.Println("⚠️  Rename brain not yet implemented")
 					time.Sleep(2 * time.Second)
+					return runBrainDetails(brainInfo)()
+				},
+			},
+			{
+				Label:       "⭐ Set as Default",
+				Description: "Set this brain as default for the workspace",
+				Command:     "flip brain set-default",
+				Action: func() error {
+					// Set as default brain in workspace
+					config, err := loadWorkspaceConfig()
+					if err != nil {
+						fmt.Printf("❌ Error loading config: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runBrainDetails(brainInfo)()
+					}
+
+					// Find active workspace and set default brain
+					for i := range config.Workspaces {
+						if config.Workspaces[i].Name == config.ActiveWorkspace {
+							config.Workspaces[i].DefaultBrain = brainInfo.Name
+							break
+						}
+					}
+
+					if err := saveWorkspaceConfig(config); err != nil {
+						fmt.Printf("❌ Error saving config: %v\n", err)
+						time.Sleep(2 * time.Second)
+						return runBrainDetails(brainInfo)()
+					}
+
+					fmt.Printf("✅ Set '%s' as default brain\n", brainInfo.Name)
+					time.Sleep(1 * time.Second)
 					return runBrainDetails(brainInfo)()
 				},
 			},
