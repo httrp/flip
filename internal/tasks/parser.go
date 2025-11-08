@@ -311,8 +311,14 @@ func FormatTask(task *Task) string {
 	if task.Effort != "" {
 		lines = append(lines, fmt.Sprintf("  effort:: %s", task.Effort))
 	}
+	if task.Organization != "" {
+		lines = append(lines, fmt.Sprintf("  organization:: %s", task.Organization))
+	}
 	if task.Project != "" {
 		lines = append(lines, fmt.Sprintf("  project:: [[%s]]", task.Project))
+	}
+	if task.ContextTag != "" {
+		lines = append(lines, fmt.Sprintf("  context:: %s", task.ContextTag))
 	}
 	if task.Assigned != "" {
 		lines = append(lines, fmt.Sprintf("  assigned:: @%s", task.Assigned))

@@ -444,10 +444,13 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 		statusIcon = "[-]"
 	}
 
-	// Organization/Context metadata
+	// Organization/Project/Context metadata
 	metaStr := ""
 	if task.Organization != "" {
 		metaStr = fmt.Sprintf(" [%s]", task.Organization)
+	}
+	if task.Project != "" {
+		metaStr += fmt.Sprintf(" proj:%s", task.Project)
 	}
 	if task.ContextTag != "" {
 		metaStr += fmt.Sprintf(" ctx:%s", task.ContextTag)

@@ -849,10 +849,11 @@ func runCreateAddMenu() error {
 			Label:       lang.GetText("menu.create.task_label"),
 			Description: lang.GetText("menu.create.task_desc"),
 			Action: func() error {
-				// TODO: Implement task creation
-				fmt.Println("\n🚧 Task creation coming soon!")
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
+				if err := runCreateTask(); err != nil {
+					fmt.Printf("\n❌ Error creating task: %v\n", err)
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+				}
 				return runInteractiveMenu()
 			},
 		},

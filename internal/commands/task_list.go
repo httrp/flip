@@ -212,10 +212,16 @@ func displayTaskList(taskList []*tasks.Task) {
 			icon = "  "
 		}
 
-		// Organization/Context metadata
+		// Organization/Project/Context metadata
 		metaStr := ""
 		if task.Organization != "" {
 			metaStr = fmt.Sprintf("[%s]", task.Organization)
+		}
+		if task.Project != "" {
+			if metaStr != "" {
+				metaStr += " "
+			}
+			metaStr += fmt.Sprintf("proj:%s", task.Project)
 		}
 		if task.ContextTag != "" {
 			if metaStr != "" {
@@ -623,10 +629,13 @@ func displayTaskLine(task *tasks.Task, showContext bool) {
 		statusIcon = "[-]"
 	}
 
-	// Organization/Context metadata
+	// Organization/Project/Context metadata
 	metaStr := ""
 	if task.Organization != "" {
 		metaStr = fmt.Sprintf(" [%s]", task.Organization)
+	}
+	if task.Project != "" {
+		metaStr += fmt.Sprintf(" proj:%s", task.Project)
 	}
 	if task.ContextTag != "" {
 		metaStr += fmt.Sprintf(" ctx:%s", task.ContextTag)
