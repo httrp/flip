@@ -250,6 +250,39 @@ flip brain git-log -n 20 --all     # Show last 20 commits for all brains
 - Git status is shown in `flip status` and the status header
 - Shows: branch, uncommitted changes, last commit, sync status with remote
 
+### Task & Definitions Commands
+
+Flip helps you manage tasks with consistent organizations, projects, contexts, and people.
+
+```bash
+# Task management
+flip task new                      # Create new task interactively
+flip task browse                   # Browse tasks with interactive TUI
+
+# Definitions management
+flip definitions list              # List all organizations, projects, contexts, people
+flip definitions add org           # Add new organization
+flip definitions add project       # Add new project  
+flip definitions add context       # Add new context
+flip definitions remove            # Remove a definition
+flip definitions scan              # Scan tasks for used definitions and suggest adding them
+flip definitions path              # Show definitions file path
+```
+
+**Hybrid Format Support:**
+
+Flip supports two definition formats:
+- **Brain Format**: Hierarchical YAML files in `{brain}/definitions/*.yaml` (organizations.yaml, projects.yaml, contexts.yaml, people.yaml)
+- **Simple Format**: Single array-based YAML at `~/.config/flip/task-definitions.yaml`
+
+Definitions are loaded with priority: Brain format → Simple format → Built-in defaults
+
+**Features:**
+- Auto-saves new organizations/projects/contexts during task creation
+- Duplicate detection to prevent conflicts
+- Validation with fuzzy matching for typo suggestions
+- People management with org_code field for official organization codes
+
 ### Other Commands
 
 ```bash

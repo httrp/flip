@@ -375,15 +375,7 @@ func promptForOrganization() (string, error) {
 
 	// New organization
 	if selected == "[New Organization]" {
-		prompt := promptui.Prompt{
-			Label:   "Enter Organization Abbreviation (or leave empty to skip)",
-			Default: "",
-		}
-		org, err := prompt.Run()
-		if err != nil {
-			return "", err
-		}
-		return strings.TrimSpace(org), nil
+		return promptForNewOrganization()
 	}
 
 	// Extract abbreviation from selected choice
@@ -497,15 +489,7 @@ func promptForProject() (string, error) {
 
 	// New project
 	if selected == "[New Project]" {
-		prompt := promptui.Prompt{
-			Label:   "Enter Project Abbreviation (or leave empty to skip)",
-			Default: "",
-		}
-		proj, err := prompt.Run()
-		if err != nil {
-			return "", err
-		}
-		return strings.TrimSpace(proj), nil
+		return promptForNewProject()
 	}
 
 	// Extract abbreviation from selected choice
@@ -617,15 +601,7 @@ func promptForContext() (string, error) {
 
 	// New context
 	if selected == "[New Context]" {
-		prompt := promptui.Prompt{
-			Label:   "Enter Context Abbreviation (or leave empty to skip)",
-			Default: "",
-		}
-		ctx, err := prompt.Run()
-		if err != nil {
-			return "", err
-		}
-		return strings.TrimSpace(ctx), nil
+		return promptForNewContext()
 	}
 
 	// Extract abbreviation from selected choice
@@ -765,4 +741,202 @@ func promptForTaskFile(brain *Brain) (string, error) {
 
 		return filepath.Join(brain.Path, relPath), nil
 	}
+}
+
+// promptForNewOrganization prompts for creating a new organization with both name and abbreviation
+func promptForNewOrganization() (string, error) {
+	fmt.Println("\n📝 Create New Organization")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	// Prompt for abbreviation
+	abbrPrompt := promptui.Prompt{
+		Label:   "Abbreviation (e.g., WORK, PERS)",
+		Default: "",
+	}
+	abbr, err := abbrPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	abbr = strings.TrimSpace(strings.ToUpper(abbr))
+
+	// Allow skip with empty abbreviation
+	if abbr == "" {
+		return "", nil
+	}
+
+	// Prompt for full name
+	namePrompt := promptui.Prompt{
+		Label:   "Full Name (e.g., Work, Personal)",
+		Default: "",
+	}
+	name, err := namePrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	name = strings.TrimSpace(name)
+
+	// If only abbreviation provided, use it as name too
+	if name == "" {
+		name = abbr
+	}
+
+	// Load definitions and add new organization
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Could not load definitions: %v\n", err)
+		return abbr, nil
+	}
+
+	// Check for duplicates
+	if defs.hasOrganization(name, abbr) {
+		fmt.Printf("⚠️  Warning: Organization '%s' or abbreviation '%s' already exists\n", name, abbr)
+		return abbr, nil
+	}
+
+	// Add to definitions
+	if err := defs.addOrganization(name, abbr, ""); err != nil {
+		fmt.Printf("⚠️  Warning: Could not add organization: %v\n", err)
+		return abbr, nil
+	}
+
+	// Save definitions
+	if err := saveTaskDefinitions(defs); err != nil {
+		fmt.Printf("⚠️  Warning: Could not save definitions: %v\n", err)
+	} else {
+		fmt.Printf("✅ Organization '[%s] %s' added to definitions\n", abbr, name)
+	}
+
+	return abbr, nil
+}
+
+// promptForNewProject prompts for creating a new project with both name and abbreviation
+func promptForNewProject() (string, error) {
+	fmt.Println("\n📝 Create New Project")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	// Prompt for abbreviation
+	abbrPrompt := promptui.Prompt{
+		Label:   "Abbreviation (e.g., FLIP, BRAIN)",
+		Default: "",
+	}
+	abbr, err := abbrPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	abbr = strings.TrimSpace(strings.ToUpper(abbr))
+
+	// Allow skip with empty abbreviation
+	if abbr == "" {
+		return "", nil
+	}
+
+	// Prompt for full name
+	namePrompt := promptui.Prompt{
+		Label:   "Full Name (e.g., Flip CLI, Brain System)",
+		Default: "",
+	}
+	name, err := namePrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	name = strings.TrimSpace(name)
+
+	// If only abbreviation provided, use it as name too
+	if name == "" {
+		name = abbr
+	}
+
+	// Load definitions and add new project
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Could not load definitions: %v\n", err)
+		return abbr, nil
+	}
+
+	// Check for duplicates
+	if defs.hasProject(name, abbr) {
+		fmt.Printf("⚠️  Warning: Project '%s' or abbreviation '%s' already exists\n", name, abbr)
+		return abbr, nil
+	}
+
+	// Add to definitions
+	if err := defs.addProject(name, abbr, "", ""); err != nil {
+		fmt.Printf("⚠️  Warning: Could not add project: %v\n", err)
+		return abbr, nil
+	}
+
+	// Save definitions
+	if err := saveTaskDefinitions(defs); err != nil {
+		fmt.Printf("⚠️  Warning: Could not save definitions: %v\n", err)
+	} else {
+		fmt.Printf("✅ Project '[%s] %s' added to definitions\n", abbr, name)
+	}
+
+	return abbr, nil
+}
+
+// promptForNewContext prompts for creating a new context with both name and abbreviation
+func promptForNewContext() (string, error) {
+	fmt.Println("\n📝 Create New Context")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	// Prompt for abbreviation
+	abbrPrompt := promptui.Prompt{
+		Label:   "Abbreviation (e.g., MTG, EMAIL)",
+		Default: "",
+	}
+	abbr, err := abbrPrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	abbr = strings.TrimSpace(strings.ToUpper(abbr))
+
+	// Allow skip with empty abbreviation
+	if abbr == "" {
+		return "", nil
+	}
+
+	// Prompt for full name
+	namePrompt := promptui.Prompt{
+		Label:   "Full Name (e.g., Meeting, Email)",
+		Default: "",
+	}
+	name, err := namePrompt.Run()
+	if err != nil {
+		return "", err
+	}
+	name = strings.TrimSpace(name)
+
+	// If only abbreviation provided, use it as name too
+	if name == "" {
+		name = abbr
+	}
+
+	// Load definitions and add new context
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Could not load definitions: %v\n", err)
+		return abbr, nil
+	}
+
+	// Check for duplicates
+	if defs.hasContext(name, abbr) {
+		fmt.Printf("⚠️  Warning: Context '%s' or abbreviation '%s' already exists\n", name, abbr)
+		return abbr, nil
+	}
+
+	// Add to definitions
+	if err := defs.addContext(name, abbr, ""); err != nil {
+		fmt.Printf("⚠️  Warning: Could not add context: %v\n", err)
+		return abbr, nil
+	}
+
+	// Save definitions
+	if err := saveTaskDefinitions(defs); err != nil {
+		fmt.Printf("⚠️  Warning: Could not save definitions: %v\n", err)
+	} else {
+		fmt.Printf("✅ Context '[%s] %s' added to definitions\n", abbr, name)
+	}
+
+	return abbr, nil
 }

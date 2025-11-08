@@ -1118,6 +1118,12 @@ func runManageResourcesMenu() error {
 			Action:      runManageBrainsMenu,
 		},
 		{
+			Label:       lang.GetText("menu.manage.definitions_label"),
+			Description: lang.GetText("menu.manage.definitions_desc"),
+			Command:     lang.GetText("menu.manage.definitions_cmd"),
+			Action:      runDefinitionsMenu,
+		},
+		{
 			Label:       "View/Edit workspace config",
 			Description: "View or edit the global workspace configuration",
 			Command:     "",

@@ -48,6 +48,8 @@ func main() {
 	rootCmd.AddCommand(commands.NewTemplateCommand())
 	// Register task command
 	rootCmd.AddCommand(commands.NewTaskCommand())
+	// Register definitions command
+	rootCmd.AddCommand(commands.NewDefinitionsCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")
