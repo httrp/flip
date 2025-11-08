@@ -58,6 +58,24 @@ func runCreateTask() error {
 	priorityIdx, _, _ := prioritySelect.Run()
 	priority := indexToPriority(priorityIdx)
 
+	// Get organization
+	organization, err := promptForOrganization()
+	if err != nil {
+		return err
+	}
+
+	// Get project
+	project, err := promptForProject()
+	if err != nil {
+		return err
+	}
+
+	// Get context
+	context, err := promptForContext()
+	if err != nil {
+		return err
+	}
+
 	// Get tags
 	tagsPrompt := promptui.Prompt{
 		Label:   "Tags (comma-separated, e.g., work,urgent)",
@@ -66,39 +84,16 @@ func runCreateTask() error {
 	tagsStr, _ := tagsPrompt.Run()
 	tagList := parseTagsString(tagsStr)
 
-	// Select where to save
-	locationSelect := promptui.Select{
-		Label: "Where to save the task?",
-		Items: []string{
-			"📋 tasks/backlog.md",
-			"📅 tasks/today.md",
-			"📆 tasks/this-week.md",
-			"📁 Specify file...",
-		},
-	}
-	locIdx, _, _ := locationSelect.Run()
-
 	// Get active brain
 	activeBrain, err := getActiveBrain()
 	if err != nil {
 		return fmt.Errorf("failed to get active brain: %w", err)
 	}
 
-	var filePath string
-	switch locIdx {
-	case 0:
-		filePath = filepath.Join(activeBrain.Path, "tasks", "backlog.md")
-	case 1:
-		filePath = filepath.Join(activeBrain.Path, "tasks", "today.md")
-	case 2:
-		filePath = filepath.Join(activeBrain.Path, "tasks", "this-week.md")
-	case 3:
-		filePrompt := promptui.Prompt{
-			Label:   "File path (relative to brain root)",
-			Default: "tasks/backlog.md",
-		}
-		relPath, _ := filePrompt.Run()
-		filePath = filepath.Join(activeBrain.Path, relPath)
+	// Select where to save with improved options
+	filePath, err := promptForTaskFile(activeBrain)
+	if err != nil {
+		return err
 	}
 
 	// Ensure tasks directory exists
@@ -109,13 +104,16 @@ func runCreateTask() error {
 
 	// Create task object
 	task := &tasks.Task{
-		ID:          uuid.New().String(),
-		Description: description,
-		Status:      tasks.StatusOpen,
-		Created:     time.Now(),
-		Due:         dueDate,
-		Priority:    priority,
-		Tags:        tagList,
+		ID:           uuid.New().String(),
+		Description:  description,
+		Status:       tasks.StatusOpen,
+		Created:      time.Now(),
+		Due:          dueDate,
+		Priority:     priority,
+		Tags:         tagList,
+		Organization: organization,
+		Project:      project,
+		ContextTag:   context,
 	}
 
 	// Append to file
@@ -124,7 +122,14 @@ func runCreateTask() error {
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 
-	fmt.Printf("\n✅ Task created in %s\n", relativePathFromBrain(filePath, activeBrain.Path))
+	// Update task history
+	relPath := relativePathFromBrain(filePath, activeBrain.Path)
+	if err := updateTaskHistory(organization, project, context, relPath); err != nil {
+		// Don't fail on history update error, just log
+		fmt.Printf("⚠️  Warning: Could not update task history: %v\n", err)
+	}
+
+	fmt.Printf("\n✅ Task created in %s\n", relPath)
 	fmt.Println()
 	fmt.Println(tasks.FormatTask(task))
 	fmt.Println()
@@ -134,11 +139,19 @@ func runCreateTask() error {
 
 // appendTaskToFile appends a task to a markdown file
 func appendTaskToFile(filePath string, task *tasks.Task) error {
-	// Create file if it doesn't exist
 	var content string
+	var isNewFile bool
+
+	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// Create new file with header
-		content = fmt.Sprintf("# Tasks\n\nCreated: %s\n\n", time.Now().Format("2006-01-02"))
+		isNewFile = true
+		// Check if this is the new unified tasks.md file
+		if strings.HasSuffix(filePath, "tasks/tasks.md") {
+			content = createUnifiedTasksTemplate()
+		} else {
+			// Legacy format for other files
+			content = fmt.Sprintf("# Tasks\n\nCreated: %s\n\n", time.Now().Format("2006-01-02"))
+		}
 	} else {
 		// Read existing content
 		data, err := os.ReadFile(filePath)
@@ -148,11 +161,94 @@ func appendTaskToFile(filePath string, task *tasks.Task) error {
 		content = string(data)
 	}
 
-	// Append task
-	content += "\n" + tasks.FormatTask(task) + "\n"
+	// For unified tasks.md, append to appropriate section
+	if strings.HasSuffix(filePath, "tasks/tasks.md") {
+		content = appendToUnifiedTasks(content, task)
+	} else {
+		// Legacy: just append to end
+		if !isNewFile {
+			content += "\n"
+		}
+		content += tasks.FormatTask(task) + "\n"
+	}
 
 	// Write back
 	return os.WriteFile(filePath, []byte(content), 0644)
+}
+
+// createUnifiedTasksTemplate creates the template for the new unified tasks.md
+func createUnifiedTasksTemplate() string {
+	today := time.Now().Format("2006-01-02")
+	return fmt.Sprintf(`# Tasks
+
+Created: %s
+
+## 🎯 Today
+
+<!-- Tasks for today -->
+
+## 📅 This Week
+
+<!-- Tasks for this week -->
+
+## 📋 Backlog
+
+<!-- All other tasks -->
+
+## ✅ Completed
+
+<!-- Completed tasks (archive) -->
+
+`, today)
+}
+
+// appendToUnifiedTasks appends a task to the appropriate section in unified tasks.md
+func appendToUnifiedTasks(content string, task *tasks.Task) string {
+	// Determine which section based on due date
+	var section string
+	if task.Due != nil {
+		today := time.Now().Truncate(24 * time.Hour)
+		dueDate := task.Due.Truncate(24 * time.Hour)
+
+		if dueDate.Equal(today) {
+			section = "## 🎯 Today"
+		} else if dueDate.Before(today.Add(7 * 24 * time.Hour)) {
+			section = "## 📅 This Week"
+		} else {
+			section = "## 📋 Backlog"
+		}
+	} else {
+		section = "## 📋 Backlog"
+	}
+
+	// Find the section and insert after it
+	lines := strings.Split(content, "\n")
+	sectionIdx := -1
+
+	for i, line := range lines {
+		if strings.TrimSpace(line) == section {
+			sectionIdx = i
+			break
+		}
+	}
+
+	if sectionIdx == -1 {
+		// Section not found, append to end
+		return content + "\n" + tasks.FormatTask(task) + "\n"
+	}
+
+	// Find insertion point (after section header and comment)
+	insertIdx := sectionIdx + 1
+	// Skip empty lines and comments
+	for insertIdx < len(lines) && (strings.TrimSpace(lines[insertIdx]) == "" || strings.HasPrefix(strings.TrimSpace(lines[insertIdx]), "<!--")) {
+		insertIdx++
+	}
+
+	// Insert task
+	taskLine := tasks.FormatTask(task)
+	newLines := append(lines[:insertIdx], append([]string{"", taskLine}, lines[insertIdx:]...)...)
+
+	return strings.Join(newLines, "\n")
 }
 
 // Helper functions
@@ -220,4 +316,209 @@ func relativePathFromBrain(fullPath, brainPath string) string {
 		return fullPath
 	}
 	return rel
+}
+
+// promptForOrganization prompts for organization with history
+func promptForOrganization() (string, error) {
+	history, err := loadTaskHistory()
+	if err != nil {
+		history = &TaskHistory{}
+	}
+
+	items := []string{"[New Organization]"}
+	if len(history.RecentOrganizations) > 0 {
+		items = append(items, history.RecentOrganizations...)
+	}
+	items = append(items, "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Organization",
+		Items: items,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Skip
+	if idx == len(items)-1 {
+		return "", nil
+	}
+
+	// New organization
+	if idx == 0 {
+		prompt := promptui.Prompt{
+			Label: "Enter Organization",
+		}
+		return prompt.Run()
+	}
+
+	// Selected from history
+	return items[idx], nil
+}
+
+// promptForProject prompts for project with history
+func promptForProject() (string, error) {
+	history, err := loadTaskHistory()
+	if err != nil {
+		history = &TaskHistory{}
+	}
+
+	items := []string{"[New Project]"}
+	if len(history.RecentProjects) > 0 {
+		items = append(items, history.RecentProjects...)
+	}
+	items = append(items, "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Project",
+		Items: items,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Skip
+	if idx == len(items)-1 {
+		return "", nil
+	}
+
+	// New project
+	if idx == 0 {
+		prompt := promptui.Prompt{
+			Label: "Enter Project",
+		}
+		return prompt.Run()
+	}
+
+	// Selected from history
+	return items[idx], nil
+}
+
+// promptForContext prompts for context with history
+func promptForContext() (string, error) {
+	history, err := loadTaskHistory()
+	if err != nil {
+		history = &TaskHistory{}
+	}
+
+	items := []string{"[New Context]"}
+	if len(history.RecentContexts) > 0 {
+		items = append(items, history.RecentContexts...)
+	}
+	items = append(items, "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Context",
+		Items: items,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Skip
+	if idx == len(items)-1 {
+		return "", nil
+	}
+
+	// New context
+	if idx == 0 {
+		prompt := promptui.Prompt{
+			Label: "Enter Context",
+		}
+		return prompt.Run()
+	}
+
+	// Selected from history
+	return items[idx], nil
+}
+
+// promptForTaskFile prompts for task file with smart suggestions
+func promptForTaskFile(brain *Brain) (string, error) {
+	history, err := loadTaskHistory()
+	if err != nil {
+		history = &TaskHistory{}
+	}
+
+	// Build file options
+	items := []string{}
+
+	// 1. Today's journal file
+	today := time.Now().Format("2006-01-02")
+	journalPath := filepath.Join("journal", today+".md")
+	items = append(items, fmt.Sprintf("📅 Today's Journal (%s)", journalPath))
+
+	// 2. Default task file
+	items = append(items, "📋 tasks/tasks.md (recommended)")
+
+	// 3. Recently used files
+	if len(history.RecentFiles) > 0 {
+		for _, file := range history.RecentFiles {
+			// Skip if it's the same as defaults
+			if file != journalPath && file != "tasks/tasks.md" {
+				items = append(items, fmt.Sprintf("🕒 %s", file))
+			}
+		}
+	}
+
+	// 4. Legacy options (for backward compatibility)
+	items = append(items, "📂 tasks/backlog.md")
+	items = append(items, "📆 tasks/today.md")
+	items = append(items, "📆 tasks/this-week.md")
+
+	// 5. Custom file
+	items = append(items, "📁 Specify custom file...")
+
+	selector := promptui.Select{
+		Label: "Where to save the task?",
+		Items: items,
+		Size:  10,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Handle selection
+	switch {
+	case idx == 0:
+		// Today's journal
+		return filepath.Join(brain.Path, journalPath), nil
+	case idx == 1:
+		// tasks/tasks.md
+		return filepath.Join(brain.Path, "tasks", "tasks.md"), nil
+	case idx == len(items)-1:
+		// Custom file
+		filePrompt := promptui.Prompt{
+			Label:   "File path (relative to brain root)",
+			Default: "tasks/tasks.md",
+		}
+		relPath, err := filePrompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(brain.Path, relPath), nil
+	default:
+		// Either recent file or legacy option
+		// Extract path from display string
+		selected := items[idx]
+		var relPath string
+
+		if strings.HasPrefix(selected, "🕒 ") {
+			// Recent file
+			relPath = strings.TrimPrefix(selected, "🕒 ")
+		} else if strings.HasPrefix(selected, "📂 ") {
+			relPath = strings.TrimPrefix(selected, "📂 ")
+		} else if strings.HasPrefix(selected, "📆 ") {
+			relPath = strings.TrimPrefix(selected, "📆 ")
+		}
+
+		return filepath.Join(brain.Path, relPath), nil
+	}
 }
