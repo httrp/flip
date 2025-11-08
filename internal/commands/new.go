@@ -497,13 +497,13 @@ func runNewBrain() error {
 	fmt.Println("  - Collaborate with others")
 	fmt.Println()
 	fmt.Printf("Initialize Git? (y/n) [default: y]: ")
-	
+
 	gitChoice, _ := reader.ReadString('\n')
 	gitChoice = strings.TrimSpace(strings.ToLower(gitChoice))
-	
+
 	if gitChoice == "" || gitChoice == "y" || gitChoice == "yes" {
 		fmt.Println("> Initializing Git repository...")
-		
+
 		cmd := exec.Command("git", "init")
 		cmd.Dir = target
 		if err := cmd.Run(); err != nil {
@@ -529,7 +529,7 @@ Thumbs.db
 			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
 				fmt.Printf("⚠️  Warning: Failed to create .gitignore: %v\n", err)
 			}
-			
+
 			// Create initial commit
 			addCmd := exec.Command("git", "add", ".")
 			addCmd.Dir = target

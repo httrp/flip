@@ -6,10 +6,10 @@ import (
 
 func TestUpdateTaskStatusInLine(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		newStatus  Status
-		expected   string
+		name      string
+		input     string
+		newStatus Status
+		expected  string
 	}{
 		{
 			name:      "Open to Done",
