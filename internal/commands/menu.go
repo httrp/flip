@@ -858,6 +858,16 @@ func runCreateAddMenu() error {
 			},
 		},
 		{
+			Label:       lang.GetText("menu.create.definitions_label"),
+			Description: lang.GetText("menu.create.definitions_desc"),
+			Action: func() error {
+				if err := runDefinitionsMenu(); err != nil {
+					return err
+				}
+				return runInteractiveMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.create.back_label"),
 			Description: lang.GetText("menu.create.back_desc"),
 			Action:      runInteractiveMenu,
@@ -1116,12 +1126,6 @@ func runManageResourcesMenu() error {
 			Description: lang.GetText("menu.manage.brains_desc"),
 			Command:     lang.GetText("menu.manage.brains_command"),
 			Action:      runManageBrainsMenu,
-		},
-		{
-			Label:       lang.GetText("menu.manage.definitions_label"),
-			Description: lang.GetText("menu.manage.definitions_desc"),
-			Command:     lang.GetText("menu.manage.definitions_cmd"),
-			Action:      runDefinitionsMenu,
 		},
 		{
 			Label:       "View/Edit workspace config",

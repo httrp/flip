@@ -240,14 +240,19 @@ func appendToUnifiedTasks(content string, task *tasks.Task) string {
 
 	// Find insertion point (after section header and comment)
 	insertIdx := sectionIdx + 1
-	// Skip empty lines and comments
-	for insertIdx < len(lines) && (strings.TrimSpace(lines[insertIdx]) == "" || strings.HasPrefix(strings.TrimSpace(lines[insertIdx]), "<!--")) {
+	// Skip comments (but not empty lines yet)
+	for insertIdx < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[insertIdx]), "<!--") {
 		insertIdx++
 	}
 
-	// Insert task
+	// Now skip ALL empty lines after the comment to clean up spacing
+	for insertIdx < len(lines) && strings.TrimSpace(lines[insertIdx]) == "" {
+		insertIdx++
+	}
+
+	// Insert task with proper spacing: 1 empty line before, 1 empty line after
 	taskLine := tasks.FormatTask(task)
-	newLines := append(lines[:insertIdx], append([]string{"", taskLine}, lines[insertIdx:]...)...)
+	newLines := append(lines[:insertIdx], append([]string{"", taskLine, ""}, lines[insertIdx:]...)...)
 
 	return strings.Join(newLines, "\n")
 }

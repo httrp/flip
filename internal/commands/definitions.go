@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"text/tabwriter"
 
@@ -408,6 +409,12 @@ func runDefinitionsAddOrg() error {
 	}
 
 	fmt.Printf("\n✅ Organization '[%s] %s' added successfully\n", abbr, name)
+	
+	// Ask if user wants to open the file
+	if err := promptOpenDefinitionsFile(); err != nil {
+		return err
+	}
+	
 	return nil
 }
 
@@ -467,6 +474,12 @@ func runDefinitionsAddProject() error {
 	}
 
 	fmt.Printf("\n✅ Project '[%s] %s' added successfully\n", abbr, name)
+	
+	// Ask if user wants to open the file
+	if err := promptOpenDefinitionsFile(); err != nil {
+		return err
+	}
+	
 	return nil
 }
 
@@ -518,6 +531,12 @@ func runDefinitionsAddContext() error {
 	}
 
 	fmt.Printf("\n✅ Context '[%s] %s' added successfully\n", abbr, name)
+	
+	// Ask if user wants to open the file
+	if err := promptOpenDefinitionsFile(); err != nil {
+		return err
+	}
+	
 	return nil
 }
 
@@ -847,5 +866,43 @@ func runDefinitionsPath() error {
 	}
 
 	fmt.Printf("\n📂 Definitions file: %s\n\n", path)
+	return nil
+}
+
+// promptOpenDefinitionsFile asks if user wants to open the definitions file
+func promptOpenDefinitionsFile() error {
+	prompt := promptui.Select{
+		Label: "Open definitions file in editor?",
+		Items: []string{"Yes", "No"},
+	}
+
+	idx, _, err := prompt.Run()
+	if err != nil {
+		return nil // Just continue if user cancels
+	}
+
+	if idx == 0 { // Yes
+		path, err := getTaskDefinitionsPath()
+		if err != nil {
+			fmt.Printf("⚠️  Could not get definitions path: %v\n", err)
+			return nil
+		}
+
+		// Try to open with default editor
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = "vi" // fallback
+		}
+
+		cmd := exec.Command(editor, path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("⚠️  Could not open editor: %v\n", err)
+		}
+	}
+
 	return nil
 }

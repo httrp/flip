@@ -1,4 +1,5 @@
 # flip
+
 steroids for my 2nd brain
 
 ## Overview
@@ -9,49 +10,71 @@ Flip is an intelligent assistant designed to supercharge personal knowledge mana
 
 ## Installation
 
+
 ### For Development & Daily Use (Recommended)
 
 If you're actively developing flip while using it:
 
 ```bash
+
 # Clone the repository
+
 git clone https://github.com/danorama-dh/flip.git
 cd flip
 
 # Option 1: Create dev symlink (recommended for development)
+
 make dev-link
+
 # This creates a symlink /usr/local/bin/flip -> your local build
+
 # After any code changes, just run 'make build' and changes are live
 
 # Option 2: Install to GOPATH/bin
+
 make install
+
 # Requires ~/go/bin in your PATH
+
 ```
+
+
 
 ### For End Users (Coming Soon)
 
 Once flip is ready for public release:
 
 ```bash
+
 # Via Homebrew (macOS/Linux)
+
 brew install danorama/tap/flip
 
 # Via go install
+
 go install github.com/danorama-dh/flip/cmd/flip@latest
 
 # Manual download
+
 # Download binary from releases page
+
 curl -L https://github.com/danorama-dh/flip/releases/latest/download/flip-darwin-amd64 -o flip
 chmod +x flip
 sudo mv flip /usr/local/bin/
+
 ```
+
+
 
 ### Verify Installation
 
 ```bash
+
 flip --version
 flip status
+
 ```
+
 
 ## Architecture
 
@@ -63,12 +86,15 @@ Flip organizes your brains using a simple two-level structure:
 Think of it like VS Code workspaces: one workspace can contain multiple folders. In Flip, one workspace can contain multiple brains.
 
 **The "default" Workspace:**
+
 - Automatically created when you initialize or create your first brain
 - Contains ALL brains that flip knows about on this machine
 - Perfect for getting a complete overview across all your knowledge bases
 
 Example:
-```
+
+```text
+
 ~ Workspace: "default"
 |- + Brain: personal-notes
 |- + Brain: work-notes
@@ -82,22 +108,32 @@ Example:
 ~ Workspace: "work"
 |- + Brain: work-notes #
 `- + Brain: projects
+
 ```
 
+
 ## Quick Start
+
 
 ### Interactive Menu
 
 The easiest way to use flip is through the interactive menu:
 
 ```bash
+
 # Open interactive menu
+
 flip menu
+
 # or simply
+
 flip
+
 ```
 
+
 The menu provides:
+
 - **Create** - Create notes, meetings, journal entries, tasks
 - **Browse** - Browse notes, meetings, tasks, and journal entries  
 - **Manage** - Manage workspaces, brains, templates, and Git
@@ -105,74 +141,114 @@ The menu provides:
 - **Help** - Access help and CLI command reference
 - **Exit** - Exit the application
 
+
 ### Command Line Interface
+
 
 #### Check Status
 
 ```bash
+
 # See overview of all workspaces and brains
+
 flip status
+
 ```
+
+
 
 #### Create Your First Brain
 
 ```bash
+
 # Guided setup - creates new brain
+
 # Automatically adds to "default" workspace
+
 flip new
+
 ```
+
+
 
 #### Or Initialize Existing Directory
 
 ```bash
+
 # Initialize a directory as a brain
+
 # Automatically adds to "default" workspace
+
 flip init ~/my-notes
+
 ```
+
+
 
 #### Organize with Workspaces
 
 ```bash
+
 # Create a workspace for related brains
+
 flip workspace create personal
 
 # Switch to it
+
 flip workspace switch personal
 
 # Add brains to the active workspace
+
 flip brain add ~/Obsidian/MyVault --name my-vault --default
 flip brain add ~/Documents/Journal --name journal
 
 # The "default" workspace always contains ALL brains
+
 flip workspace switch default
 flip brain list  # shows all brains on this machine
+
 ```
+
+
 
 #### Switch Between Workspaces
 
 ```bash
+
 # List all workspaces
+
 flip workspace list
 
 # Switch to different workspace
+
 flip workspace switch work
 
 # Commands now operate on the active workspace
+
 flip brain list
+
 ```
+
+
 
 #### Manage Brains
 
 ```bash
+
 # List brains in active workspace
+
 flip brain list
 
 # Set which brain is default for new content
+
 flip brain set-default my-vault
 
 # Remove a brain (files stay intact)
+
 flip brain remove journal
+
 ```
+
 
 ## What Flip Does
 
@@ -204,39 +280,51 @@ Use Flip to
 
 ## Commands Reference
 
+
 ### Workspace Commands
 
 Workspaces are collections of related brains.
 
 ```bash
+
 flip workspace create <name>           # Create new workspace
 flip workspace list                    # List all workspaces
 flip workspace switch <name>           # Switch active workspace
 flip workspace remove <name>           # Remove workspace (brains stay)
 flip workspace rename <old> <new>      # Rename workspace
+
 ```
+
+
 
 ### Brain Commands
 
 Brains are individual 2nd brain directories. Commands operate within the active workspace.
 
 ```bash
+
 flip brain add <path> [--name NAME] [--default]  # Add brain to active workspace
 flip brain list                                  # List brains in active workspace
 flip brain set-default <name>                    # Set default brain
 flip brain remove <name>                         # Remove brain (files stay)
+
 ```
+
+
 
 ### Git Integration Commands
 
 Flip integrates with Git to track changes in your brains.
 
 ```bash
+
 flip brain git-status              # Show git status for default brain
 flip brain git-status --all        # Show git status for all brains
 flip brain git-log                 # Show last 10 commits for default brain
 flip brain git-log -n 20 --all     # Show last 20 commits for all brains
+
 ```
+
 
 **Auto-Commit for Content Creation:**
 
@@ -250,16 +338,20 @@ flip brain git-log -n 20 --all     # Show last 20 commits for all brains
 - Git status is shown in `flip status` and the status header
 - Shows: branch, uncommitted changes, last commit, sync status with remote
 
+
 ### Task & Definitions Commands
 
 Flip helps you manage tasks with consistent organizations, projects, contexts, and people.
 
 ```bash
+
 # Task management
+
 flip task new                      # Create new task interactively
 flip task browse                   # Browse tasks with interactive TUI
 
 # Definitions management
+
 flip definitions list              # List all organizations, projects, contexts, people
 flip definitions add org           # Add new organization
 flip definitions add project       # Add new project  
@@ -267,30 +359,38 @@ flip definitions add context       # Add new context
 flip definitions remove            # Remove a definition
 flip definitions scan              # Scan tasks for used definitions and suggest adding them
 flip definitions path              # Show definitions file path
+
 ```
+
 
 **Hybrid Format Support:**
 
 Flip supports two definition formats:
+
 - **Brain Format**: Hierarchical YAML files in `{brain}/definitions/*.yaml` (organizations.yaml, projects.yaml, contexts.yaml, people.yaml)
 - **Simple Format**: Single array-based YAML at `~/.config/flip/task-definitions.yaml`
 
 Definitions are loaded with priority: Brain format → Simple format → Built-in defaults
 
 **Features:**
+
 - Auto-saves new organizations/projects/contexts during task creation
 - Duplicate detection to prevent conflicts
 - Validation with fuzzy matching for typo suggestions
 - People management with org_code field for official organization codes
 
+
 ### Other Commands
 
 ```bash
+
 flip status              # Show overview (default when running just 'flip')
 flip new                 # Create new brain with guided setup
 flip init <path>         # Initialize existing directory
 flip scan [path]         # Scan for existing brains
+
 ```
+
 
 ## Key Concepts
 
@@ -303,60 +403,81 @@ flip scan [path]         # Scan for existing brains
 
 Flip automatically detects and works with:
 
+
 ### 🟠 Obsidian Vaults
+
 - **Detection**: `.obsidian/` folder, `app.json`, `workspace.json`
 - **Compatibility**: Full support for wikilinks, YAML frontmatter, templates
 - **Structure**: Creates `Daily Notes/`, `Templates/`, `Projects/`, `Meetings/`
 - **Templates**: Uses Obsidian template syntax (`{{date:YYYY-MM-DD}}`, `{{title}}`)
 
+
 ### 🔵 Logseq Graphs  
+
 - **Detection**: `.logseq/` folder, `config.edn`, `journals/`, `pages/`
 - **Compatibility**: Block references, page links, task states
 - **Structure**: Respects existing `journals/` and `pages/`, adds flip organization
 - **Templates**: Block-based structure (`- ## Section`, `TODO` tasks)
 
+
 ### 🟢 Dendron Workspaces
+
 - **Detection**: `dendron.yml`, `.dendron.cache.json`, vault directories
 - **Compatibility**: Hierarchical structure, schemas
 - **Structure**: Works with vault structure, adds flip definitions
 - **Templates**: Hierarchical naming, schema-compatible
 
+
 ### ⚫ Plain Markdown Folders
+
 - **Detection**: Contains `.md` files but no specific system markers
 - **Compatibility**: Works with any markdown-based system
 - **Structure**: Creates standard flip structure
 - **Templates**: Generic markdown with flip conventions
 
+
 ### Empty Directories
+
 - **Perfect for**: New 2nd brain setups
 - **Creates**: Full flip structure compatible with migration to other systems
 - **Future-proof**: Easy to migrate to Obsidian, Logseq, or Dendron later
 
 ## Standards & Formats
 
+
 ### Note Types
 
+
 #### Journal Notes
+
 Journal notes follow the format `YYYY-MM-DD.md` and contain:
 
 ```markdown
+
 # 2025-08-12
 
 ## General Thoughts
+
 - 
 
 ## Tasks
+
 - [ ] 
 
 ## Notes
+
 - 
 
 ```
 
+
+
 #### Meeting Notes
+
 Meeting notes use the format `YYYY-MM-DD-[ORG]-meeting-title.md` or `YYYY-MM-DD-[ORG]-[CTX]-meeting-title.md`:
 
 ```markdown
+
 # Meeting: [Title] - 2025-08-12
 
 **Date:** 2025-08-12
@@ -367,27 +488,37 @@ Meeting notes use the format `YYYY-MM-DD-[ORG]-meeting-title.md` or `YYYY-MM-DD-
 **Type:** [standup|planning|review|retrospective|other]
 
 ## Agenda
+
 - 
 - 
 
 ## Discussion
+
 - 
 
 ## Decisions
+
 - 
 
 ## Action Items
+
 - [ ] [Task] - @[PER1] - [ORG]/[CTX] - due: YYYY-MM-DD
 - [ ] [Task] - @[PER2] - [ORG] - due: YYYY-MM-DD
 
 ## Next Steps
+
 - 
+
 ```
 
+
+
 #### General Notes
+
 General notes follow a flexible structure with mandatory frontmatter:
 
 ```markdown
+
 ---
 title: "Note Title"
 date: 2025-08-12
@@ -399,33 +530,47 @@ status: active
 # Note Title
 
 ## Summary
+
 Brief summary of the note content.
 
 ## Content
+
 Main note content here.
 
 ## Links
+
 - [[Related Note 1]]
 - [[Related Note 2]]
 - [External Link](https://example.com)
 
 ## References
+
 - 
+
 ```
+
+
 
 ### Task Management
 
+
 #### Task Format
+
 Tasks use standardized markdown checkboxes with metadata:
 
 ```markdown
+
 - [ ] Task description [ORG] #tag1 #tag2 @[PER] due:2025-08-15 priority:high
 - [ ] Context task [ORG]/[CTX] @[PER] due:2025-08-15 context:meeting
 - [x] Completed task [ORG] [OK] 2025-08-12
 - [~] Cancelled task [ORG]/[CTX] [X] 2025-08-12
+
 ```
 
+
+
 #### Task Metadata
+
 - **Organization:** `[ORG]` - Required organizational context
 - **Context:** `[ORG]/[CTX]` - Optional context or area
 - **Tags:** `#work #personal #urgent`
@@ -435,7 +580,9 @@ Tasks use standardized markdown checkboxes with metadata:
 - **Estimate:** `est:2h` or `est:30m`
 - **Context:** `context:meeting|email|call|idea`
 
+
 #### Task States
+
 - `[ ]` - Open/Todo
 - `[x]` - Completed
 - `[~]` - Cancelled  
@@ -444,12 +591,16 @@ Tasks use standardized markdown checkboxes with metadata:
 - `[?]` - Question/Needs clarification
 - `[-]` - In Progress
 
+
 ### Definition Management
 
 Flip manages all recurring entities in dedicated files within each repository:
 
+
 #### Organizations (`definitions/organizations.yaml`)
+
 ```yaml
+
 organizations:
   WORK:
     name: "Work"
@@ -466,10 +617,15 @@ organizations:
     type: "development"
     description: "Learning and skill development"
     color: "#96CEB4"
+
 ```
 
+
+
 #### Contexts (`definitions/contexts.yaml`)
+
 ```yaml
+
 contexts:
   WORK:
     MEETINGS:
@@ -498,10 +654,15 @@ contexts:
       name: "Language Learning"
       status: "active" 
       description: "Learning new languages"
+
 ```
 
+
+
 #### People (`definitions/people.yaml`)
+
 ```yaml
+
 people:
   SELF:
     name: "Your Name"
@@ -518,28 +679,43 @@ people:
     organization: "PERSONAL"
     role: "Doctor"
     phone: "+49-123-456789"
+
 ```
+
+
 
 ### Usage Examples
 
+
 #### Meeting Note Examples
+
 ```
+
 2025-08-12-WORK-weekly-standup.md          # Work organization meeting
 2025-08-12-WORK-PROJECTS-design-review.md  # Work projects context meeting
 2025-08-12-PERSONAL-doctor-appointment.md  # Personal meeting
+
 ```
 
+
+
 #### Task Examples
+
 ```markdown
+
 - [ ] Review wireframes [WORK]/[PROJECTS] @JS due:2025-08-15 priority:high
 - [ ] Prepare presentation [WORK] @SELF due:2025-08-14 context:meeting
 - [ ] Call dentist [PERSONAL]/[HEALTH] @SELF due:2025-08-16 priority:low
 - [ ] Study Go patterns [LEARNING]/[TECH] @SELF due:2025-08-13 est:1h
+
 ```
+
+
 
 ### Folder Structure
 
 ```
+
 your-second-brain/
 ├── definitions/
 │   ├── organizations.yaml
@@ -569,24 +745,34 @@ your-second-brain/
 └── assets/
     ├── images/
     └── documents/
+
 ```
+
+
 
 ### Linking & References
 
+
 #### Internal Links
+
 - `[[Note Title]]` - Link to another note
 - `[[Note Title#Section]]` - Link to specific section
 - `[[Note Title|Display Text]]` - Link with custom display text
 
+
 #### Tags
+
 - `#tag` - Simple tag
 - `#category/subcategory` - Hierarchical tags
 - `#project/alpha` - Project-specific tags
 
+
 #### People
+
 - `@[PER]` - Person reference using abbreviation
 - `@[[Person Name]]` - Formal person link for external people
 - Contact info stored in people.yaml
+
 
 ### Compatibility
 
@@ -597,12 +783,15 @@ These standards maintain compatibility with:
 - **Standard Markdown:** Pure markdown fallback
 - **Git:** Version control friendly file formats
 
+
 ### Configuration
 
 Flip uses a `.flip.yaml` configuration file:
 
 ```yaml
+
 # .flip.yaml
+
 repositories:
   - name: "personal"
     path: "/path/to/personal/notes"
@@ -631,55 +820,77 @@ llm:
   provider: "ollama"
   model: "llama2"
   endpoint: "http://localhost:11434"
+
 ```
 
+
 ## Commands Reference
+
 
 ### Initialization Commands
 
 ```bash
+
 # Initialize new brain in current directory
+
 flip init
 
 # Initialize new brain in specific directory
+
 flip init /path/to/new/brain
 
 # Initialize in existing directory (interactive mode)
+
 flip init /path/to/existing/vault
 
 # Force initialization even if directory contains files
+
 flip init /path/to/existing/vault --force
 
 # Use predefined template
+
 flip init /path/to/new/brain --template personal
 flip init /path/to/new/brain --template work
 flip init /path/to/new/brain --template learning
+
 ```
+
+
 
 ### Workspace Management
 
 ```bash
+
 # Add external workspace
+
 flip workspace add /path/to/brain
 
 # Add with custom name
+
 flip workspace add /path/to/obsidian/vault --name "my-vault"
 
 # Add and set as default
+
 flip workspace add /path/to/brain --name "primary" --default
 
 # List all workspaces
+
 flip workspace list
 
 # Remove workspace (files stay intact)
+
 flip workspace remove "workspace-name"
+
 ```
+
+
 
 ### Configuration
 
 Flip stores workspace configuration in `~/.config/flip/workspaces.json`:
 
 ```json
+
 {
   "version": "1.0",
   "workspaces": [
@@ -699,20 +910,27 @@ Flip stores workspace configuration in `~/.config/flip/workspaces.json`:
     }
   ]
 }
+
 ```
+
 
 ## Scan for Existing Brains
 
 Flip can scan your home directory or any path for existing 2nd brain directories:
 
 ```bash
+
 # Scan home directory (default)
+
 flip scan
 
 # Scan a specific folder
+
 flip scan ~/Documents
 flip scan /Volumes/ExternalDrive/Notes
+
 ```
+
 
 **Scan Detection Criteria:**
 - **Obsidian Vault:** `.obsidian/` folder + many `.md` files
@@ -732,7 +950,9 @@ System folders and irrelevant directories are automatically skipped. Scan depth 
   - macOS/Linux: `~/.config/flip/workspaces.json` (via `os.UserConfigDir()`)
   - Windows: `%APPDATA%\flip\workspaces.json`
 
+
 ### How it fits together
+
 1. Create or initialize a brain:
    - `flip new` creates a new folder with a chosen structure (flip/dendron/obsidian/logseq) and initializes it.
    - `flip init /path/to/existing` enables an existing folder and makes it flip-compatible.
