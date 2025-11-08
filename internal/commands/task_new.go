@@ -52,8 +52,9 @@ func runCreateTask() error {
 
 	// Get priority
 	prioritySelect := promptui.Select{
-		Label: "Priority",
-		Items: []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
+		Label:     "Priority",
+		Items:     []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
+		CursorPos: 1, // Default to Medium (index 1)
 	}
 	priorityIdx, _, _ := prioritySelect.Run()
 	priority := indexToPriority(priorityIdx)
@@ -318,8 +319,85 @@ func relativePathFromBrain(fullPath, brainPath string) string {
 	return rel
 }
 
-// promptForOrganization prompts for organization with history
+// promptForOrganization prompts for organization with history and definitions
 func promptForOrganization() (string, error) {
+	// Load definitions
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		// If definitions fail to load, fall back to simple prompt
+		return promptForSimpleOrganization()
+	}
+
+	items := []string{}
+
+	// Add defined organizations
+	if len(defs.Organizations) > 0 {
+		items = append(items, defs.getOrganizationChoices()...)
+	}
+
+	// Add recent organizations from history (that aren't in definitions)
+	history, _ := loadTaskHistory()
+	if history != nil && len(history.RecentOrganizations) > 0 {
+		for _, recent := range history.RecentOrganizations {
+			// Check if already in definitions
+			isInDefs := false
+			for _, org := range defs.Organizations {
+				if org.Abbreviation == recent || org.Name == recent {
+					isInDefs = true
+					break
+				}
+			}
+			if !isInDefs {
+				items = append(items, fmt.Sprintf("🕒 %s", recent))
+			}
+		}
+	}
+
+	items = append(items, "[New Organization]", "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Organization",
+		Items: items,
+		Size:  10,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	selected := items[idx]
+
+	// Skip
+	if selected == "[Skip]" {
+		return "", nil
+	}
+
+	// New organization
+	if selected == "[New Organization]" {
+		prompt := promptui.Prompt{
+			Label:   "Enter Organization Abbreviation (or leave empty to skip)",
+			Default: "",
+		}
+		org, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(org), nil
+	}
+
+	// Extract abbreviation from selected choice
+	if strings.HasPrefix(selected, "🕒") {
+		// Recent item
+		return strings.TrimPrefix(selected, "🕒 "), nil
+	}
+
+	// From definitions - extract abbreviation
+	return parseAbbreviationFromChoice(selected), nil
+}
+
+// promptForSimpleOrganization is a fallback when definitions can't be loaded
+func promptForSimpleOrganization() (string, error) {
 	history, err := loadTaskHistory()
 	if err != nil {
 		history = &TaskHistory{}
@@ -349,17 +427,97 @@ func promptForOrganization() (string, error) {
 	// New organization
 	if idx == 0 {
 		prompt := promptui.Prompt{
-			Label: "Enter Organization",
+			Label:   "Enter Organization (or leave empty to skip)",
+			Default: "",
 		}
-		return prompt.Run()
+		org, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(org), nil
 	}
 
 	// Selected from history
 	return items[idx], nil
 }
 
-// promptForProject prompts for project with history
+// promptForProject prompts for project with history and definitions
 func promptForProject() (string, error) {
+	// Load definitions
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		// If definitions fail to load, fall back to simple prompt
+		return promptForSimpleProject()
+	}
+
+	items := []string{}
+
+	// Add defined projects
+	if len(defs.Projects) > 0 {
+		items = append(items, defs.getProjectChoices()...)
+	}
+
+	// Add recent projects from history
+	history, _ := loadTaskHistory()
+	if history != nil && len(history.RecentProjects) > 0 {
+		for _, recent := range history.RecentProjects {
+			// Check if already in definitions
+			isInDefs := false
+			for _, proj := range defs.Projects {
+				if proj.Abbreviation == recent || proj.Name == recent {
+					isInDefs = true
+					break
+				}
+			}
+			if !isInDefs {
+				items = append(items, fmt.Sprintf("🕒 %s", recent))
+			}
+		}
+	}
+
+	items = append(items, "[New Project]", "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Project",
+		Items: items,
+		Size:  10,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	selected := items[idx]
+
+	// Skip
+	if selected == "[Skip]" {
+		return "", nil
+	}
+
+	// New project
+	if selected == "[New Project]" {
+		prompt := promptui.Prompt{
+			Label:   "Enter Project Abbreviation (or leave empty to skip)",
+			Default: "",
+		}
+		proj, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(proj), nil
+	}
+
+	// Extract abbreviation from selected choice
+	if strings.HasPrefix(selected, "🕒") {
+		return strings.TrimPrefix(selected, "🕒 "), nil
+	}
+
+	return parseAbbreviationFromChoice(selected), nil
+}
+
+// promptForSimpleProject is a fallback when definitions can't be loaded
+func promptForSimpleProject() (string, error) {
 	history, err := loadTaskHistory()
 	if err != nil {
 		history = &TaskHistory{}
@@ -389,17 +547,97 @@ func promptForProject() (string, error) {
 	// New project
 	if idx == 0 {
 		prompt := promptui.Prompt{
-			Label: "Enter Project",
+			Label:   "Enter Project (or leave empty to skip)",
+			Default: "",
 		}
-		return prompt.Run()
+		proj, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(proj), nil
 	}
 
 	// Selected from history
 	return items[idx], nil
 }
 
-// promptForContext prompts for context with history
+// promptForContext prompts for context with history and definitions
 func promptForContext() (string, error) {
+	// Load definitions
+	defs, err := loadTaskDefinitions()
+	if err != nil {
+		// If definitions fail to load, fall back to simple prompt
+		return promptForSimpleContext()
+	}
+
+	items := []string{}
+
+	// Add defined contexts
+	if len(defs.Contexts) > 0 {
+		items = append(items, defs.getContextChoices()...)
+	}
+
+	// Add recent contexts from history
+	history, _ := loadTaskHistory()
+	if history != nil && len(history.RecentContexts) > 0 {
+		for _, recent := range history.RecentContexts {
+			// Check if already in definitions
+			isInDefs := false
+			for _, ctx := range defs.Contexts {
+				if ctx.Abbreviation == recent || ctx.Name == recent {
+					isInDefs = true
+					break
+				}
+			}
+			if !isInDefs {
+				items = append(items, fmt.Sprintf("🕒 %s", recent))
+			}
+		}
+	}
+
+	items = append(items, "[New Context]", "[Skip]")
+
+	selector := promptui.Select{
+		Label: "Context",
+		Items: items,
+		Size:  10,
+	}
+
+	idx, _, err := selector.Run()
+	if err != nil {
+		return "", err
+	}
+
+	selected := items[idx]
+
+	// Skip
+	if selected == "[Skip]" {
+		return "", nil
+	}
+
+	// New context
+	if selected == "[New Context]" {
+		prompt := promptui.Prompt{
+			Label:   "Enter Context Abbreviation (or leave empty to skip)",
+			Default: "",
+		}
+		ctx, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(ctx), nil
+	}
+
+	// Extract abbreviation from selected choice
+	if strings.HasPrefix(selected, "🕒") {
+		return strings.TrimPrefix(selected, "🕒 "), nil
+	}
+
+	return parseAbbreviationFromChoice(selected), nil
+}
+
+// promptForSimpleContext is a fallback when definitions can't be loaded
+func promptForSimpleContext() (string, error) {
 	history, err := loadTaskHistory()
 	if err != nil {
 		history = &TaskHistory{}
@@ -429,9 +667,14 @@ func promptForContext() (string, error) {
 	// New context
 	if idx == 0 {
 		prompt := promptui.Prompt{
-			Label: "Enter Context",
+			Label:   "Enter Context (or leave empty to skip)",
+			Default: "",
 		}
-		return prompt.Run()
+		ctx, err := prompt.Run()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(ctx), nil
 	}
 
 	// Selected from history
@@ -475,9 +718,10 @@ func promptForTaskFile(brain *Brain) (string, error) {
 	items = append(items, "📁 Specify custom file...")
 
 	selector := promptui.Select{
-		Label: "Where to save the task?",
-		Items: items,
-		Size:  10,
+		Label:     "Where to save the task?",
+		Items:     items,
+		Size:      10,
+		CursorPos: 1, // Default to tasks/tasks.md (index 1)
 	}
 
 	idx, _, err := selector.Run()
