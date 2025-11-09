@@ -11,6 +11,22 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
+// listFoldersInBrain lists all directories in a brain (non-recursive, level 1 only)
+func listFoldersInBrain(brainPath string) []string {
+	folders := make([]string, 0)
+	entries, err := os.ReadDir(brainPath)
+	if err != nil {
+		return folders
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			folders = append(folders, entry.Name())
+		}
+	}
+	return folders
+}
+
 // runBrainMigrationMenu shows migration wizard
 func runBrainMigrationMenu() error {
 	fmt.Println()
@@ -105,7 +121,26 @@ func runBrainMigrationMenu() error {
 	}
 
 	if scopeIdx == 1 {
-		// Custom paths mode (original behavior)
+		// Custom paths mode with intelligent suggestions
+		// Show available brain suggestions
+		homeDir, _ := os.UserHomeDir()
+		suggestedPaths := []string{
+			filepath.Join(homeDir, "Documents"),
+			filepath.Join(homeDir, "notes"),
+			filepath.Join(homeDir, "flap"),
+			filepath.Join(homeDir, "obsidian"),
+			filepath.Join(homeDir, "logseq"),
+			"./",
+		}
+		
+		fmt.Println("\n💡 Common brain locations:")
+		for _, p := range suggestedPaths {
+			if _, err := os.Stat(p); err == nil {
+				fmt.Printf("   • %s\n", p)
+			}
+		}
+		fmt.Println()
+
 		// Ask for source path
 		promptSource := promptui.Prompt{
 			Label:   "Source brain path",
@@ -130,6 +165,20 @@ func runBrainMigrationMenu() error {
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
 			return runManageResourcesMenu()
+		}
+
+		// Show all known brains as suggestions for target
+		config, err := loadWorkspaceConfig()
+		if err == nil && len(config.Workspaces) > 0 {
+			fmt.Println("\n💡 Known brains in your configuration:")
+			for _, ws := range config.Workspaces {
+				for _, b := range ws.Brains {
+					if b.Path != sourceAbs { // Don't suggest source as target
+						fmt.Printf("   • %s (%s in %s)\n", b.Name, b.Path, ws.Name)
+					}
+				}
+			}
+			fmt.Println()
 		}
 
 		// Ask for target path
@@ -178,19 +227,55 @@ func runBrainMigrationMenu() error {
 		mode = migration.ModeFull
 	case 1:
 		mode = migration.ModePartial
-		// Ask for folders
-		fmt.Print("\nEnter folder names (comma-separated): ")
+		// List available folders in source brain
+		availableFolders := listFoldersInBrain(sourceAbs)
+		if len(availableFolders) == 0 {
+			fmt.Println("\n⚠️  No folders found in source brain")
+			fmt.Println("Press Enter to continue...")
+			fmt.Scanln()
+			return runManageResourcesMenu()
+		}
+
+		fmt.Println("\n📁 Available folders in source brain:")
+		for i, f := range availableFolders {
+			fmt.Printf("   %d) %s\n", i+1, f)
+		}
+		fmt.Println()
+
+		// Ask user to select folders (comma-separated numbers or names)
+		fmt.Print("Select folders (comma-separated numbers or names): ")
 		var folderInput string
 		fmt.Scanln(&folderInput)
-		for _, f := range strings.Split(folderInput, ",") {
-			folders = append(folders, strings.TrimSpace(f))
+		
+		// Parse input (support both numbers and names)
+		for _, input := range strings.Split(folderInput, ",") {
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
+			
+			// Check if it's a number
+			if num, err := fmt.Sscanf(input, "%d", new(int)); err == nil && num == 1 {
+				// It's a number - get folder by index
+				var idx int
+				fmt.Sscanf(input, "%d", &idx)
+				if idx > 0 && idx <= len(availableFolders) {
+					folders = append(folders, availableFolders[idx-1])
+				}
+			} else {
+				// It's a name - add directly
+				folders = append(folders, input)
+			}
 		}
+		
 		if len(folders) == 0 {
 			fmt.Println("\n❌ No folders specified")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
 			return runManageResourcesMenu()
 		}
+		
+		fmt.Printf("\n✓ Selected folders: %s\n", strings.Join(folders, ", "))
 	case 2:
 		mode = migration.ModeSingle
 		// Ask for note
@@ -235,6 +320,22 @@ func runBrainMigrationMenu() error {
 	fmt.Printf("Notes:       %d\n", plan.NotesCount)
 	fmt.Printf("Assets:      %d\n", plan.AssetsCount)
 	fmt.Printf("Total items: %d\n", len(plan.Items))
+
+	// Show preview of items (first 10)
+	if len(plan.Items) > 0 {
+		fmt.Println("\n📄 Preview (first 10 items):")
+		previewCount := 10
+		if len(plan.Items) < previewCount {
+			previewCount = len(plan.Items)
+		}
+		for i := 0; i < previewCount; i++ {
+			item := plan.Items[i]
+			fmt.Printf("   %d. %s → %s (%s)\n", i+1, item.SourcePath, item.TargetPath, item.Type)
+		}
+		if len(plan.Items) > previewCount {
+			fmt.Printf("   ... and %d more items\n", len(plan.Items)-previewCount)
+		}
+	}
 
 	if len(plan.Conflicts) > 0 {
 		fmt.Printf("\n⚠️  Conflicts: %d\n", len(plan.Conflicts))

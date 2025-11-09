@@ -67,6 +67,11 @@ func NewExecutor(plan *MigrationPlan, sourceStruct, targetStruct *BrainStructure
 
 // Execute runs the migration, copying notes and assets, updating references
 func (e *Executor) Execute() (*ExecutionLog, error) {
+	return e.ExecuteWithProgress(nil)
+}
+
+// ExecuteWithProgress runs the migration with optional progress reporting
+func (e *Executor) ExecuteWithProgress(progressCallback ProgressCallback) (*ExecutionLog, error) {
 	e.log.StartTime = time.Now()
 	e.log.Metadata["mode"] = string(e.plan.Mode)
 	e.log.Metadata["source"] = e.plan.SourceBrainPath
@@ -77,10 +82,24 @@ func (e *Executor) Execute() (*ExecutionLog, error) {
 		return e.log, fmt.Errorf("failed to create target brain root: %w", err)
 	}
 
+	// Create progress bar if items to process
+	totalItems := len(e.plan.Items)
+	var progressBar *ProgressBar
+	if progressCallback == nil && totalItems > 5 { // Only show for substantial migrations
+		progressBar = NewProgressBar(totalItems)
+	}
+
 	// Process each item in the plan
-	for _, item := range e.plan.Items {
+	for i, item := range e.plan.Items {
 		if item.Skipped {
 			continue
+		}
+
+		// Update progress
+		if progressBar != nil {
+			progressBar.Update(item.SourcePath)
+		} else if progressCallback != nil {
+			progressCallback(i+1, totalItems, item.SourcePath)
 		}
 
 		var err error
@@ -99,6 +118,11 @@ func (e *Executor) Execute() (*ExecutionLog, error) {
 		} else {
 			e.log.ItemsWritten = append(e.log.ItemsWritten, item.TargetPath)
 		}
+	}
+
+	// Finish progress bar
+	if progressBar != nil {
+		progressBar.Finish()
 	}
 
 	// Finalize log
@@ -212,17 +236,36 @@ func (e *Executor) GetLog() *ExecutionLog {
 
 // runHealthCheck performs a health check on the migrated brain
 func (e *Executor) runHealthCheck() (*HealthCheckReport, error) {
-	// Import health package functions
-	// For now, return a simple placeholder
-	// TODO: Integrate with existing health.Checker
+	// Create a health checker for the target brain
+	// Note: We can't import health here due to circular dependency
+	// So we'll keep it simple for now
 	report := &HealthCheckReport{
 		Issues: make([]string, 0),
 	}
 
-	// Could check:
-	// - Broken links in migrated notes
-	// - Missing assets
-	// - Orphaned files
+	// Basic checks we can do without circular import:
+	// 1. Check if target brain directory exists
+	if _, err := os.Stat(e.plan.TargetBrainPath); os.IsNotExist(err) {
+		report.Issues = append(report.Issues, "Target brain directory does not exist")
+		return report, nil
+	}
+
+	// 2. Check if any files were written
+	if len(e.log.ItemsWritten) == 0 {
+		report.Issues = append(report.Issues, "No files were written during migration")
+	}
+
+	// 3. Verify written files exist
+	missingFiles := 0
+	for _, item := range e.log.ItemsWritten {
+		itemPath := filepath.Join(e.plan.TargetBrainPath, item)
+		if _, err := os.Stat(itemPath); os.IsNotExist(err) {
+			missingFiles++
+		}
+	}
+	if missingFiles > 0 {
+		report.Issues = append(report.Issues, fmt.Sprintf("%d written files are missing", missingFiles))
+	}
 
 	return report, nil
 }
