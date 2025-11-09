@@ -1127,6 +1127,12 @@ func runManageResourcesMenu() error {
 			},
 		},
 		{
+			Label:       "Migrate Brain",
+			Description: "Migrate notes between brain types (Logseq/Obsidian/Flip)",
+			Command:     "flip brain migrate",
+			Action:      runBrainMigrationMenu,
+		},
+		{
 			Label:       lang.GetText("menu.manage.back_label"),
 			Description: lang.GetText("menu.manage.back_desc"),
 			Command:     "",

@@ -317,7 +317,7 @@ func (c *Checker) findWikilink(target string) string {
 		// Obsidian and Flip wikilinks can reference any file anywhere
 		// We need to search all markdown files (case-insensitive)
 		targetLower := strings.ToLower(baseName)
-		
+
 		// First try exact basename match across all folders
 		for mdFile := range c.allFiles {
 			if !strings.HasSuffix(mdFile, ".md") {
@@ -328,7 +328,7 @@ func (c *Checker) findWikilink(target string) string {
 				return mdFile
 			}
 		}
-		
+
 		// Try slug-style match (spaces to hyphens)
 		targetSlug := strings.ToLower(strings.ReplaceAll(baseName, " ", "-"))
 		for mdFile := range c.allFiles {
@@ -341,7 +341,7 @@ func (c *Checker) findWikilink(target string) string {
 				return mdFile
 			}
 		}
-		
+
 		return ""
 	}
 

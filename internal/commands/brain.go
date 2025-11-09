@@ -38,6 +38,10 @@ func NewBrainCommand() *cobra.Command {
 	// Git integration commands
 	cmd.AddCommand(newBrainGitStatusCommand())
 	cmd.AddCommand(newBrainGitLogCommand())
+	// Migration (dry-run planner)
+	migrateCmd := brainMigrateCmd()
+	migrateCmd.AddCommand(brainMigrateRollbackCmd())
+	cmd.AddCommand(migrateCmd)
 
 	return cmd
 }

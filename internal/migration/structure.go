@@ -76,9 +76,9 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			TasksDir:           "tasks",
 			AssetsDir:          "assets",
 			TemplatesDir:       "templates",
-			JournalFormat:      "2006-01-02",                                        // YYYY-MM-DD
-			NoteFormat:         "slug-with-date",                                    // 2025-10-27-note-title.md
-			AssetStrategy:      AssetStrategyRootFolder,                             // assets/image.png
+			JournalFormat:      "2006-01-02",                                            // YYYY-MM-DD
+			NoteFormat:         "slug-with-date",                                        // 2025-10-27-note-title.md
+			AssetStrategy:      AssetStrategyRootFolder,                                 // assets/image.png
 			AssetLocations:     []string{"assets", "assets/images", "assets/documents"}, // Check these in order
 			PreferredLinkStyle: LinkStyleWikilink,
 			SupportsWikilinks:  true,
@@ -90,30 +90,30 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			Type:               health.BrainTypeLogseq,
 			NotesDir:           "pages",
 			JournalDir:         "journals",
-			TasksDir:           "",                          // Tasks are blocks, not separate files
+			TasksDir:           "", // Tasks are blocks, not separate files
 			AssetsDir:          "assets",
 			TemplatesDir:       "templates",
-			JournalFormat:      "2006_01_02",                // YYYY_MM_DD (UNDERSCORES not dashes!)
-			NoteFormat:         "title-case",                // "Title Case.md" with spaces
-			AssetStrategy:      AssetStrategyRootFolder,     // Always assets/ folder
+			JournalFormat:      "2006_01_02",                    // YYYY_MM_DD (UNDERSCORES not dashes!)
+			NoteFormat:         "title-case",                    // "Title Case.md" with spaces
+			AssetStrategy:      AssetStrategyRootFolder,         // Always assets/ folder
 			AssetLocations:     []string{"assets", "../assets"}, // Logseq sometimes uses ../assets
-			PreferredLinkStyle: LinkStyleWikilink,
+			PreferredLinkStyle: LinkStyleWikilink,               // Strongly prefers wikilinks
 			SupportsWikilinks:  true,
-			SupportsMarkdown:   false, // Logseq is wikilinks-only
+			SupportsMarkdown:   true, // Supports markdown syntax in content, but prefers wikilinks for references
 		}
 
 	case health.BrainTypeObsidian:
 		return &BrainStructure{
 			Type:               health.BrainTypeObsidian,
-			NotesDir:           "",                  // NO enforced structure - user-defined!
-			JournalDir:         "",                  // Often "Daily Notes" or "Journal" but configurable
-			TasksDir:           "",                  // User-defined
-			AssetsDir:          "attachments",       // Most common convention
+			NotesDir:           "",            // NO enforced structure - user-defined!
+			JournalDir:         "",            // Often "Daily Notes" or "Journal" but configurable
+			TasksDir:           "",            // User-defined
+			AssetsDir:          "attachments", // Most common convention
 			AttachmentsDir:     "attachments",
 			TemplatesDir:       "templates",
-			JournalFormat:      "2006-01-02",                                     // YYYY-MM-DD (but configurable)
-			NoteFormat:         "free-form",                                      // ANY structure allowed
-			AssetStrategy:      AssetStrategyNearNote,                            // Often keeps assets NEXT to notes!
+			JournalFormat:      "2006-01-02",                                               // YYYY-MM-DD (but configurable)
+			NoteFormat:         "free-form",                                                // ANY structure allowed
+			AssetStrategy:      AssetStrategyNearNote,                                      // Often keeps assets NEXT to notes!
 			AssetLocations:     []string{"attachments", "assets", "files", ".attachments"}, // Check many locations
 			PreferredLinkStyle: LinkStyleWikilink,
 			SupportsWikilinks:  true,
@@ -123,8 +123,8 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 	case health.BrainTypeDendron:
 		return &BrainStructure{
 			Type:               health.BrainTypeDendron,
-			NotesDir:           "",                      // Flat structure with dot-notation hierarchy
-			JournalDir:         "",                      // daily.YYYY.MM.DD.md pattern
+			NotesDir:           "", // Flat structure with dot-notation hierarchy
+			JournalDir:         "", // daily.YYYY.MM.DD.md pattern
 			TasksDir:           "",
 			AssetsDir:          "assets",
 			TemplatesDir:       "templates",

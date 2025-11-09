@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -142,7 +143,7 @@ func (am *AssetMigrator) UpdateAssetReferences(
 	markdownPattern := `!\[([^\]]*)\]\(([^)]+)\)`
 	updated = replaceWithFunc(updated, markdownPattern, func(match string) string {
 		alt, path := extractMarkdownImage(match)
-		
+
 		// Migrate the asset
 		newPath, err := am.MigrateAsset(path, sourceNotePath)
 		if err != nil {
@@ -158,7 +159,7 @@ func (am *AssetMigrator) UpdateAssetReferences(
 	wikilinkPattern := `!\[\[([^\]]+)\]\]`
 	updated = replaceWithFunc(updated, wikilinkPattern, func(match string) string {
 		assetName := extractWikilinkEmbed(match)
-		
+
 		// Migrate the asset
 		newPath, err := am.MigrateAsset(assetName, sourceNotePath)
 		if err != nil {
@@ -170,7 +171,7 @@ func (am *AssetMigrator) UpdateAssetReferences(
 		if am.targetStructure.PreferredLinkStyle == LinkStyleMarkdown {
 			return fmt.Sprintf("![%s](%s)", assetName, newPath)
 		}
-		
+
 		// Keep as wikilink but update path
 		return fmt.Sprintf("![[%s]]", filepath.Base(newPath))
 	})
@@ -179,7 +180,7 @@ func (am *AssetMigrator) UpdateAssetReferences(
 	assetLinkPattern := `\[([^\]]+)\]\(([^)]+\.(?:pdf|doc|docx|zip|xlsx))\)`
 	updated = replaceWithFunc(updated, assetLinkPattern, func(match string) string {
 		text, path := extractMarkdownLink(match)
-		
+
 		// Migrate the asset
 		newPath, err := am.MigrateAsset(path, sourceNotePath)
 		if err != nil {
@@ -233,10 +234,10 @@ func extractMarkdownImage(match string) (alt, path string) {
 	start := strings.Index(match, "[")
 	mid := strings.Index(match, "](")
 	end := strings.LastIndex(match, ")")
-	
+
 	if start >= 0 && mid > start && end > mid {
-		alt = match[start+2 : mid]  // Skip "!["
-		path = match[mid+2 : end]   // Skip "]("
+		alt = match[start+2 : mid] // Skip "!["
+		path = match[mid+2 : end]  // Skip "]("
 	}
 	return
 }
@@ -251,7 +252,7 @@ func extractMarkdownLink(match string) (text, path string) {
 	start := strings.Index(match, "[")
 	mid := strings.Index(match, "](")
 	end := strings.LastIndex(match, ")")
-	
+
 	if start >= 0 && mid > start && end > mid {
 		text = match[start+1 : mid]
 		path = match[mid+2 : end]
@@ -262,7 +263,7 @@ func extractMarkdownLink(match string) (text, path string) {
 // replaceWithFunc is a helper that applies a function to each regex match
 // Note: This is simplified - in production we'd use regexp.ReplaceAllStringFunc
 func replaceWithFunc(content, pattern string, fn func(string) string) string {
-	// Simple implementation - for production, use proper regex
-	// This is a placeholder for the concept
-	return content // TODO: Implement proper regex replacement
+	re := regexp.MustCompile(pattern)
+	// ReplaceAllStringFunc applies fn to each match
+	return re.ReplaceAllStringFunc(content, fn)
 }

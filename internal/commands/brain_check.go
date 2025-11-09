@@ -26,7 +26,7 @@ func newBrainCheckCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
-	
+
 	// Add subcommands
 	cmd.AddCommand(newBrainHealthCommand())
 
