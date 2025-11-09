@@ -1,0 +1,11 @@
+repositories:
+  - name: "primary"
+    path: "."
+    type: "primary"
+
+definitions:
+  auto_resolve: true
+  
+defaults:
+  author: "Test User"
+  timezone: "Europe/Berlin"

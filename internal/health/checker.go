@@ -313,27 +313,39 @@ func (c *Checker) findWikilink(target string) string {
 			filepath.Join("journals", baseName+".md"),
 			baseName + ".md",
 		}
-	case BrainTypeObsidian:
-		// Obsidian wikilinks can reference any file anywhere
-		// We need to search all markdown files
+	case BrainTypeObsidian, BrainTypeFlip:
+		// Obsidian and Flip wikilinks can reference any file anywhere
+		// We need to search all markdown files (case-insensitive)
+		targetLower := strings.ToLower(baseName)
+		
+		// First try exact basename match across all folders
 		for mdFile := range c.allFiles {
-			if strings.HasSuffix(mdFile, ".md") {
-				fileBase := strings.TrimSuffix(filepath.Base(mdFile), ".md")
-				if fileBase == baseName {
-					return mdFile
-				}
+			if !strings.HasSuffix(mdFile, ".md") {
+				continue
+			}
+			fileBase := strings.TrimSuffix(filepath.Base(mdFile), ".md")
+			if strings.ToLower(fileBase) == targetLower {
+				return mdFile
 			}
 		}
-	case BrainTypeFlip:
-		searchPaths = []string{
-			filepath.Join("notes", baseName+".md"),
-			filepath.Join("meetings", baseName+".md"),
-			filepath.Join("journal", baseName+".md"),
-			baseName + ".md",
+		
+		// Try slug-style match (spaces to hyphens)
+		targetSlug := strings.ToLower(strings.ReplaceAll(baseName, " ", "-"))
+		for mdFile := range c.allFiles {
+			if !strings.HasSuffix(mdFile, ".md") {
+				continue
+			}
+			fileBase := strings.TrimSuffix(filepath.Base(mdFile), ".md")
+			fileSlug := strings.ToLower(strings.ReplaceAll(fileBase, " ", "-"))
+			if fileSlug == targetSlug {
+				return mdFile
+			}
 		}
+		
+		return ""
 	}
 
-	// Check each possible path
+	// Check each possible path (for Logseq)
 	for _, path := range searchPaths {
 		if c.allFiles[path] {
 			return path
