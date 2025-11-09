@@ -187,6 +187,16 @@
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
     },
+    "edit_manage": {
+      "workspace_label": "📁 Workspace",
+      "workspace_desc": "Edit workspace configuration and settings",
+      "brain_label": "🧠 Brain",
+      "brain_desc": "Edit brain configuration and settings",
+      "templates_label": "📋 Templates",
+      "templates_desc": "Manage note templates",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to main menu"
+    },
     "edit_workspace": {
       "details_label": "🔍 View Details",
       "details_desc": "View detailed information about a workspace"

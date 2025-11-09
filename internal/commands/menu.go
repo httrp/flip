@@ -1089,7 +1089,7 @@ func runManageResourcesMenu() error {
 		{
 			Label:       lang.GetText("menu.manage.templates_label"),
 			Description: lang.GetText("menu.manage.templates_desc"),
-			Command:     lang.GetText("menu.manage.templates_command"),
+			Command:     lang.GetText("menu.manage.templates_cmd"),
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
