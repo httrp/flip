@@ -413,7 +413,7 @@ func runDefinitionsExportToNote() error {
 		title = "All Definitions"
 		content.WriteString("# All Definitions\n\n")
 		content.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-		
+
 		// Organizations
 		content.WriteString("## Organizations\n\n")
 		for _, org := range defs.Organizations {
@@ -422,7 +422,7 @@ func runDefinitionsExportToNote() error {
 				content.WriteString(fmt.Sprintf("%s\n\n", org.Description))
 			}
 		}
-		
+
 		// Projects
 		content.WriteString("## Projects\n\n")
 		for _, proj := range defs.Projects {
@@ -436,7 +436,7 @@ func runDefinitionsExportToNote() error {
 			content.WriteString("\n")
 		}
 		content.WriteString("\n")
-		
+
 		// Contexts
 		content.WriteString("## Contexts\n\n")
 		for _, ctx := range defs.Contexts {
@@ -447,7 +447,7 @@ func runDefinitionsExportToNote() error {
 			content.WriteString("\n")
 		}
 		content.WriteString("\n")
-		
+
 		// People
 		content.WriteString("## People\n\n")
 		for _, person := range defs.People {
@@ -473,33 +473,33 @@ func runDefinitionsExportToNote() error {
 			fmt.Println("⚠️  No organizations found.")
 			return nil
 		}
-		
+
 		orgItems := make([]string, len(defs.Organizations))
 		for i, org := range defs.Organizations {
 			orgItems[i] = fmt.Sprintf("[%s] %s", org.Abbreviation, org.Name)
 		}
-		
+
 		orgSelector := promptui.Select{
 			Label: "Select Organization",
 			Items: orgItems,
 			Size:  10,
 		}
-		
+
 		orgIdx, _, err := orgSelector.Run()
 		if err != nil {
 			return nil
 		}
-		
+
 		org := defs.Organizations[orgIdx]
 		title = fmt.Sprintf("Definitions - %s", org.Name)
-		
+
 		content.WriteString(fmt.Sprintf("# Definitions: %s [%s]\n\n", org.Name, org.Abbreviation))
 		content.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-		
+
 		if org.Description != "" {
 			content.WriteString(fmt.Sprintf("**Description:** %s\n\n", org.Description))
 		}
-		
+
 		// Projects for this organization
 		content.WriteString("## Projects\n\n")
 		foundProjects := false
@@ -517,7 +517,7 @@ func runDefinitionsExportToNote() error {
 			content.WriteString("*No projects defined*\n")
 		}
 		content.WriteString("\n")
-		
+
 		// People for this organization
 		content.WriteString("## People\n\n")
 		foundPeople := false
@@ -545,7 +545,7 @@ func runDefinitionsExportToNote() error {
 		title = "All Projects"
 		content.WriteString("# All Projects\n\n")
 		content.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-		
+
 		for _, proj := range defs.Projects {
 			content.WriteString(fmt.Sprintf("## [%s] %s\n\n", proj.Abbreviation, proj.Name))
 			if proj.Organization != "" {
@@ -560,7 +560,7 @@ func runDefinitionsExportToNote() error {
 		title = "All People"
 		content.WriteString("# All People\n\n")
 		content.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-		
+
 		for _, person := range defs.People {
 			content.WriteString(fmt.Sprintf("## [%s] %s\n\n", person.Abbreviation, person.Name))
 			if person.Organization != "" {
@@ -582,7 +582,7 @@ func runDefinitionsExportToNote() error {
 		title = "All Contexts"
 		content.WriteString("# All Contexts\n\n")
 		content.WriteString(fmt.Sprintf("*Exported: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-		
+
 		for _, ctx := range defs.Contexts {
 			content.WriteString(fmt.Sprintf("## [%s] %s\n\n", ctx.Abbreviation, ctx.Name))
 			if ctx.Description != "" {
@@ -614,24 +614,25 @@ func runDefinitionsExportToNote() error {
 	}
 
 	fmt.Printf("\n✅ Note created: %s\n", notePath)
-	
+
 	// Ask if user wants to open it
 	openPrompt := promptui.Select{
 		Label: "Open note in editor?",
 		Items: []string{"Yes", "No"},
 	}
-	
+
 	openIdx, _, err := openPrompt.Run()
 	if err == nil && openIdx == 0 {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vi"
+		// Try to open in VS Code (non-blocking)
+		cmd := exec.Command("code", notePath)
+		if err := cmd.Start(); err != nil {
+			// Fallback to xdg-open on Linux
+			cmd = exec.Command("xdg-open", notePath)
+			if err := cmd.Start(); err != nil {
+				fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
+				fmt.Printf("   File path: %s\n", notePath)
+			}
 		}
-		cmd := exec.Command(editor, notePath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
 	}
 
 	return nil
@@ -644,25 +645,21 @@ func runDefinitionsOpenFile() error {
 		return fmt.Errorf("failed to get definitions path: %w", err)
 	}
 
-	fmt.Printf("\n📂 Definitions file: %s\n\n", path)
+	fmt.Printf("\n📂 Definitions file: %s\n", path)
 
-	// Try to open with default editor
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi" // fallback
+	// Try to open in VS Code (non-blocking)
+	cmd := exec.Command("code", path)
+	if err := cmd.Start(); err != nil {
+		// Fallback to xdg-open on Linux
+		cmd = exec.Command("xdg-open", path)
+		if err := cmd.Start(); err != nil {
+			fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
+			fmt.Printf("   File path: %s\n", path)
+			return nil
+		}
 	}
 
-	cmd := exec.Command(editor, path)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("⚠️  Could not open editor: %v\n", err)
-		fmt.Printf("   File path: %s\n", path)
-		return nil
-	}
-
+	fmt.Printf("✅ Opening in editor...\n")
 	return nil
 }
 
@@ -1689,20 +1686,18 @@ func promptOpenDefinitionsFile() error {
 			return nil
 		}
 
-		// Try to open with default editor
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vi" // fallback
+		// Try to open in VS Code (non-blocking)
+		cmd := exec.Command("code", path)
+		if err := cmd.Start(); err != nil {
+			// Fallback to xdg-open on Linux
+			cmd = exec.Command("xdg-open", path)
+			if err := cmd.Start(); err != nil {
+				fmt.Printf("⚠️  Could not open editor: %v\n", err)
+				fmt.Printf("   File path: %s\n", path)
+			}
 		}
-
-		cmd := exec.Command(editor, path)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("⚠️  Could not open editor: %v\n", err)
-		}
+		
+		fmt.Printf("✅ Opening %s\n", path)
 	}
 
 	return nil
