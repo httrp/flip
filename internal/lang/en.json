@@ -64,11 +64,11 @@
       "note_label": "📝 Note",
       "note_desc": "Create a new note",
       "note_cmd": "flip note",
-      "meeting_label": "🤝 Meeting",
+      "meeting_label": "🤝 Meeting Note",
       "meeting_desc": "Create meeting notes with template",
       "meeting_cmd": "flip meeting",
-      "journal_label": "📓 Journal",
-      "journal_desc": "Create or open today's journal",
+      "journal_label": "📓 Journal Entry",
+      "journal_desc": "Create or open today's journal entry",
       "journal_cmd": "flip journal",
       "task_label": "✅ Task",
       "task_desc": "Create a new task",
@@ -92,6 +92,14 @@
       "brains_label": "🧠 Brains",
       "brains_desc": "Switch, add, scan, view, edit brains",
       "brains_cmd": "flip brain",
+      "config_label": "⚙️  View/Edit Config",
+      "config_desc": "View or edit the global workspace configuration",
+      "git_status_label": "📦 Git Status",
+      "git_status_desc": "Display git repository status for brains",
+      "git_pull_label": "⬇️  Git Pull",
+      "git_pull_desc": "Pull updates from remote repositories",
+      "git_commit_label": "💾 Git Commit",
+      "git_commit_desc": "Commit uncommitted changes in brains",
       "templates_label": "📋 Templates",
       "templates_desc": "Manage note templates",
       "templates_cmd": "flip template",
@@ -155,10 +163,24 @@
       "list_desc": "Show all brains in workspace",
       "list_cmd": "flip brain list",
       "details_label": "🔍 View Details",
-      "details_desc": "View brain details and options",
+      "details_desc": "View detailed information about a brain",
       "details_cmd": "",
       "back_label": "◀️  Back",
-      "back_desc": "Return to manage menu"
+      "back_desc": "Return to main menu"
+    },
+    "manage_brains": {
+      "back_label": "◀️  Back",
+      "back_desc": "Return to main menu"
+    },
+    "edit_workspace": {
+      "details_label": "🔍 View Details",
+      "details_desc": "View detailed information about a workspace"
+    },
+    "edit_brain": {
+      "details_label": "🔍 View Details",
+      "details_desc": "Show configuration and details of a brain",
+      "set_default_label": "⭐ Set as Default",
+      "set_default_desc": "Set this brain as default for the workspace"
     },
     "brain_details": {
       "header": "Brain Details",
@@ -233,13 +255,13 @@
       "git_status_desc": "Show git status for all brains",
       "git_status_cmd": "flip brain git-status --all",
       "git_log_label": "📜 Git Log",
-      "git_log_desc": "Show git commit history",
+      "git_log_desc": "Display recent git commits for brains",
       "git_log_cmd": "flip brain git-log --all",
       "git_commit_label": "💾 Commit Changes",
-      "git_commit_desc": "Commit uncommitted changes",
+      "git_commit_desc": "Commit uncommitted changes in brains",
       "git_commit_cmd": "",
       "git_pull_label": "⬇️  Pull Updates",
-      "git_pull_desc": "Pull updates from remotes",
+      "git_pull_desc": "Pull updates from remote repositories",
       "git_pull_cmd": "",
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
@@ -299,7 +321,10 @@
     "select_workspace_remove": "Select workspace to remove",
     "select_brain_rename": "Select brain to rename",
     "select_brain_default_set": "Select brain to set as default",
-    "select_brain_remove": "Select brain to remove"
+    "select_brain_remove": "Select brain to remove",
+    "brain_path": "Path to existing brain directory",
+    "workspace_name": "New workspace name",
+    "brain_name": "New brain name"
   },
   
   "errors": {

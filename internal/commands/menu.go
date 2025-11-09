@@ -1028,8 +1028,8 @@ func runManageResourcesMenu() error {
 			Action:      runManageBrainsMenu,
 		},
 		{
-			Label:       "View/Edit workspace config",
-			Description: "View or edit the global workspace configuration",
+			Label:       lang.GetText("menu.manage.config_label"),
+			Description: lang.GetText("menu.manage.config_desc"),
 			Command:     "",
 			Action:      runViewWorkspaceConfig,
 		},
@@ -1040,8 +1040,8 @@ func runManageResourcesMenu() error {
 			Action:      runEditManageMenu, // Reuse existing template management
 		},
 		{
-			Label:       "Git: Show status",
-			Description: "Display git repository status for brains",
+			Label:       lang.GetText("menu.manage.git_status_label"),
+			Description: lang.GetText("menu.manage.git_status_desc"),
 			Command:     "",
 			Action: func() error {
 				if err := runBrainGitStatus(false); err != nil {
@@ -1053,8 +1053,8 @@ func runManageResourcesMenu() error {
 			},
 		},
 		{
-			Label:       "Git: Pull updates",
-			Description: "Pull updates from remote repositories",
+			Label:       lang.GetText("menu.manage.git_pull_label"),
+			Description: lang.GetText("menu.manage.git_pull_desc"),
 			Command:     "",
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
@@ -1064,8 +1064,8 @@ func runManageResourcesMenu() error {
 			},
 		},
 		{
-			Label:       "Git: Commit changes",
-			Description: "Commit uncommitted changes in brains",
+			Label:       lang.GetText("menu.manage.git_commit_label"),
+			Description: lang.GetText("menu.manage.git_commit_desc"),
 			Command:     "",
 			Action: func() error {
 				checkUncommittedChangesOnExit()
@@ -1113,8 +1113,8 @@ func runManageBrainsMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "View Brain Details",
-			Description: "View detailed information about a brain",
+			Label:       lang.GetText("menu.brains.details_label"),
+			Description: lang.GetText("menu.brains.details_desc"),
 			Action: func() error {
 				// Get active workspace
 				workspace, err := getActiveWorkspace()
@@ -1181,7 +1181,7 @@ func runManageBrainsMenu() error {
 			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
 				prompt := promptui.Prompt{
-					Label: "Path to existing brain directory",
+					Label: lang.GetText("prompts.brain_path"),
 				}
 				path, err := prompt.Run()
 				if err != nil {
@@ -1397,7 +1397,7 @@ func runBrainMenu() error {
 				fmt.Println()
 
 				promptPath := promptui.Prompt{
-					Label: "Path to existing brain directory",
+					Label: lang.GetText("prompts.brain_path"),
 				}
 				path, err := promptPath.Run()
 				if err != nil {
@@ -1439,7 +1439,7 @@ func runBrainMenu() error {
 		},
 		{
 			Label:       lang.GetText("menu.manage_brains.back_label"),
-			Description: "Return to main menu",
+			Description: lang.GetText("menu.manage_brains.back_desc"),
 			Action:      runInteractiveMenu,
 		},
 	}
@@ -1600,8 +1600,8 @@ func runEditWorkspaceMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "View Workspace Details",
-			Description: "View detailed information about a workspace",
+			Label:       lang.GetText("menu.edit_workspace.details_label"),
+			Description: lang.GetText("menu.edit_workspace.details_desc"),
 			Action: func() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
@@ -1695,7 +1695,7 @@ func runEditWorkspaceMenu() error {
 
 				// Get new name
 				promptName := promptui.Prompt{
-					Label: "New workspace name",
+					Label: lang.GetText("prompts.workspace_name"),
 				}
 
 				newName, err := promptName.Run()
@@ -1825,8 +1825,8 @@ func runEditBrainMenu() error {
 		Action      func() error
 	}{
 		{
-			Label:       "View brain details",
-			Description: "Show configuration and details of a brain",
+			Label:       lang.GetText("menu.edit_brain.details_label"),
+			Description: lang.GetText("menu.edit_brain.details_desc"),
 			Action: func() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
@@ -2073,7 +2073,7 @@ func runEditBrainMenu() error {
 
 				// Get new name
 				promptName := promptui.Prompt{
-					Label: "New brain name",
+					Label: lang.GetText("prompts.brain_name"),
 				}
 
 				newName, err := promptName.Run()
@@ -2259,8 +2259,8 @@ func runEditBrainMenu() error {
 			},
 		},
 		{
-			Label:       "Show Git status",
-			Description: "Display git repository status for brains",
+			Label:       lang.GetText("menu.status.git_status_label"),
+			Description: lang.GetText("menu.status.git_status_desc"),
 			Action: func() error {
 				if err := runBrainGitStatus(false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -2271,8 +2271,8 @@ func runEditBrainMenu() error {
 			},
 		},
 		{
-			Label:       "Show Git commit history",
-			Description: "Display recent git commits for brains",
+			Label:       lang.GetText("menu.status.git_log_label"),
+			Description: lang.GetText("menu.status.git_log_desc"),
 			Action: func() error {
 				if err := runBrainGitLog(10, false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
@@ -2283,8 +2283,8 @@ func runEditBrainMenu() error {
 			},
 		},
 		{
-			Label:       "Commit changes",
-			Description: "Commit uncommitted changes in brains",
+			Label:       lang.GetText("menu.status.git_commit_label"),
+			Description: lang.GetText("menu.status.git_commit_desc"),
 			Action: func() error {
 				checkUncommittedChangesOnExit()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -2293,8 +2293,8 @@ func runEditBrainMenu() error {
 			},
 		},
 		{
-			Label:       "Pull updates",
-			Description: "Pull updates from remote repositories",
+			Label:       lang.GetText("menu.status.git_pull_label"),
+			Description: lang.GetText("menu.status.git_pull_desc"),
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
 				fmt.Println(lang.GetText("prompts.continue"))
@@ -2915,8 +2915,8 @@ func runBrainDetails(brainInfo Brain) func() error {
 				},
 			},
 			{
-				Label:       "⭐ Set as Default",
-				Description: "Set this brain as default for the workspace",
+				Label:       lang.GetText("menu.edit_brain.set_default_label"),
+				Description: lang.GetText("menu.edit_brain.set_default_desc"),
 				Command:     "flip brain set-default",
 				Action: func() error {
 					// Set as default brain in workspace
