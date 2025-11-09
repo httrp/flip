@@ -782,117 +782,6 @@ func runInteractiveMenu() error {
 }
 
 // runCreateAddMenu shows submenu for creating/adding resources
-func runCreateAddMenu() error {
-	fmt.Println()
-	displayStatusHeader()
-	fmt.Println()
-
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
-		{
-			Label:       lang.GetText("menu.create.workspace_label"),
-			Description: lang.GetText("menu.create.workspace_desc"),
-			Action: func() error {
-				if err := runNewWorkspace(); err != nil {
-					fmt.Printf("\nError: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.brain_label"),
-			Description: lang.GetText("menu.create.brain_desc"),
-			Action:      runBrainMenu,
-		},
-		{
-			Label:       lang.GetText("menu.create.note_label"),
-			Description: lang.GetText("menu.create.note_desc"),
-			Action: func() error {
-				if err := runCreateNote(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.meeting_label"),
-			Description: lang.GetText("menu.create.meeting_desc"),
-			Action: func() error {
-				if err := runCreateMeeting(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.journal_label"),
-			Description: lang.GetText("menu.create.journal_desc"),
-			Action: func() error {
-				if err := runCreateJournal(); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.task_label"),
-			Description: lang.GetText("menu.create.task_desc"),
-			Action: func() error {
-				if err := runCreateTask(); err != nil {
-					fmt.Printf("\n❌ Error creating task: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
-				}
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.definitions_label"),
-			Description: lang.GetText("menu.create.definitions_desc"),
-			Action: func() error {
-				if err := runDefinitionsMenu(); err != nil {
-					return err
-				}
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.create.back_label"),
-			Description: lang.GetText("menu.create.back_desc"),
-			Action:      runInteractiveMenu,
-		},
-	}
-
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     "What would you like to create or add?",
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
-	}
-
-	idx, _, err := selectMenu.Run()
-	if err != nil {
-		return runInteractiveMenu()
-	}
-
-	fmt.Println()
-	return menuItems[idx].Action()
-}
-
 // runBrowseSearchMenu shows submenu for browsing and searching notes
 func runBrowseSearchMenu() error {
 	fmt.Println()
@@ -1051,6 +940,17 @@ func runCreateNewMenu() error {
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.definitions_label"),
+			Description: lang.GetText("menu.create.definitions_desc"),
+			Command:     lang.GetText("menu.create.definitions_cmd"),
+			Action: func() error {
+				if err := runDefinitionsMenu(); err != nil {
+					return err
+				}
 				return runCreateNewMenu()
 			},
 		},
@@ -1539,8 +1439,8 @@ func runBrainMenu() error {
 		},
 		{
 			Label:       lang.GetText("menu.manage_brains.back_label"),
-			Description: "Return to Create/Add menu",
-			Action:      runCreateAddMenu,
+			Description: "Return to main menu",
+			Action:      runInteractiveMenu,
 		},
 	}
 

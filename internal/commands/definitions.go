@@ -409,12 +409,12 @@ func runDefinitionsAddOrg() error {
 	}
 
 	fmt.Printf("\n✅ Organization '[%s] %s' added successfully\n", abbr, name)
-	
+
 	// Ask if user wants to open the file
 	if err := promptOpenDefinitionsFile(); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -474,12 +474,12 @@ func runDefinitionsAddProject() error {
 	}
 
 	fmt.Printf("\n✅ Project '[%s] %s' added successfully\n", abbr, name)
-	
+
 	// Ask if user wants to open the file
 	if err := promptOpenDefinitionsFile(); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -531,12 +531,12 @@ func runDefinitionsAddContext() error {
 	}
 
 	fmt.Printf("\n✅ Context '[%s] %s' added successfully\n", abbr, name)
-	
+
 	// Ask if user wants to open the file
 	if err := promptOpenDefinitionsFile(); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
