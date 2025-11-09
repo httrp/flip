@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/health"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +26,43 @@ func newBrainCheckCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	
+	// Add subcommands
+	cmd.AddCommand(newBrainHealthCommand())
+
+	return cmd
+}
+
+func newBrainHealthCommand() *cobra.Command {
+	var brainPath string
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "health [path]",
+		Short: "Check brain content health (broken links, missing assets, orphaned files)",
+		Long: `Performs comprehensive health checks on brain content:
+
+- Detects broken links (wikilinks and markdown links)
+- Finds missing assets (images, PDFs, etc.)
+- Identifies orphaned files (not linked from anywhere)
+- Supports Flip, Logseq, Obsidian, and Dendron brains
+
+Examples:
+  flip brain check health              # Check current brain
+  flip brain check health ~/my-vault   # Check specific brain
+  flip brain check health --json       # Output JSON for scripting`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				brainPath = args[0]
+			} else {
+				brainPath = "."
+			}
+			return runBrainHealthCheck(brainPath, jsonOutput)
+		},
+	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 
 	return cmd
 }
@@ -342,4 +380,51 @@ defaults:
 	}
 
 	return issues
+}
+
+func runBrainHealthCheck(brainPath string, jsonOutput bool) error {
+	// Get absolute path
+	absPath := brainPath
+	if brainPath == "." {
+		var err error
+		absPath, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+	} else {
+		var err error
+		absPath, err = filepath.Abs(brainPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve path: %w", err)
+		}
+	}
+
+	// Create checker
+	fmt.Println("🔍 Analyzing brain content...")
+	checker, err := health.NewChecker(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to create checker: %w", err)
+	}
+
+	// Run checks
+	result, err := checker.Check()
+	if err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+
+	// Display results
+	if jsonOutput {
+		reporter := health.NewReporter(result)
+		return reporter.PrintJSON()
+	}
+
+	reporter := health.NewReporter(result)
+	reporter.Print()
+
+	// Exit with error code if there are errors
+	if result.Stats.ErrorCount > 0 {
+		return fmt.Errorf("found %d errors", result.Stats.ErrorCount)
+	}
+
+	return nil
 }
