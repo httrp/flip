@@ -1696,7 +1696,7 @@ func promptOpenDefinitionsFile() error {
 				fmt.Printf("   File path: %s\n", path)
 			}
 		}
-		
+
 		fmt.Printf("✅ Opening %s\n", path)
 	}
 
