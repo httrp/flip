@@ -6,8 +6,18 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
+)
+
+// Definitions cache to avoid repeated file reads
+var (
+	definitionsCache     *TaskDefinitions
+	definitionsCacheMu   sync.RWMutex
+	definitionsCacheTime time.Time
+	definitionsCachePath string
 )
 
 // TaskDefinitions stores definitions for organizations, projects, contexts, and people
@@ -143,53 +153,104 @@ func getTaskDefinitionsPath() (string, error) {
 	return filepath.Join(flipDir, "task-definitions.yaml"), nil
 }
 
-// loadTaskDefinitions loads the task definitions from disk
+// loadTaskDefinitions loads the task definitions from disk with caching
 // Priority: 1) Brain format, 2) Simple format, 3) Default
+// Uses file modification time to determine if cache is still valid
 func loadTaskDefinitions() (*TaskDefinitions, error) {
+	// Try to determine the path we should be checking
+	var checkPath string
+	var isBrain bool
+
 	// Try brain format first
 	brain, err := getActiveBrain()
 	if err == nil && brain != nil {
+		checkPath = filepath.Join(brain.Path, "definitions")
+		isBrain = true
+	} else {
+		// Fall back to simple format
+		checkPath, _ = getTaskDefinitionsPath()
+	}
+
+	// Check cache validity using file modification time
+	definitionsCacheMu.RLock()
+	cacheValid := false
+	if definitionsCache != nil && definitionsCachePath == checkPath {
+		// Check if file has been modified since cache was created
+		if stat, err := os.Stat(checkPath); err == nil {
+			// For brain format, check the directory; for simple, check the file
+			cacheValid = !stat.ModTime().After(definitionsCacheTime)
+		}
+	}
+
+	if cacheValid {
+		defs := definitionsCache
+		definitionsCacheMu.RUnlock()
+		return defs, nil
+	}
+	definitionsCacheMu.RUnlock()
+
+	// Cache is invalid or doesn't exist, load from disk
+	definitionsCacheMu.Lock()
+	defer definitionsCacheMu.Unlock()
+
+	var defs *TaskDefinitions
+
+	if isBrain {
 		brainDefs, err := loadBrainDefinitions(brain.Path)
 		if err == nil && brainDefs != nil {
 			brainDefs.Source = "brain"
-			return brainDefs, nil
+			defs = brainDefs
 		}
 	}
 
-	// Fall back to simple format
-	path, err := getTaskDefinitionsPath()
-	if err != nil {
-		defs := createDefaultDefinitions()
-		defs.Source = "default"
-		return defs, err
-	}
-
-	// If file doesn't exist, create default
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		defs := createDefaultDefinitions()
-		defs.Source = "default"
-		if saveErr := saveTaskDefinitions(defs); saveErr != nil {
-			return defs, saveErr
+	// If brain loading failed or not applicable, fall back to simple format
+	if defs == nil {
+		path, err := getTaskDefinitionsPath()
+		if err != nil {
+			defs = createDefaultDefinitions()
+			defs.Source = "default"
+		} else {
+			// If file doesn't exist, create default
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				defs = createDefaultDefinitions()
+				defs.Source = "default"
+				if saveErr := saveTaskDefinitions(defs); saveErr != nil {
+					return defs, saveErr
+				}
+			} else {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					defs = createDefaultDefinitions()
+					defs.Source = "default"
+				} else {
+					var loadedDefs TaskDefinitions
+					if err := yaml.Unmarshal(data, &loadedDefs); err != nil {
+						defs = createDefaultDefinitions()
+						defs.Source = "default"
+					} else {
+						loadedDefs.Source = "simple"
+						defs = &loadedDefs
+					}
+				}
+			}
 		}
-		return defs, nil
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		defs := createDefaultDefinitions()
-		defs.Source = "default"
-		return defs, err
-	}
+	// Update cache
+	definitionsCache = defs
+	definitionsCachePath = checkPath
+	definitionsCacheTime = time.Now()
 
-	var defs TaskDefinitions
-	if err := yaml.Unmarshal(data, &defs); err != nil {
-		defs := createDefaultDefinitions()
-		defs.Source = "default"
-		return defs, err
-	}
+	return defs, nil
+}
 
-	defs.Source = "simple"
-	return &defs, nil
+// invalidateDefinitionsCache clears the definitions cache, forcing a reload on next access
+func invalidateDefinitionsCache() {
+	definitionsCacheMu.Lock()
+	defer definitionsCacheMu.Unlock()
+	definitionsCache = nil
+	definitionsCachePath = ""
+	definitionsCacheTime = time.Time{}
 }
 
 // loadBrainDefinitions loads definitions from brain's definitions directory
@@ -404,7 +465,14 @@ func saveTaskDefinitions(defs *TaskDefinitions) error {
 `
 	content := header + string(data)
 
-	return os.WriteFile(path, []byte(content), 0644)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return err
+	}
+
+	// Invalidate cache after successful save
+	invalidateDefinitionsCache()
+
+	return nil
 }
 
 // createDefaultDefinitions creates default definitions
@@ -561,6 +629,16 @@ func (d *TaskDefinitions) hasContext(name, abbr string) bool {
 	return false
 }
 
+// hasPerson checks if a person name or abbreviation already exists
+func (d *TaskDefinitions) hasPerson(name, abbr string) bool {
+	for _, person := range d.People {
+		if strings.EqualFold(person.Name, name) || strings.EqualFold(person.Abbreviation, abbr) {
+			return true
+		}
+	}
+	return false
+}
+
 // addOrganization adds a new organization to the definitions
 func (d *TaskDefinitions) addOrganization(name, abbr, description string) error {
 	if d.hasOrganization(name, abbr) {
@@ -597,6 +675,22 @@ func (d *TaskDefinitions) addContext(name, abbr, description string) error {
 		Name:         name,
 		Abbreviation: abbr,
 		Description:  description,
+	})
+	return nil
+}
+
+// addPerson adds a new person to the definitions
+func (d *TaskDefinitions) addPerson(name, abbr, org, orgCode, role, email string) error {
+	if d.hasPerson(name, abbr) {
+		return fmt.Errorf("person with name '%s' or abbreviation '%s' already exists", name, abbr)
+	}
+	d.People = append(d.People, PersonDef{
+		Name:         name,
+		Abbreviation: abbr,
+		Organization: org,
+		OrgCode:      orgCode,
+		Role:         role,
+		Email:        email,
 	})
 	return nil
 }

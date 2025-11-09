@@ -944,6 +944,58 @@ func runCreateNewMenu() error {
 			},
 		},
 		{
+			Label:       lang.GetText("menu.create.organization_label"),
+			Description: lang.GetText("menu.create.organization_desc"),
+			Command:     lang.GetText("menu.create.organization_cmd"),
+			Action: func() error {
+				if err := runDefinitionsAddOrg(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.project_label"),
+			Description: lang.GetText("menu.create.project_desc"),
+			Command:     lang.GetText("menu.create.project_cmd"),
+			Action: func() error {
+				if err := runDefinitionsAddProject(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.context_label"),
+			Description: lang.GetText("menu.create.context_desc"),
+			Command:     lang.GetText("menu.create.context_cmd"),
+			Action: func() error {
+				if err := runDefinitionsAddContext(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.create.person_label"),
+			Description: lang.GetText("menu.create.person_desc"),
+			Command:     lang.GetText("menu.create.person_cmd"),
+			Action: func() error {
+				if err := runDefinitionsAddPerson(); err != nil {
+					fmt.Printf("\n❌ Error: %v\n", err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.create.definitions_label"),
 			Description: lang.GetText("menu.create.definitions_desc"),
 			Command:     lang.GetText("menu.create.definitions_cmd"),
