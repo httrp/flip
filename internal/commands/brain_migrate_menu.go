@@ -32,50 +32,125 @@ func runBrainMigrationMenu() error {
 	fmt.Println("  ✓ Rollback support")
 	fmt.Println()
 
-	// Ask for source path
-	promptSource := promptui.Prompt{
-		Label:   "Source brain path",
-		Default: "",
+	// First ask: workspace brains or external paths?
+	scopeSelect := promptui.Select{
+		Label: "Migration scope",
+		Items: []string{
+			"Between workspace brains (recommended)",
+			"Custom paths (external brains)",
+		},
+		Templates: createSimpleSelectTemplates(),
+		Size:      2,
+		HideHelp:  true,
 	}
-	sourcePath, err := promptSource.Run()
+	scopeIdx, _, err := scopeSelect.Run()
 	if err != nil {
 		return runManageResourcesMenu()
 	}
-	sourcePath = strings.TrimSpace(sourcePath)
-	if sourcePath == "" {
-		fmt.Println("\n❌ Source path required")
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
-		return runManageResourcesMenu()
+
+	var sourceAbs, targetAbs string
+
+	if scopeIdx == 0 {
+		// Workspace-first approach
+		workspace, err := getActiveWorkspace()
+		if err != nil || len(workspace.Brains) < 2 {
+			fmt.Println("\n⚠️  Need at least 2 brains in workspace for this option.")
+			fmt.Println("Switching to custom paths mode...\n")
+			scopeIdx = 1 // Fall back to custom paths
+		}
+
+		if scopeIdx == 0 {
+			// Select source brain from workspace
+			brainNames := make([]string, len(workspace.Brains))
+			for i, b := range workspace.Brains {
+				brainNames[i] = fmt.Sprintf("%s (%s)", b.Name, b.Path)
+			}
+
+			sourceSelect := promptui.Select{
+				Label:     "Source brain",
+				Items:     brainNames,
+				Templates: createSimpleSelectTemplates(),
+				Size:      calculateMenuSize(len(brainNames)),
+				HideHelp:  true,
+			}
+			sourceIdx, _, err := sourceSelect.Run()
+			if err != nil {
+				return runManageResourcesMenu()
+			}
+			sourceAbs = workspace.Brains[sourceIdx].Path
+
+			// Select target brain from workspace (excluding source)
+			targetBrainNames := make([]string, 0, len(workspace.Brains)-1)
+			targetBrainIndices := make([]int, 0, len(workspace.Brains)-1)
+			for i, b := range workspace.Brains {
+				if i != sourceIdx {
+					targetBrainNames = append(targetBrainNames, fmt.Sprintf("%s (%s)", b.Name, b.Path))
+					targetBrainIndices = append(targetBrainIndices, i)
+				}
+			}
+
+			targetSelect := promptui.Select{
+				Label:     "Target brain",
+				Items:     targetBrainNames,
+				Templates: createSimpleSelectTemplates(),
+				Size:      calculateMenuSize(len(targetBrainNames)),
+				HideHelp:  true,
+			}
+			targetIdx, _, err := targetSelect.Run()
+			if err != nil {
+				return runManageResourcesMenu()
+			}
+			targetAbs = workspace.Brains[targetBrainIndices[targetIdx]].Path
+		}
 	}
 
-	// Resolve and check
-	sourceAbs, _ := filepath.Abs(sourcePath)
-	if _, err := os.Stat(sourceAbs); os.IsNotExist(err) {
-		fmt.Printf("\n❌ Source brain not found: %s\n", sourceAbs)
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
-		return runManageResourcesMenu()
-	}
+	if scopeIdx == 1 {
+		// Custom paths mode (original behavior)
+		// Ask for source path
+		promptSource := promptui.Prompt{
+			Label:   "Source brain path",
+			Default: "",
+		}
+		sourcePath, err := promptSource.Run()
+		if err != nil {
+			return runManageResourcesMenu()
+		}
+		sourcePath = strings.TrimSpace(sourcePath)
+		if sourcePath == "" {
+			fmt.Println("\n❌ Source path required")
+			fmt.Println("Press Enter to continue...")
+			fmt.Scanln()
+			return runManageResourcesMenu()
+		}
 
-	// Ask for target path
-	promptTarget := promptui.Prompt{
-		Label:   "Target brain path",
-		Default: "",
-	}
-	targetPath, err := promptTarget.Run()
-	if err != nil {
-		return runManageResourcesMenu()
-	}
-	targetPath = strings.TrimSpace(targetPath)
-	if targetPath == "" {
-		fmt.Println("\n❌ Target path required")
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
-		return runManageResourcesMenu()
-	}
+		// Resolve and check
+		sourceAbs, _ = filepath.Abs(sourcePath)
+		if _, err := os.Stat(sourceAbs); os.IsNotExist(err) {
+			fmt.Printf("\n❌ Source brain not found: %s\n", sourceAbs)
+			fmt.Println("Press Enter to continue...")
+			fmt.Scanln()
+			return runManageResourcesMenu()
+		}
 
-	targetAbs, _ := filepath.Abs(targetPath)
+		// Ask for target path
+		promptTarget := promptui.Prompt{
+			Label:   "Target brain path",
+			Default: "",
+		}
+		targetPath, err := promptTarget.Run()
+		if err != nil {
+			return runManageResourcesMenu()
+		}
+		targetPath = strings.TrimSpace(targetPath)
+		if targetPath == "" {
+			fmt.Println("\n❌ Target path required")
+			fmt.Println("Press Enter to continue...")
+			fmt.Scanln()
+			return runManageResourcesMenu()
+		}
+
+		targetAbs, _ = filepath.Abs(targetPath)
+	}
 
 	// Migration mode
 	modeSelect := promptui.Select{

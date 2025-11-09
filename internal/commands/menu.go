@@ -81,6 +81,7 @@ func createMenuItemWithCommandTemplates() *promptui.SelectTemplates {
 		Active:   fmt.Sprintf("▸ {{ printf \"%%-%ds\" .Label | cyan | bold }}  {{ .Command | faint }}", maxLabelWidth),
 		Inactive: fmt.Sprintf("  {{ printf \"%%-%ds\" .Label }}  {{ .Command | faint }}", maxLabelWidth),
 		Selected: "{{ .Label | green | bold }}",
+		Details:  "\n{{ \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\" | faint }}\n{{ .Description | faint }}",
 	}
 }
 
@@ -1127,9 +1128,9 @@ func runManageResourcesMenu() error {
 			},
 		},
 		{
-			Label:       "Migrate Brain",
-			Description: "Migrate notes between brain types (Logseq/Obsidian/Flip)",
-			Command:     "flip brain migrate",
+			Label:       lang.GetText("menu.manage.migrate_label"),
+			Description: lang.GetText("menu.manage.migrate_desc"),
+			Command:     lang.GetText("menu.manage.migrate_cmd"),
 			Action:      runBrainMigrationMenu,
 		},
 		{
