@@ -940,7 +940,7 @@ func runDefinitionsList() error {
 func runDefinitionsAddOrg() error {
 	fmt.Println("\n➕ Add Organization")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("💡 Press Ctrl+C to cancel at any time\n")
+	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Prompt for abbreviation
 	abbrPrompt := promptui.Prompt{
@@ -1000,7 +1000,7 @@ func runDefinitionsAddOrg() error {
 func runDefinitionsAddProject() error {
 	fmt.Println("\n➕ Add Project")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("💡 Press Ctrl+C to cancel at any time\n")
+	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first to get organizations
 	defs, err := loadTaskDefinitions()
@@ -1087,7 +1087,7 @@ func runDefinitionsAddProject() error {
 func runDefinitionsAddContext() error {
 	fmt.Println("\n➕ Add Context")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("💡 Press Ctrl+C to cancel at any time\n")
+	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first
 	defs, err := loadTaskDefinitions()
@@ -1188,7 +1188,7 @@ func runDefinitionsAddContext() error {
 func runDefinitionsAddPerson() error {
 	fmt.Println("\n➕ Add Person")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("💡 Press Ctrl+C to cancel at any time\n")
+	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first
 	defs, err := loadTaskDefinitions()
