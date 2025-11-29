@@ -1239,42 +1239,60 @@ func runManageBrainsMenu() error {
 			Label:       lang.GetText("menu.manage_brains.add_label"),
 			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
-				prompt := promptui.Prompt{
-					Label: lang.GetText("prompts.brain_path"),
+				// Show common paths for brain selection
+				home, _ := os.UserHomeDir()
+				commonPaths := map[string]string{
+					"Home Directory":           home,
+					"Documents":                filepath.Join(home, "Documents"),
+					"Documents/Obsidian":       filepath.Join(home, "Documents", "Obsidian"),
+					"Documents/Logseq":         filepath.Join(home, "Documents", "Logseq"),
+					"Dropbox (if available)":   filepath.Join(home, "Dropbox"),
+					"iCloud Drive (if available)": filepath.Join(home, "Library", "Mobile Documents"),
 				}
-				path, err := prompt.Run()
+
+				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
-					return runInteractiveMenu()
+					fmt.Printf("\n❌ Selection cancelled\n")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageBrainsMenu()
 				}
+
 				if err := runDirectoryInit(path, "", false); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runManageBrainsMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.manage_brains.scan_label"),
 			Description: lang.GetText("menu.manage_brains.scan_desc"),
 			Action: func() error {
-				prompt := promptui.Prompt{
-					Label:   "Path to scan (leave empty for home directory)",
-					Default: "",
+				// Show common paths for scanning
+				home, _ := os.UserHomeDir()
+				commonPaths := map[string]string{
+					"Home Directory (~)":       home,
+					"Documents":                filepath.Join(home, "Documents"),
+					"Dropbox (if available)":   filepath.Join(home, "Dropbox"),
+					"iCloud Drive (if available)": filepath.Join(home, "Library", "Mobile Documents"),
 				}
-				scanPath, err := prompt.Run()
+
+				scanPath, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
-					return runInteractiveMenu()
+					fmt.Printf("\n❌ Selection cancelled\n")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runManageBrainsMenu()
 				}
-				if scanPath == "" {
-					scanPath = os.Getenv("HOME")
-				}
+
 				if err := runScan(scanPath); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runManageBrainsMenu()
 			},
 		},
 		{
@@ -1444,56 +1462,56 @@ func runBrainMenu() error {
 			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
 				home, _ := os.UserHomeDir()
-				examples := []string{
-					filepath.Join(home, "Documents", "Obsidian"),
-					filepath.Join(home, "Notes"),
-					filepath.Join(home, "Logseq"),
+				commonPaths := map[string]string{
+					"Home Directory":           home,
+					"Documents":                filepath.Join(home, "Documents"),
+					"Documents/Obsidian":       filepath.Join(home, "Documents", "Obsidian"),
+					"Documents/Logseq":         filepath.Join(home, "Documents", "Logseq"),
 				}
-				fmt.Println("\n💡 Example paths:")
-				for _, ex := range examples {
-					fmt.Printf("   %s\n", ex)
-				}
-				fmt.Println()
 
-				promptPath := promptui.Prompt{
-					Label: lang.GetText("prompts.brain_path"),
-				}
-				path, err := promptPath.Run()
+				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
-					return runInteractiveMenu()
+					fmt.Printf("\n❌ Selection cancelled\n")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runBrainMenu()
 				}
+
 				if err := runDirectoryInit(path, "", false); err != nil {
-					fmt.Printf("\nError: %v\n", err)
+					fmt.Printf("\n❌ Error: %v\n", err)
 				} else {
 					fmt.Printf("\n✓ Brain initialized successfully at: %s\n", path)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runBrainMenu()
 			},
 		},
 		{
 			Label:       lang.GetText("menu.manage_brains.scan_label"),
 			Description: lang.GetText("menu.manage_brains.scan_desc"),
 			Action: func() error {
-				promptPath := promptui.Prompt{
-					Label:   "Path to scan (leave empty for home directory)",
-					Default: "",
+				home, _ := os.UserHomeDir()
+				commonPaths := map[string]string{
+					"Home Directory (~)":       home,
+					"Documents":                filepath.Join(home, "Documents"),
+					"Dropbox (if available)":   filepath.Join(home, "Dropbox"),
 				}
-				path, err := promptPath.Run()
+
+				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
-					return runInteractiveMenu()
+					fmt.Printf("\n❌ Selection cancelled\n")
+					fmt.Println(lang.GetText("prompts.continue"))
+					fmt.Scanln()
+					return runBrainMenu()
 				}
-				if path == "" {
-					home, _ := os.UserHomeDir()
-					path = home
-				}
+
 				if err := runScan(path); err != nil {
-					fmt.Printf("\nError: %v\n", err)
+					fmt.Printf("\n❌ Error: %v\n", err)
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return runBrainMenu()
 			},
 		},
 		{
