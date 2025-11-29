@@ -121,6 +121,42 @@
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
     },
+    "manage_brains": {
+      "create_label": "✨ Create New Brain",
+      "create_desc": "Create a new brain with compatible structure",
+      "add_label": "➕ Add Existing Brain",
+      "add_desc": "Add an existing brain directory to workspace",
+      "scan_label": "🔎 Scan for Brains",
+      "scan_desc": "Scan directory for existing brain structures",
+      "edit_label": "✏️  Edit Brain",
+      "edit_desc": "Edit brain settings and configuration",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to manage menu"
+    },
+    "switch": {
+      "workspace_label": "📁 Switch Workspace",
+      "workspace_desc": "Change to a different workspace",
+      "brain_label": "🧠 Set Default Brain",
+      "brain_desc": "Set the default brain for current workspace",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to main menu"
+    },
+    "edit_workspace": {
+      "rename_label": "✏️  Rename Workspace",
+      "rename_desc": "Change workspace name",
+      "repair_label": "🔧 Repair Workspace",
+      "repair_desc": "Fix workspace configuration issues",
+      "remove_label": "🗑️  Remove Workspace",
+      "remove_desc": "Remove workspace from configuration",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to manage menu"
+    },
+    "edit_brain": {
+      "rename_label": "✏️  Rename Brain",
+      "rename_desc": "Change brain name",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to manage menu"
+    },
     "workspaces": {
       "switch_label": "🔄 Switch Workspace",
       "switch_desc": "Change active workspace",

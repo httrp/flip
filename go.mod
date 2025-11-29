@@ -1,8 +1,8 @@
 module github.com/httrp/flip
 
-go 1.24.0
+go 1.25
 
-toolchain go1.24.2
+toolchain go1.25.4
 
 require github.com/spf13/cobra v1.8.0
 

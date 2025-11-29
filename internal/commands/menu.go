@@ -1071,13 +1071,13 @@ func runManageResourcesMenu() error {
 		{
 			Label:       lang.GetText("menu.manage.workspaces_label"),
 			Description: lang.GetText("menu.manage.workspaces_desc"),
-			Command:     lang.GetText("menu.manage.workspaces_command"),
+			Command:     lang.GetText("menu.manage.workspaces_cmd"),
 			Action:      runEditWorkspaceMenu,
 		},
 		{
 			Label:       lang.GetText("menu.manage.brains_label"),
 			Description: lang.GetText("menu.manage.brains_desc"),
-			Command:     lang.GetText("menu.manage.brains_command"),
+			Command:     lang.GetText("menu.manage.brains_cmd"),
 			Action:      runManageBrainsMenu,
 		},
 		{
