@@ -1192,18 +1192,15 @@ func runManageBrainsMenu() error {
 				}
 
 				// Select brain to view with status indicators
+				// Note: Git status checks are expensive, so we skip them here for performance
+				// Full status will be shown in detail view
 				var brainNames []string
 				for _, b := range workspace.Brains {
 					indicator := "  "
 					if workspace.DefaultBrain == b.Name {
 						indicator = "⭐"
 					}
-					// Check if brain has git changes
-					statusIcon := ""
-					if git.IsGitRepo(b.Path) && git.HasUncommittedChanges(b.Path) {
-						statusIcon = " ●"
-					}
-					brainNames = append(brainNames, fmt.Sprintf("%s %s (%s)%s", indicator, b.Name, b.Type, statusIcon))
+					brainNames = append(brainNames, fmt.Sprintf("%s %s (%s)", indicator, b.Name, b.Type))
 				}
 
 				selectBrain := promptui.Select{
