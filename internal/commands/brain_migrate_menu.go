@@ -71,7 +71,8 @@ func runBrainMigrationMenu() error {
 		workspace, err := getActiveWorkspace()
 		if err != nil || len(workspace.Brains) < 2 {
 			fmt.Println("\n⚠️  Need at least 2 brains in workspace for this option.")
-			fmt.Println("Switching to custom paths mode...\n")
+			fmt.Println("Switching to custom paths mode...")
+			fmt.Println()
 			scopeIdx = 1 // Fall back to custom paths
 		}
 
