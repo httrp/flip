@@ -1,29 +1,10 @@
 {
-  "_comment": "Flip i18n - English text resources. Supports flat keys (backwards compatible) and dot-notation for nested access.",
+  "_comment": "Flip i18n - English text resources. Complete and consistent menu structure.",
   
   "welcome_banner": "Your Intelligent Assistant for Personal Knowledge Management and AI-Powered Content Generation",
   
   "banner": {
     "tagline": "Personal Knowledge Management on Steroids"
-  },
-  
-  "intro": {
-    "title": "Welcome to Flip",
-    "separator": "===============================================================",
-    "description": "Flip manages external knowledge bases without moving your notes.",
-    "concepts_header": "Key concepts:",
-    "brain_concept": "Brain: A single knowledge base directory (Obsidian, Logseq, Dendron, markdown)",
-    "workspace_concept": "Workspace: A named collection of related brains",
-    "default_workspace_info": "The 'default' workspace contains all brains Flip knows about on this machine",
-    "quickstart_header": "Quick start:",
-    "quickstart_guided": "flip quickstart           # Guided onboarding",
-    "quickstart_new_brain": "flip brain new            # Create a new brain with a compatible structure",
-    "quickstart_add_brain": "flip brain add <path>     # Connect an existing brain directory",
-    "quickstart_status": "flip status               # See your workspaces and brains",
-    "tips_header": "Tips:",
-    "tip_create_workspace": "Use 'flip workspace create <name>' to organize brains by context (e.g., personal/work)",
-    "tip_set_default": "Set a default brain per workspace with 'flip brain set-default <name>'",
-    "tip_repair": "Repair your registry anytime with 'flip workspace repair'"
   },
   
   "menu": {
@@ -76,7 +57,7 @@
       "organization_label": "🏢 Organization",
       "organization_desc": "Create a new organization",
       "organization_cmd": "flip definitions add org",
-      "project_label": "� Project",
+      "project_label": "📁 Project",
       "project_desc": "Create a new project",
       "project_cmd": "flip definitions add project",
       "context_label": "📂 Context",
@@ -120,42 +101,6 @@
       "migrate_cmd": "flip brain migrate",
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
-    },
-    "manage_brains": {
-      "create_label": "✨ Create New Brain",
-      "create_desc": "Create a new brain with compatible structure",
-      "add_label": "➕ Add Existing Brain",
-      "add_desc": "Add an existing brain directory to workspace",
-      "scan_label": "🔎 Scan for Brains",
-      "scan_desc": "Scan directory for existing brain structures",
-      "edit_label": "✏️  Edit Brain",
-      "edit_desc": "Edit brain settings and configuration",
-      "back_label": "◀️  Back",
-      "back_desc": "Return to manage menu"
-    },
-    "switch": {
-      "workspace_label": "📁 Switch Workspace",
-      "workspace_desc": "Change to a different workspace",
-      "brain_label": "🧠 Set Default Brain",
-      "brain_desc": "Set the default brain for current workspace",
-      "back_label": "◀️  Back",
-      "back_desc": "Return to main menu"
-    },
-    "edit_workspace": {
-      "rename_label": "✏️  Rename Workspace",
-      "rename_desc": "Change workspace name",
-      "repair_label": "🔧 Repair Workspace",
-      "repair_desc": "Fix workspace configuration issues",
-      "remove_label": "🗑️  Remove Workspace",
-      "remove_desc": "Remove workspace from configuration",
-      "back_label": "◀️  Back",
-      "back_desc": "Return to manage menu"
-    },
-    "edit_brain": {
-      "rename_label": "✏️  Rename Brain",
-      "rename_desc": "Change brain name",
-      "back_label": "◀️  Back",
-      "back_desc": "Return to manage menu"
     },
     "workspaces": {
       "switch_label": "🔄 Switch Workspace",
@@ -220,6 +165,22 @@
       "back_desc": "Return to main menu"
     },
     "manage_brains": {
+      "create_label": "✨ Create New Brain",
+      "create_desc": "Create a new brain with compatible structure",
+      "add_label": "➕ Add Existing Brain",
+      "add_desc": "Add an existing brain directory to workspace",
+      "scan_label": "🔎 Scan for Brains",
+      "scan_desc": "Scan directory for existing brain structures",
+      "edit_label": "✏️  Edit Brain",
+      "edit_desc": "Edit brain settings and configuration",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to manage menu"
+    },
+    "switch": {
+      "workspace_label": "📁 Switch Workspace",
+      "workspace_desc": "Change to a different workspace",
+      "brain_label": "🧠 Set Default Brain",
+      "brain_desc": "Set the default brain for current workspace",
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
     },
@@ -235,31 +196,31 @@
     },
     "edit_workspace": {
       "details_label": "🔍 View Details",
-      "details_desc": "View detailed information about a workspace"
+      "details_desc": "View detailed information about a workspace",
+      "rename_label": "✏️  Rename Workspace",
+      "rename_desc": "Change workspace name",
+      "repair_label": "🔧 Repair Workspace",
+      "repair_desc": "Fix workspace configuration issues",
+      "remove_label": "🗑️  Remove Workspace",
+      "remove_desc": "Remove workspace from configuration",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to manage menu"
     },
     "edit_brain": {
       "details_label": "🔍 View Details",
       "details_desc": "Show configuration and details of a brain",
+      "rename_label": "✏️  Rename Brain",
+      "rename_desc": "Change brain name",
+      "default_label": "⭐ Set as Default",
+      "default_desc": "Set this brain as default for the workspace",
       "set_default_label": "⭐ Set as Default",
-      "set_default_desc": "Set this brain as default for the workspace"
-    },
-    "definitions": {
-      "organizations_label": "🏢 Organizations",
-      "organizations_desc": "Browse and manage organizations",
-      "projects_label": "📁 Projects",
-      "projects_desc": "Browse and manage projects",
-      "contexts_label": "📂 Contexts",
-      "contexts_desc": "Browse and manage contexts",
-      "people_label": "👥 People",
-      "people_desc": "Browse and manage people",
-      "scan_label": "🔍 Scan Tasks",
-      "scan_desc": "Scan tasks for new definitions",
-      "export_label": "📝 Export to Note",
-      "export_desc": "Export definitions to a new note",
-      "file_label": "📄 Open File",
-      "file_desc": "Open definitions file in editor",
+      "set_default_desc": "Set this brain as default for the workspace",
+      "repair_label": "🔧 Repair Brain",
+      "repair_desc": "Fix brain configuration issues",
+      "remove_label": "🗑️  Remove Brain",
+      "remove_desc": "Remove brain from workspace",
       "back_label": "◀️  Back",
-      "back_desc": "Return to main menu"
+      "back_desc": "Return to manage menu"
     },
     "brain_details": {
       "header": "Brain Details",
@@ -295,15 +256,23 @@
       "repair_label": "🔧 Repair",
       "repair_desc": "Fix brain configuration",
       "repair_cmd": "flip brain repair",
+      "health_label": "🏥 Health Check",
+      "health_desc": "Run full health check",
+      "health_cmd": "flip brain check",
       "check_label": "🏥 Health Check",
       "check_desc": "Run full health check",
       "check_cmd": "flip brain check",
       "git_label": "📦 Git Operations",
       "git_desc": "View git status and operations",
       "git_cmd": "",
+      "git_status_label": "📦 Git Status",
+      "git_status_desc": "Show git repository status",
+      "git_status_cmd": "flip brain git-status",
       "open_label": "📂 Open",
       "open_desc": "Open in file manager",
       "open_cmd": "",
+      "open_folder_label": "📂 Open Folder",
+      "open_folder_desc": "Open brain directory in file manager",
       "back_label": "◀️  Back",
       "back_desc": "Return to brains menu"
     },
@@ -376,16 +345,36 @@
       "stats_desc": "View task completion and status stats",
       "back_label": "◀️  Back",
       "back_desc": "Return to Browse & Search menu"
+    },
+    "definitions": {
+      "organizations_label": "🏢 Organizations",
+      "organizations_desc": "Browse and manage organizations",
+      "projects_label": "📁 Projects",
+      "projects_desc": "Browse and manage projects",
+      "contexts_label": "📂 Contexts",
+      "contexts_desc": "Browse and manage contexts",
+      "people_label": "👥 People",
+      "people_desc": "Browse and manage people",
+      "scan_label": "🔍 Scan Tasks",
+      "scan_desc": "Scan tasks for new definitions",
+      "export_label": "📝 Export to Note",
+      "export_desc": "Export definitions to a new note",
+      "file_label": "📄 Open File",
+      "file_desc": "Open definitions file in editor",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to main menu"
     }
-  },
-  
-  "commands": {
-    "header": "=== Flip Commands ===",
-    "creation_header": "Content Creation (Flexible Syntax):",
-    "task_mgmt_header": "Task Management:",
-    "workspace_header": "Workspace Management:",
-    "brain_header": "Brain Management:",
-    "other_header": "Other:"
+    "titles": {
+      "main": "Main Menu",
+      "browse": "Browse & Search",
+      "create": "Create",
+      "manage": "Manage Resources",
+      "manage_brains": "Manage Brains",
+      "switch": "Switch Context",
+      "brain_options": "Brain Options",
+      "edit_manage": "What would you like to edit or manage?",
+      "workspace_management": "Workspace Management"
+    }
   },
   
   "prompts": {
@@ -410,6 +399,25 @@
     "no_workspaces": "📭 No workspaces found. Create one first!",
     "no_brains": "📭 No brains in active workspace.",
     "workspace_load_failed": "Error loading workspaces: %v"
+  },
+  
+  "intro": {
+    "title": "Welcome to Flip",
+    "separator": "===============================================================",
+    "description": "Flip manages external knowledge bases without moving your notes.",
+    "concepts_header": "Key concepts:",
+    "brain_concept": "Brain: A single knowledge base directory (Obsidian, Logseq, Dendron, markdown)",
+    "workspace_concept": "Workspace: A named collection of related brains",
+    "default_workspace_info": "The 'default' workspace contains all brains Flip knows about on this machine",
+    "quickstart_header": "Quick start:",
+    "quickstart_guided": "flip quickstart           # Guided onboarding",
+    "quickstart_new_brain": "flip brain new            # Create a new brain with a compatible structure",
+    "quickstart_add_brain": "flip brain add <path>     # Connect an existing brain directory",
+    "quickstart_status": "flip status               # See your workspaces and brains",
+    "tips_header": "Tips:",
+    "tip_create_workspace": "Use 'flip workspace create <name>' to organize brains by context (e.g., personal/work)",
+    "tip_set_default": "Set a default brain per workspace with 'flip brain set-default <name>'",
+    "tip_repair": "Repair your registry anytime with 'flip workspace repair'"
   },
   
   "quickstart": {
@@ -443,29 +451,12 @@
     "brain_created": "Brain '%s' created and added to workspace '%s'!"
   },
   
-  "flap_folder_info": "💡 By default, flip stores new workspaces and brains in ~/flap/ - feel free to use any other folder that suits your workflow better.",
-  "intro_workspace": "A workspace is a collection of brains (knowledge bases) you work with together. Organize your notes, tasks, and knowledge sources in flexible groups.",
-  "intro_brain": "A brain is a knowledge base (e.g. Obsidian vault, Logseq graph, Markdown folder, Dendron workspace). Flip connects to your existing brains or helps you create new ones.",
-  "step_workspace": "Step 1: Create a default workspace to organize your brains",
-  "prompt_workspace_name": "Workspace name",
-  "reserved_flap": "'flap' is reserved for the main folder. Please choose another name.",
-  "prompt_workspace_path": "Workspace path",
-  "workspace_created": "✓ Workspace '%s' created at %s",
-  "step_brain": "Step 2: Add a brain (your knowledge base) to your workspace",
-  "brain_options": "How would you like to add a brain?",
-  "choose_option": "Choose (1/2) [default: 1]: ",
-  "prompt_existing_brain_path": "Path to existing brain",
-  "no_path_provided": "No path provided",
-  "invalid_path": "Invalid path: %s",
-  "path_not_exist": "Path does not exist: %s",
-  "prompt_existing_brain_name": "Name for this brain",
-  "initializing_brain": "→ Initializing '%s' at: %s",
-  "brain_added": "✓ Brain '%s' added to workspace '%s'!",
-  "status_tip": "\n💡 Tip: Use 'flip status' to see your workspaces and brains.",
-  "choose_brain_name": "Choose a name for your new brain",
-  "brain_name_option": "  %d) %s\n",
-  "prompt_brain_name": "Or enter your own name [default: %s]: ",
-  "prompt_brain_path": "Brain path",
-  "creating_brain": "Creating brain '%s' at: %s",
-  "brain_created": "Brain '%s' created and added to workspace '%s'!"
+  "commands": {
+    "header": "=== Flip Commands ===",
+    "creation_header": "Content Creation (Flexible Syntax):",
+    "task_mgmt_header": "Task Management:",
+    "workspace_header": "Workspace Management:",
+    "brain_header": "Brain Management:",
+    "other_header": "Other:"
+  }
 }

@@ -762,7 +762,7 @@ func runInteractiveMenu() error {
 	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Main Menu",
+		Label:     lang.GetText("menu.titles.main"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -868,7 +868,7 @@ func runBrowseSearchMenu() error {
 	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Browse & Search",
+		Label:     lang.GetText("menu.titles.browse"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1044,7 +1044,7 @@ func runCreateNewMenu() error {
 	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Create",
+		Label:     lang.GetText("menu.titles.create"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1144,7 +1144,7 @@ func runManageResourcesMenu() error {
 	templates := createMenuItemWithCommandTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Manage Resources",
+		Label:     lang.GetText("menu.titles.manage"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1307,7 +1307,7 @@ func runManageBrainsMenu() error {
 	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Manage Brains",
+		Label:     lang.GetText("menu.titles.manage_brains"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1415,7 +1415,7 @@ func runSwitchContextMenu() error {
 	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Switch Context",
+		Label:     lang.GetText("menu.titles.switch"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1521,7 +1521,7 @@ func runBrainMenu() error {
 	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Brain Options",
+		Label:     lang.GetText("menu.titles.brain_options"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1646,7 +1646,7 @@ func runEditManageMenu() error {
 	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "What would you like to edit or manage?",
+		Label:     lang.GetText("menu.titles.edit_manage"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
@@ -1871,7 +1871,7 @@ func runEditWorkspaceMenu() error {
 	templates := createMenuItemSelectTemplates()
 
 	selectMenu := promptui.Select{
-		Label:     "Workspace Management",
+		Label:     lang.GetText("menu.titles.workspace_management"),
 		Items:     menuItems,
 		Templates: templates,
 		Size:      calculateMenuSize(len(menuItems)),
