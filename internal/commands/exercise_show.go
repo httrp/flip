@@ -128,7 +128,7 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 				if exercise.TargetUnit != "" {
 					unit = exercise.TargetUnit
 				}
-				valueStr = fmt.Sprintf("%.1f %s", s.Value, unit)
+				valueStr = fmt.Sprintf("%d %s", s.Value, unit)
 			}
 
 			variantStr := "-"

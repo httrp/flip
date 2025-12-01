@@ -495,6 +495,10 @@
     "show": {
       "short": "Show exercise details and progress",
       "long": "Show details for a specific exercise including statistics, recent sessions, and progress over time."
+    },
+    "plan": {
+      "short": "Manage exercise plans",
+      "long": "Create and manage exercise plans - structured groups of exercises for training routines, workouts, or learning programs."
     }
   }
 }
