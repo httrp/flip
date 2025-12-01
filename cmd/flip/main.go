@@ -48,6 +48,8 @@ func main() {
 	rootCmd.AddCommand(commands.NewTemplateCommand())
 	// Register task command
 	rootCmd.AddCommand(commands.NewTaskCommand())
+	// Register exercise command
+	rootCmd.AddCommand(commands.NewExerciseCommand())
 	// Register definitions command
 	rootCmd.AddCommand(commands.NewDefinitionsCommand())
 

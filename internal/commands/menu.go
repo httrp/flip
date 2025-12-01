@@ -729,6 +729,12 @@ func runInteractiveMenu() error {
 			Action:      runBrowseSearchMenu,
 		},
 		{
+			Label:       lang.GetText("menu.main.exercises_label"),
+			Description: lang.GetText("menu.main.exercises_desc"),
+			Command:     lang.GetText("menu.main.exercises_cmd"),
+			Action:      runExercisesMenu,
+		},
+		{
 			Label:       lang.GetText("menu.main.manage_label"),
 			Description: lang.GetText("menu.main.manage_desc"),
 			Command:     lang.GetText("menu.main.manage_cmd"),

@@ -15,6 +15,9 @@
       "browse_label": "🔍 Browse & Search",
       "browse_desc": "Browse recent notes, search, task browser",
       "browse_cmd": "flip search (flip s)",
+      "exercises_label": "🏋️ Exercises",
+      "exercises_desc": "Track practice sessions and manage exercises",
+      "exercises_cmd": "flip exercise",
       "manage_label": "⚙️  Manage",
       "manage_desc": "Manage workspaces, brains, templates",
       "manage_cmd": "",
@@ -27,6 +30,20 @@
       "exit_label": "🚪 Exit",
       "exit_desc": "Save changes and exit",
       "exit_cmd": ""
+    },
+    "exercises": {
+      "track_label": "⏺️ Track Session",
+      "track_desc": "Quickly record a practice session",
+      "track_cmd": "flip exercise track",
+      "list_label": "📋 List Exercises",
+      "list_desc": "Show all exercises with stats",
+      "list_cmd": "flip exercise list",
+      "new_label": "✨ New Exercise",
+      "new_desc": "Create a new exercise definition",
+      "new_cmd": "flip exercise new",
+      "show_label": "🔎 Show Exercise",
+      "show_desc": "Show details and recent sessions",
+      "show_cmd": "flip exercise show <id>"
     },
     "browse": {
       "recent_label": "📄 Recent Notes",
@@ -458,5 +475,26 @@
     "workspace_header": "Workspace Management:",
     "brain_header": "Brain Management:",
     "other_header": "Other:"
+  },
+  
+  "exercise": {
+    "short": "Manage exercises and practice tracking",
+    "long": "Create and track exercises - repeatable practice activities for skills, instruments, languages, fitness, and more. Track your progress over time with sessions and statistics.",
+    "new": {
+      "short": "Create a new exercise definition",
+      "long": "Create a new exercise definition. Exercises are repeatable practice activities that you want to improve at over time. Examples: drum rudiments, language practice, fitness exercises."
+    },
+    "list": {
+      "short": "List all exercises",
+      "long": "List all exercises in your brain. Filter by type or tags to find specific exercises."
+    },
+    "track": {
+      "short": "Track a practice session",
+      "long": "Track a practice session for an exercise. Record duration, value, variant, rating, and notes. Quick tracking is optimized for 10-30 second entry."
+    },
+    "show": {
+      "short": "Show exercise details and progress",
+      "long": "Show details for a specific exercise including statistics, recent sessions, and progress over time."
+    }
   }
 }
