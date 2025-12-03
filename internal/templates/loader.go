@@ -24,10 +24,12 @@ func GetTemplateDir() (string, error) {
 type TemplateType string
 
 const (
-	TemplateTypeNote    TemplateType = "note"
-	TemplateTypeMeeting TemplateType = "meeting"
-	TemplateTypeJournal TemplateType = "journal"
-	TemplateTypeTask    TemplateType = "task"
+	TemplateTypeNote         TemplateType = "note"
+	TemplateTypeMeeting      TemplateType = "meeting"
+	TemplateTypeJournal      TemplateType = "journal"
+	TemplateTypeTask         TemplateType = "task"
+	TemplateTypeExercise     TemplateType = "exercise"
+	TemplateTypeExercisePlan TemplateType = "exercise-plan"
 )
 
 // Load reads a template file for the given brain type and template type

@@ -3,7 +3,9 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
@@ -41,7 +43,6 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 	}
 
 	scanner := exercises.NewScanner()
-	parser := exercises.NewParser()
 
 	// Get exercise ID
 	var exerciseID string
@@ -56,14 +57,19 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		}
 
 		if len(allExercises) == 0 {
-			fmt.Println("No exercises found. Create one with 'flip exercise new'")
-			os.Exit(1)
+			fmt.Println("\n⚠️  No exercises found")
+			fmt.Println("Create one with: flip exercise new")
+			return
 		}
 
 		exerciseNames := make([]string, len(allExercises))
 		exerciseMap := make(map[string]*exercises.Exercise)
 		for i, ex := range allExercises {
-			exerciseNames[i] = fmt.Sprintf("%s (%s)", ex.Name, string(ex.Type))
+			contextStr := "no context"
+			if ex.Context != "" {
+				contextStr = ex.Context
+			}
+			exerciseNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
 			exerciseMap[exerciseNames[i]] = ex
 		}
 
@@ -100,44 +106,84 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Create session
+	// Create session properties
 	now := time.Now()
-	session := &exercises.ExerciseSession{
-		ExerciseID: exerciseID,
-		Date:       now,
-		Unit:       exercise.TargetUnit,
-	}
+	properties := make(map[string]interface{})
+	var variantName string
 
-	// Prompt for session details based on exercise type
-	switch exercise.Type {
-	case exercises.TypeRepetition, exercises.TypeTarget:
-		// Ask for value
-		unit := "reps"
-		if exercise.TargetUnit != "" {
-			unit = exercise.TargetUnit
+	// Select variant if multiple exist
+	if len(exercise.Variants) > 1 {
+		variantLabels := make([]string, len(exercise.Variants))
+		for i, v := range exercise.Variants {
+			if v.Name != "" {
+				variantLabels[i] = fmt.Sprintf("Variant %d: %s", i+1, v.Name)
+			} else {
+				variantLabels[i] = fmt.Sprintf("Variant %d", i+1)
+			}
 		}
-		valuePrompt := promptui.Prompt{
-			Label: fmt.Sprintf("Value (%s)", unit),
+		
+		variantPrompt := promptui.Select{
+			Label: "Select variant",
+			Items: variantLabels,
 		}
-		valueStr, err := valuePrompt.Run()
+		variantIdx, _, err := variantPrompt.Run()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
-		value, _ := strconv.ParseFloat(valueStr, 64)
-		session.Value = int(value)
-
-	case exercises.TypeVariations:
-		// Ask for variant
-		if len(exercise.Variants) > 0 {
-			variantPrompt := promptui.Select{
-				Label: "Select Variant",
-				Items: exercise.Variants,
+		
+		selectedVariant := exercise.Variants[variantIdx]
+		variantName = selectedVariant.Name
+		
+		// Prompt for tracking properties from selected variant
+		if len(selectedVariant.TrackingProperties) > 0 {
+			fmt.Println("\nEnter values for tracking properties:")
+			for name, unit := range selectedVariant.TrackingProperties {
+				prompt := promptui.Prompt{
+					Label: fmt.Sprintf("%s (%s)", name, unit),
+				}
+				valueStr, err := prompt.Run()
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					os.Exit(1)
+				}
+				if valueStr != "" {
+					// Try to parse as number, otherwise keep as string
+					if intVal, err := strconv.Atoi(valueStr); err == nil {
+						properties[name] = intVal
+					} else if floatVal, err := strconv.ParseFloat(valueStr, 64); err == nil {
+						properties[name] = floatVal
+					} else {
+						properties[name] = valueStr
+					}
+				}
 			}
-			_, session.Variant, err = variantPrompt.Run()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+		}
+	} else if len(exercise.Variants) == 1 {
+		// Only one variant, use it automatically
+		variant := exercise.Variants[0]
+		variantName = variant.Name
+		
+		if len(variant.TrackingProperties) > 0 {
+			fmt.Println("\nEnter values for tracking properties:")
+			for name, unit := range variant.TrackingProperties {
+				prompt := promptui.Prompt{
+					Label: fmt.Sprintf("%s (%s)", name, unit),
+				}
+				valueStr, err := prompt.Run()
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					os.Exit(1)
+				}
+				if valueStr != "" {
+					if intVal, err := strconv.Atoi(valueStr); err == nil {
+						properties[name] = intVal
+					} else if floatVal, err := strconv.ParseFloat(valueStr, 64); err == nil {
+						properties[name] = floatVal
+					} else {
+						properties[name] = valueStr
+					}
+				}
 			}
 		}
 	}
@@ -153,22 +199,75 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	duration, _ := strconv.Atoi(durationStr)
-	session.Duration = duration
 
 	// Notes (optional)
 	notesPrompt := promptui.Prompt{
 		Label: "Notes (optional)",
 	}
-	session.Notes, _ = notesPrompt.Run()
+	notes, _ := notesPrompt.Run()
 
-	// Rating omitted in MVP
+	// Append to journal
+	journalDir := getJournalDirectory(brainPath, detection.Type)
+	journalFilename := generateJournalFilename(now, detection.Type)
+	journalPath := filepath.Join(journalDir, journalFilename)
 
-	// Write session file
-	filePath := parser.GetSessionFilePath(brainPath, exerciseID, now, string(detection.Type))
-	if err := parser.WriteSession(session, filePath); err != nil {
-		fmt.Printf("Error creating session: %v\n", err)
+	// Ensure journal directory exists
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		fmt.Printf("Error creating journal directory: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("✓ Session tracked: %s\n", filePath)
+	// Build exercise block
+	var block strings.Builder
+	block.WriteString(fmt.Sprintf("\n## Exercise: %s\n", exercise.Name))
+	block.WriteString(fmt.Sprintf("- exercise-id:: %s\n", exercise.ID))
+	if variantName != "" {
+		block.WriteString(fmt.Sprintf("- variant:: %s\n", variantName))
+	}
+	block.WriteString(fmt.Sprintf("- duration:: %d min\n", duration))
+	
+	for key, value := range properties {
+		block.WriteString(fmt.Sprintf("- %s:: %v\n", key, value))
+	}
+	
+	if notes != "" {
+		block.WriteString(fmt.Sprintf("- notes:: %s\n", notes))
+	}
+
+	// Append or create journal file
+	var journalContent string
+	if _, err := os.Stat(journalPath); err == nil {
+		// File exists, append
+		data, err := os.ReadFile(journalPath)
+		if err != nil {
+			fmt.Printf("Error reading journal: %v\n", err)
+			os.Exit(1)
+		}
+		journalContent = string(data) + block.String()
+	} else {
+		// File doesn't exist, create with minimal header
+		journalContent = generateMinimalJournalHeader(now, detection.Type) + block.String()
+	}
+
+	if err := os.WriteFile(journalPath, []byte(journalContent), 0644); err != nil {
+		fmt.Printf("Error writing journal: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Exercise tracked in journal: %s\n", journalPath)
+}
+
+// generateMinimalJournalHeader creates a minimal journal header if file doesn't exist
+func generateMinimalJournalHeader(date time.Time, brainType brain.BrainType) string {
+	dateStr := date.Format("2006-01-02")
+	weekday := date.Format("Monday")
+
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		return fmt.Sprintf("- %s, %s\n", weekday, dateStr)
+	case brain.BrainTypeObsidian:
+		return fmt.Sprintf("---\ndate: %s\n---\n\n# %s, %s\n", dateStr, weekday, dateStr)
+	default:
+		return fmt.Sprintf("# %s, %s\n", weekday, dateStr)
+	}
 }

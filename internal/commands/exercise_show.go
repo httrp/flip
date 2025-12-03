@@ -10,6 +10,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +19,7 @@ var ExerciseShowCmd = &cobra.Command{
 	Use:   "show [exercise-id]",
 	Short: lang.GetText("exercise.show.short"),
 	Long:  lang.GetText("exercise.show.long"),
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run:   runExerciseShow,
 }
 
@@ -27,7 +28,10 @@ func init() {
 }
 
 func runExerciseShow(cmd *cobra.Command, args []string) {
-	exerciseID := args[0]
+	var exerciseID string
+	if len(args) > 0 {
+		exerciseID = args[0]
+	}
 
 	// Detect brain
 	brainPath, err := os.Getwd()
@@ -49,13 +53,45 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 
 	scanner := exercises.NewScanner()
 
-	// Load exercise
+	// Load all exercises
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
+	if len(allExercises) == 0 {
+		fmt.Println("No exercises found. Create one with 'flip exercise new'")
+		os.Exit(1)
+	}
+
+	// If no ID provided, let user select
+	if exerciseID == "" {
+		exerciseNames := make([]string, len(allExercises))
+		exerciseMap := make(map[string]*exercises.Exercise)
+		for i, ex := range allExercises {
+			contextStr := "no context"
+			if ex.Context != "" {
+				contextStr = ex.Context
+			}
+			exerciseNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
+			exerciseMap[exerciseNames[i]] = ex
+		}
+
+		selectPrompt := promptui.Select{
+			Label: "Select Exercise",
+			Items: exerciseNames,
+		}
+		_, selected, err := selectPrompt.Run()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		exerciseID = exerciseMap[selected].ID
+	}
+
+	// Find the exercise
 	var exercise *exercises.Exercise
 	for _, ex := range allExercises {
 		if ex.ID == exerciseID {
@@ -83,7 +119,9 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 
 	// Display exercise details
 	fmt.Printf("Exercise: %s\n", exercise.Name)
-	fmt.Printf("Type: %s\n", string(exercise.Type))
+	if exercise.Context != "" {
+		fmt.Printf("Context: %s\n", exercise.Context)
+	}
 	if exercise.Description != "" {
 		fmt.Printf("Description: %s\n", exercise.Description)
 	}
@@ -92,6 +130,18 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 	}
 	if len(exercise.Tags) > 0 {
 		fmt.Printf("Tags: %s\n", strings.Join(exercise.Tags, ", "))
+	}
+	
+	// Display variants
+	if len(exercise.Variants) > 0 {
+		fmt.Printf("\nVariants: %d\n", len(exercise.Variants))
+		for i, v := range exercise.Variants {
+			if v.Name != "" {
+				fmt.Printf("  %d. %s\n", i+1, v.Name)
+			} else {
+				fmt.Printf("  %d. (unnamed)\n", i+1)
+			}
+		}
 	}
 	fmt.Println()
 
@@ -117,32 +167,32 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 		fmt.Printf("Recent Sessions (showing %d):\n", min(limit, len(sessions)))
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "DATE\tDURATION\tVALUE\tVARIANT")
+		fmt.Fprintln(w, "DATE\tVARIANT\tDURATION\tPROPERTIES")
 
 		for i := 0; i < min(limit, len(sessions)); i++ {
 			s := sessions[i]
 			
-			valueStr := "-"
-			if s.Value > 0 {
-				unit := "reps"
-				if exercise.TargetUnit != "" {
-					unit = exercise.TargetUnit
-				}
-				valueStr = fmt.Sprintf("%d %s", s.Value, unit)
-			}
-
+			// Variant name
 			variantStr := "-"
-			if s.Variant != "" {
-				variantStr = s.Variant
+			if s.VariantName != "" {
+				variantStr = s.VariantName
+			}
+			
+			// Build properties string
+			propsStr := "-"
+			if len(s.Properties) > 0 {
+				var props []string
+				for k, v := range s.Properties {
+					props = append(props, fmt.Sprintf("%s: %v", k, v))
+				}
+				propsStr = strings.Join(props, ", ")
 			}
 
-            // No rating in MVP
-
-			fmt.Fprintf(w, "%s\t%dm\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%dm\t%s\n",
 				s.Date.Format("2006-01-02"),
-				s.Duration,
-				valueStr,
 				variantStr,
+				s.Duration,
+				propsStr,
 			)
 
 			if s.Notes != "" {

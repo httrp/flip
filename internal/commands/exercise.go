@@ -18,6 +18,7 @@ func NewExerciseCommand() *cobra.Command {
 	cmd.AddCommand(ExerciseListCmd)
 	cmd.AddCommand(ExerciseTrackCmd)
 	cmd.AddCommand(ExerciseShowCmd)
+	cmd.AddCommand(ExerciseEditCmd)
 	cmd.AddCommand(NewExercisePlanCommand())
 
 	return cmd

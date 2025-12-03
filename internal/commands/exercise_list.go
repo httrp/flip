@@ -59,7 +59,8 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	// Apply filters
 	var filteredExercises []*exercises.Exercise
 	for _, ex := range allExercises {
-		if filterType != "" && string(ex.Type) != filterType {
+		// Filter by context if specified
+		if filterType != "" && ex.Context != filterType {
 			continue
 		}
 
@@ -82,7 +83,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTYPE\tSESSIONS\tLAST TRACKED")
+	fmt.Fprintln(w, "NAME\tCONTEXT\tVARIANTS\tSESSIONS\tLAST TRACKED")
 
 	for _, ex := range filteredExercises {
 		lastSession := "-"
@@ -90,9 +91,15 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 			lastSession = ex.LastSession.Format("2006-01-02")
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
+		context := "-"
+		if ex.Context != "" {
+			context = ex.Context
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n",
 			ex.Name,
-			string(ex.Type),
+			context,
+			len(ex.Variants),
 			ex.SessionCount,
 			lastSession,
 		)

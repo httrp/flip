@@ -91,7 +91,11 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) {
 		exerciseNames := make([]string, len(allExercises)+1)
 		exerciseMap := make(map[string]*exercises.Exercise)
 		for i, ex := range allExercises {
-			exerciseNames[i] = fmt.Sprintf("%s (%s)", ex.Name, string(ex.Type))
+			contextStr := "no context"
+			if ex.Context != "" {
+				contextStr = ex.Context
+			}
+			exerciseNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
 			exerciseMap[exerciseNames[i]] = ex
 		}
 		exerciseNames[len(allExercises)] = "Done adding exercises"

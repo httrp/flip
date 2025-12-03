@@ -729,12 +729,6 @@ func runInteractiveMenu() error {
 			Action:      runBrowseSearchMenu,
 		},
 		{
-			Label:       lang.GetText("menu.main.exercises_label"),
-			Description: lang.GetText("menu.main.exercises_desc"),
-			Command:     lang.GetText("menu.main.exercises_cmd"),
-			Action:      runExercisesMenu,
-		},
-		{
 			Label:       lang.GetText("menu.main.manage_label"),
 			Description: lang.GetText("menu.main.manage_desc"),
 			Command:     lang.GetText("menu.main.manage_cmd"),
@@ -864,6 +858,17 @@ func runBrowseSearchMenu() error {
 			},
 		},
 		{
+			Label:       "🏋️  Exercises",
+			Description: "Track session or browse exercise history",
+			Command:     "flip exercise",
+			Action: func() error {
+				if err := runExercisesSubmenu(); err != nil {
+					return err
+				}
+				return runBrowseSearchMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.browse.back_label"),
 			Description: lang.GetText("menu.browse.back_desc"),
 			Command:     "",
@@ -945,6 +950,17 @@ func runCreateNewMenu() error {
 				if err := runCreateTask(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
+			Label:       "🏋️  New Exercise",
+			Description: "Create a new repeatable exercise for practice and tracking",
+			Command:     "flip exercise new",
+			Action: func() error {
+				runExerciseNew(nil, []string{})
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runCreateNewMenu()
@@ -3146,4 +3162,92 @@ func runBrainDetails(brainInfo Brain) func() error {
 		fmt.Println()
 		return menuItems[idx].Action()
 	}
+}
+
+// runExercisesSubmenu shows exercise-specific actions
+func runExercisesSubmenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+	showBreadcrumb("Main", "Browse & Search", "Exercises")
+
+	menuItems := []MenuItem{
+		{
+			Label:       "🏃 Track Session",
+			Description: "Log a new exercise session",
+			Command:     "flip exercise track",
+			Action: func() error {
+				ExerciseTrackCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
+			Label:       "📋 List Exercises",
+			Description: "Show all exercises",
+			Command:     "flip exercise list",
+			Action: func() error {
+				ExerciseListCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
+			Label:       "📊 Show Exercise",
+			Description: "View exercise details and history",
+			Command:     "flip exercise show [id]",
+			Action: func() error {
+				fmt.Print("\n📝 Exercise ID: ")
+				var id string
+				fmt.Scanln(&id)
+				if id != "" {
+					ExerciseShowCmd.Run(nil, []string{id})
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
+			Label:       "🗂️  Plans",
+			Description: "Manage exercise plans",
+			Command:     "flip exercise plan",
+			Action: func() error {
+				// For now, just list plans
+				ExercisePlanListCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
+			Label:       "◀️  Back",
+			Description: "Return to Browse & Search menu",
+			Command:     "",
+			Action:      nil, // Will return to parent menu
+		},
+	}
+
+	templates := createMenuItemWithCommandTemplates()
+
+	selectMenu := promptui.Select{
+		Label:     "Exercise Actions",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return nil // Return to parent menu
+	}
+
+	fmt.Println()
+	if menuItems[idx].Action == nil {
+		return nil // Back button
+	}
+	return menuItems[idx].Action()
 }

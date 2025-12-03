@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,12 +156,28 @@ func (p *Parser) WriteExercise(exercise *Exercise, filePath string) error {
 		content.WriteString("\n")
 	}
 
+	// Variants
 	if len(exercise.Variants) > 0 {
-		content.WriteString("## Variants\n")
-		for _, variant := range exercise.Variants {
-			content.WriteString(fmt.Sprintf("- %s\n", variant))
+		content.WriteString("## Variants\n\n")
+		for i, variant := range exercise.Variants {
+			if variant.Name != "" {
+				content.WriteString(fmt.Sprintf("### Variant %d: %s\n\n", i+1, variant.Name))
+			} else {
+				content.WriteString(fmt.Sprintf("### Variant %d\n\n", i+1))
+			}
+			
+			if variant.Description != "" {
+				content.WriteString(variant.Description + "\n\n")
+			}
+			
+			if len(variant.TrackingProperties) > 0 {
+				content.WriteString("**Tracking Properties:**\n")
+				for key, value := range variant.TrackingProperties {
+					content.WriteString(fmt.Sprintf("- **%s**: %s\n", key, value))
+				}
+				content.WriteString("\n")
+			}
 		}
-		content.WriteString("\n")
 	}
 
 	// Write file
@@ -190,14 +207,15 @@ func (p *Parser) WriteSession(session *ExerciseSession, filePath string) error {
 	content.WriteString("---\n\n")
 	content.WriteString(fmt.Sprintf("# Session: %s - %s\n\n", session.ExerciseID, session.Date.Format("2006-01-02")))
 
-	if session.Variant != "" {
-		content.WriteString(fmt.Sprintf("**Variant**: %s  \n", session.Variant))
-	}
 	if session.Duration > 0 {
 		content.WriteString(fmt.Sprintf("**Duration**: %d min  \n", session.Duration))
 	}
-	if session.Value > 0 {
-		content.WriteString(fmt.Sprintf("**Value**: %d %s  \n", session.Value, session.Unit))
+	
+	// Write custom properties
+	if len(session.Properties) > 0 {
+		for key, value := range session.Properties {
+			content.WriteString(fmt.Sprintf("**%s**: %v  \n", key, value))
+		}
 	}
 
 	content.WriteString("\n")
@@ -409,4 +427,109 @@ func (p *Parser) GetPlanSessionFilePath(brainPath, planID string, date time.Time
 	default:
 		return filepath.Join(brainPath, "exercise-plans", "sessions", planID, fmt.Sprintf("%s.md", dateStr))
 	}
+}
+
+// ParseJournalExerciseBlocks extracts exercise sessions from a journal file
+func (p *Parser) ParseJournalExerciseBlocks(filePath string) ([]*ExerciseSession, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read journal file: %w", err)
+	}
+
+	// Extract date from filename (YYYY-MM-DD or YYYY_MM_DD)
+	filename := filepath.Base(filePath)
+	dateStr := strings.TrimSuffix(filename, ".md")
+	dateStr = strings.ReplaceAll(dateStr, "_", "-")
+	
+	journalDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		// If we can't parse date from filename, use current date
+		journalDate = time.Now()
+	}
+
+	var sessions []*ExerciseSession
+	lines := strings.Split(string(content), "\n")
+	
+	var currentSession *ExerciseSession
+	var blockStart int
+	
+	for i, line := range lines {
+		// Check for exercise block header: "## Exercise: Name"
+		if strings.HasPrefix(line, "## Exercise:") {
+			// Save previous session if exists
+			if currentSession != nil {
+				currentSession.BlockEnd = i - 1
+				sessions = append(sessions, currentSession)
+			}
+			
+			// Start new session
+			_ = strings.TrimSpace(strings.TrimPrefix(line, "## Exercise:"))
+			currentSession = &ExerciseSession{
+				Date:        journalDate,
+				Properties:  make(map[string]interface{}),
+				BlockStart:  i,
+				JournalDate: journalDate.Format("2006-01-02"),
+				FilePath:    filePath,
+			}
+			blockStart = i
+			continue
+		}
+		
+		// Parse properties within exercise block
+		if currentSession != nil && strings.HasPrefix(strings.TrimSpace(line), "- ") {
+			// Property line format: "- key:: value"
+			propLine := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "- "))
+			
+			if strings.Contains(propLine, "::") {
+				parts := strings.SplitN(propLine, "::", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					valueStr := strings.TrimSpace(parts[1])
+					
+					// Handle special keys
+					switch key {
+					case "exercise-id":
+						currentSession.ExerciseID = valueStr
+					case "variant":
+						currentSession.VariantName = valueStr
+					case "duration":
+						// Parse "30 min" format
+						durationStr := strings.TrimSuffix(valueStr, " min")
+						durationStr = strings.TrimSuffix(durationStr, "min")
+						if duration, err := strconv.Atoi(strings.TrimSpace(durationStr)); err == nil {
+							currentSession.Duration = duration
+						}
+					case "notes":
+						currentSession.Notes = valueStr
+					default:
+						// Store as property - try to parse as number
+						if intVal, err := strconv.Atoi(valueStr); err == nil {
+							currentSession.Properties[key] = intVal
+						} else if floatVal, err := strconv.ParseFloat(valueStr, 64); err == nil {
+							currentSession.Properties[key] = floatVal
+						} else {
+							currentSession.Properties[key] = valueStr
+						}
+					}
+				}
+			}
+		}
+		
+		// Check if we've left the exercise block (empty line or new header)
+		if currentSession != nil && (line == "" || (strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "## Exercise:"))) {
+			if i > blockStart+1 { // At least some content after header
+				currentSession.BlockEnd = i - 1
+				sessions = append(sessions, currentSession)
+				currentSession = nil
+			}
+		}
+	}
+	
+	// Save last session if exists
+	if currentSession != nil {
+		currentSession.BlockEnd = len(lines) - 1
+		sessions = append(sessions, currentSession)
+	}
+	
+	return sessions, nil
 }

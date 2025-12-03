@@ -98,7 +98,19 @@ func (s *Scanner) ScanSessions(brainPath, exerciseID string, brainType string) (
 				return nil
 			}
 
-			// Try to parse as session
+			// Try to parse as journal file with exercise blocks
+			journalSessions, err := s.parser.ParseJournalExerciseBlocks(path)
+			if err == nil && len(journalSessions) > 0 {
+				// Filter by exercise ID
+				for _, session := range journalSessions {
+					if session.ExerciseID == exerciseID {
+						sessions = append(sessions, session)
+					}
+				}
+				return nil
+			}
+
+			// Fallback: Try to parse as old-style session file (for backwards compatibility)
 			session, err := s.parser.ParseSession(path)
 			if err != nil {
 				return nil

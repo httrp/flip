@@ -4,23 +4,12 @@ import (
 	"time"
 )
 
-// ExerciseType defines the category of exercise
-type ExerciseType string
-
-const (
-	TypeRepetition ExerciseType = "repetition" // Simple counting
-	TypeVariations ExerciseType = "variations" // Different variants
-	TypeTarget     ExerciseType = "target"     // Measurable goal
-	TypeSkill      ExerciseType = "skill"      // Skill levels
-	TypeProject    ExerciseType = "project"    // Multi-step project
-)
-
 // Exercise represents a repeatable practice/training activity
 type Exercise struct {
 	// Core identification
-	ID   string       `yaml:"id" json:"id"`
-	Type ExerciseType `yaml:"exercise_type" json:"exercise_type"` // "exercise_type" for compatibility
-	Name string       `yaml:"name" json:"name"`
+	ID      string `yaml:"id" json:"id"`
+	Name    string `yaml:"name" json:"name"`
+	Context string `yaml:"context,omitempty" json:"context,omitempty"` // User-defined: Sport, Music, Language, Basketball, etc.
 
 	// Metadata (compatible with Obsidian/Logseq/Dendron)
 	Description string    `yaml:"description,omitempty" json:"description,omitempty"`
@@ -29,12 +18,8 @@ type Exercise struct {
 	Created     time.Time `yaml:"created" json:"created"`
 	Status      string    `yaml:"status,omitempty" json:"status,omitempty"` // active, inactive, paused
 
-	// Type-specific fields
-	Variants     []string `yaml:"variants,omitempty" json:"variants,omitempty"`         // For TypeVariations
-	TargetValue  int      `yaml:"target_value,omitempty" json:"target_value,omitempty"` // For TypeTarget
-	TargetUnit   string   `yaml:"target_unit,omitempty" json:"target_unit,omitempty"`   // "sec", "reps", "count"
-	SkillLevels  []string `yaml:"skill_levels,omitempty" json:"skill_levels,omitempty"` // For TypeSkill
-	ProjectSteps []string `yaml:"project_steps,omitempty" json:"project_steps,omitempty"` // For TypeProject
+	// Variants - different variations of this exercise
+	Variants []ExerciseVariant `yaml:"variants,omitempty" json:"variants,omitempty"`
 
 	// Optional guidance
 	Duration string `yaml:"duration,omitempty" json:"duration,omitempty"` // Expected duration "20-30 min"
@@ -63,7 +48,14 @@ type Material struct {
 	Path  string `yaml:"path,omitempty" json:"path,omitempty"` // Local path in brain
 }
 
-// ExerciseSession represents a single practice session
+// ExerciseVariant represents a specific variation of an exercise
+type ExerciseVariant struct {
+	Name               string            `yaml:"name,omitempty" json:"name,omitempty"`                               // Optional: "Balance & Control", "Dynamic Waves", etc.
+	Description        string            `yaml:"description,omitempty" json:"description,omitempty"`                 // What makes this variant unique
+	TrackingProperties map[string]string `yaml:"tracking_properties,omitempty" json:"tracking_properties,omitempty"` // e.g. "tempo": "bpm", "focus": "text"
+}
+
+// ExerciseSession represents a single practice session (stored in journal)
 type ExerciseSession struct {
 	// Core identification
 	ID         string    `yaml:"id,omitempty" json:"id,omitempty"` // UUID (optional for simple sessions)
@@ -71,23 +63,23 @@ type ExerciseSession struct {
 	Date       time.Time `yaml:"date" json:"date"`
 
 	// Session data
-	Duration int    `yaml:"duration,omitempty" json:"duration,omitempty"` // Minutes
-	Notes    string `yaml:"notes,omitempty" json:"notes,omitempty"`
+	Duration    int    `yaml:"duration,omitempty" json:"duration,omitempty"`       // Minutes
+	VariantName string `yaml:"variant_name,omitempty" json:"variant_name,omitempty"` // Which variant was practiced
+	Notes       string `yaml:"notes,omitempty" json:"notes,omitempty"`
 
-	// Type-specific tracking
-	Variant  string `yaml:"variant,omitempty" json:"variant,omitempty"`   // For TypeVariations
-	Value    int    `yaml:"value,omitempty" json:"value,omitempty"`       // For TypeTarget
-	Unit     string `yaml:"unit,omitempty" json:"unit,omitempty"`         // For TypeTarget
-	Level    string `yaml:"level,omitempty" json:"level,omitempty"`       // For TypeSkill
-	Progress int    `yaml:"progress,omitempty" json:"progress,omitempty"` // For TypeProject (0-100%)
+	// Flexible tracking data - any key-value pairs user wants to track
+	Properties map[string]interface{} `yaml:"properties,omitempty" json:"properties,omitempty"` // e.g. {"speed": 120, "level": 3, "reps": 50}
 
 	// Brain compatibility fields
-	Tags     []string `yaml:"tags,omitempty" json:"tags,omitempty"` // For Obsidian Dataview
+	Tags     []string `yaml:"tags,omitempty" json:"tags,omitempty"`         // For Obsidian Dataview
 	Exercise string   `yaml:"exercise,omitempty" json:"exercise,omitempty"` // Wikilink to exercise: "[[Exercise Name]]"
 
-	// File context (internal)
-	FilePath  string `yaml:"-" json:"-"`
-	BrainPath string `yaml:"-" json:"-"`
+	// File context (internal) - journal entry info
+	FilePath    string `yaml:"-" json:"-"` // Path to journal file
+	BrainPath   string `yaml:"-" json:"-"`
+	BlockStart  int    `yaml:"-" json:"-"` // Line number where this session starts in journal
+	BlockEnd    int    `yaml:"-" json:"-"` // Line number where this session ends in journal
+	JournalDate string `yaml:"-" json:"-"` // Journal date (YYYY-MM-DD format)
 }
 
 // ExercisePlan groups multiple exercises into a structured training/learning plan

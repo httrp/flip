@@ -962,3 +962,112 @@ System folders and irrelevant directories are automatically skipped. Scan depth 
    - Run global actions across all connected workspaces (search, summarize, tasks) regardless of their physical locations.
 
 This keeps your data independent and portable (folders live anywhere), while flip provides a central, tool-agnostic control plane.
+
+---
+
+## Templates
+
+Flip supports customizable templates for different content types. Templates are stored in your brain's `templates/` directory and can be customized per brain type.
+
+### Available Template Types
+
+- **note-template.md**: For general notes
+- **meeting-template.md**: For meeting notes
+- **journal-template.md**: For daily journal entries
+- **task-template.md**: For task definitions
+- **exercise-template.md**: For exercise definitions
+- **exercise-plan-template.md**: For exercise/training plans
+
+### Template Location
+
+Templates are stored in your brain's root directory:
+```
+your-brain/
+  templates/
+    note-template.md
+    meeting-template.md
+    journal-template.md
+    exercise-template.md
+    exercise-plan-template.md
+```
+
+### Template Variables
+
+Templates support variable substitution using `{{variable}}` syntax:
+
+**Common variables:**
+- `{{id}}`: Unique identifier
+- `{{name}}/{{title}}`: Name or title
+- `{{date}}/{{created}}`: Date/timestamp
+- `{{tags}}`: Comma-separated tags
+- `{{context}}`: Context (for exercises)
+- `{{description}}`: Description text
+
+**Example Exercise Template (Logseq):**
+```markdown
+id:: {{id}}
+name:: {{name}}
+type:: exercise
+context:: {{context}}
+created:: {{created}}
+status:: active
+
+- # {{name}}
+- ## Description
+  - Brief description of this exercise
+- ## Variants
+  - ### Variant 1
+    - **Description:** What makes this variant unique
+    - **Tracking Properties:**
+      - tempo:: bpm
+      - focus:: text
+- ## Materials
+  - [[Video Tutorial]]
+- ## Related
+  - [[Another Exercise]]
+```
+
+**Example Exercise Template (Obsidian):**
+```markdown
+---
+id: {{id}}
+name: {{name}}
+type: exercise
+context: {{context}}
+created: {{created}}
+status: active
+---
+
+# {{name}}
+
+## Description
+
+Brief description of this exercise
+
+## Variants
+
+### Variant 1
+
+**Description:** What makes this variant unique
+
+**Tracking Properties:**
+- **tempo**: bpm
+- **focus**: text
+
+## Materials
+
+- [[Video Tutorial]]
+
+## Related
+
+- [[Another Exercise]]
+```
+
+### Creating Custom Templates
+
+1. Create a `templates/` folder in your brain root if it doesn't exist
+2. Create template files with appropriate names (e.g., `exercise-template.md`)
+3. Use `{{variable}}` syntax for dynamic content
+4. Flip will automatically use templates when creating new content
+
+Templates adapt to your brain type (Logseq, Obsidian, Dendron) and maintain compatibility with your PKM tool's conventions.
