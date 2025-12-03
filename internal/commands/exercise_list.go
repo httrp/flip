@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/httrp/flip/internal/brain"
@@ -21,7 +22,7 @@ var ExerciseListCmd = &cobra.Command{
 }
 
 func init() {
-	ExerciseListCmd.Flags().StringP("type", "t", "", "Filter by exercise type")
+	ExerciseListCmd.Flags().StringP("context", "c", "", "Filter by context (e.g., Sport, Music)")
 	ExerciseListCmd.Flags().StringSliceP("tags", "g", []string{}, "Filter by tags")
 }
 
@@ -45,7 +46,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	}
 
 	// Get filters
-	filterType, _ := cmd.Flags().GetString("type")
+	filterContext, _ := cmd.Flags().GetString("context")
 	filterTags, _ := cmd.Flags().GetStringSlice("tags")
 
 	// Scan exercises
@@ -60,7 +61,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	var filteredExercises []*exercises.Exercise
 	for _, ex := range allExercises {
 		// Filter by context if specified
-		if filterType != "" && ex.Context != filterType {
+		if filterContext != "" && !strings.EqualFold(ex.Context, filterContext) {
 			continue
 		}
 

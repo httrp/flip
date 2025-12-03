@@ -967,6 +967,17 @@ func runCreateNewMenu() error {
 			},
 		},
 		{
+			Label:       "📋 New Exercise Plan",
+			Description: "Create a structured training/learning plan with multiple exercises",
+			Command:     "flip exercise plan new",
+			Action: func() error {
+				ExercisePlanNewCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runCreateNewMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.create.organization_label"),
 			Description: lang.GetText("menu.create.organization_desc"),
 			Command:     lang.GetText("menu.create.organization_cmd"),

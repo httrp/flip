@@ -41,8 +41,52 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	}
 
 	exercise := &exercises.Exercise{
+		Type:     "exercise",
 		Created:  time.Now(),
 		Variants: []exercises.ExerciseVariant{},
+	}
+
+	// Context FIRST - scan existing contexts
+	scanner := exercises.NewScanner()
+	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
+	if err != nil {
+		fmt.Printf("Warning: Could not scan existing exercises: %v\n", err)
+		allExercises = []*exercises.Exercise{}
+	}
+	
+	// Collect unique contexts
+	contextMap := make(map[string]bool)
+	for _, ex := range allExercises {
+		if ex.Context != "" {
+			contextMap[ex.Context] = true
+		}
+	}
+	
+	var contexts []string
+	for ctx := range contextMap {
+		contexts = append(contexts, ctx)
+	}
+	contexts = append(contexts, "➕ New context", "⊝ No context")
+	
+	contextSelect := promptui.Select{
+		Label: "Select context",
+		Items: contexts,
+		Size:  12,
+	}
+	
+	_, selectedContext, err := contextSelect.Run()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	
+	if selectedContext == "➕ New context" {
+		contextPrompt := promptui.Prompt{
+			Label: "New context name (e.g., Sport, Music, Basketball, Drums)",
+		}
+		exercise.Context, _ = contextPrompt.Run()
+	} else if selectedContext != "⊝ No context" {
+		exercise.Context = selectedContext
 	}
 
 	// Name
@@ -54,12 +98,107 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Context (optional, user-defined)
-	contextPrompt := promptui.Prompt{
-		Label: "Context (e.g., Sport, Music, Basketball, Drums) - optional",
+	
+	// Check for duplicates or similar exercises
+	exactMatch := false
+	for _, ex := range allExercises {
+		if strings.EqualFold(ex.Name, exercise.Name) {
+			exactMatch = true
+			break
+		}
 	}
-	exercise.Context, _ = contextPrompt.Run()
+	
+	if exactMatch {
+		fmt.Printf("\n⚠️  Exercise '%s' already exists!\n\n", exercise.Name)
+		
+		actionPrompt := promptui.Select{
+			Label: "What would you like to do?",
+			Items: []string{
+				"Open existing exercise",
+				"Create anyway with different name",
+				"Cancel",
+			},
+		}
+		
+		actionIdx, _, err := actionPrompt.Run()
+		if err != nil || actionIdx == 2 {
+			fmt.Println("Cancelled")
+			return
+		}
+		
+		if actionIdx == 0 {
+			// Find and open existing
+			for _, ex := range allExercises {
+				if strings.EqualFold(ex.Name, exercise.Name) {
+					fmt.Printf("Opening: %s\n", ex.FilePath)
+					if err := promptAndOpenEditor(ex.FilePath); err != nil {
+						fmt.Printf("Error: %v\n", err)
+					}
+					return
+				}
+			}
+		}
+		
+		// Ask for new name
+		newNamePrompt := promptui.Prompt{
+			Label: "New exercise name",
+		}
+		exercise.Name, err = newNamePrompt.Run()
+		if err != nil {
+			return
+		}
+	}
+	
+	// Check for similar exercises (threshold 0.6)
+	similar := exercises.FindSimilarExercises(exercise.Name, allExercises, 0.6)
+	if len(similar) > 0 && !exactMatch {
+		fmt.Printf("\n💡 Found %d similar exercise(s):\n", len(similar))
+		for _, ex := range similar {
+			contextStr := "no context"
+			if ex.Context != "" {
+				contextStr = ex.Context
+			}
+			fmt.Printf("   - %s (%s)\n", ex.Name, contextStr)
+		}
+		fmt.Println()
+		
+		continuePrompt := promptui.Select{
+			Label: "Continue creating new exercise?",
+			Items: []string{"Yes, create new", "No, open similar", "Cancel"},
+		}
+		
+		continueIdx, _, err := continuePrompt.Run()
+		if err != nil || continueIdx == 2 {
+			fmt.Println("Cancelled")
+			return
+		}
+		
+		if continueIdx == 1 {
+			// Select which similar to open
+			similarNames := make([]string, len(similar))
+			for i, ex := range similar {
+				contextStr := "no context"
+				if ex.Context != "" {
+					contextStr = ex.Context
+				}
+				similarNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
+			}
+			
+			selectPrompt := promptui.Select{
+				Label: "Select exercise to open",
+				Items: similarNames,
+			}
+			
+			idx, _, err := selectPrompt.Run()
+			if err == nil && idx < len(similar) {
+				fmt.Printf("Opening: %s\n", similar[idx].FilePath)
+				if err := promptAndOpenEditor(similar[idx].FilePath); err != nil {
+					fmt.Printf("Error: %v\n", err)
+				}
+			}
+			return
+		}
+	}
 
 	// Description
 	descPrompt := promptui.Prompt{
@@ -112,22 +251,65 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 		variant.Description, _ = varDescPrompt.Run()
 		
 		// Tracking properties for this variant
+		propMgr, err := exercises.NewPropertyManager(brainPath)
+		if err != nil {
+			fmt.Printf("Warning: Could not load property manager: %v\n", err)
+		}
+		
 		fmt.Println("\nTracking properties for this variant:")
-		fmt.Println("Examples: tempo=bpm, focus=text, reps=count, level=1-10")
 		for {
-			propPrompt := promptui.Prompt{
-				Label: "Property (name=unit or empty to finish)",
+			// Get available properties
+			propOptions := propMgr.GetPropertyNames()
+			propOptions = append(propOptions, "➕ Add new property", "✓ Done")
+			
+			selectPrompt := promptui.Select{
+				Label: "Select tracking property",
+				Items: propOptions,
+				Size:  15,
 			}
-			propInput, _ := propPrompt.Run()
-			if strings.TrimSpace(propInput) == "" {
+			
+			_, selected, err := selectPrompt.Run()
+			if err != nil || selected == "✓ Done" {
 				break
 			}
-
-			parts := strings.SplitN(propInput, "=", 2)
-			if len(parts) == 2 {
-				key := strings.TrimSpace(parts[0])
-				value := strings.TrimSpace(parts[1])
-				variant.TrackingProperties[key] = value
+			
+			if selected == "➕ Add new property" {
+				// Create new property
+				namePrompt := promptui.Prompt{
+					Label: "Property name",
+				}
+				propName, err := namePrompt.Run()
+				if err != nil || strings.TrimSpace(propName) == "" {
+					continue
+				}
+				propName = strings.TrimSpace(propName)
+				
+				unitPrompt := promptui.Prompt{
+					Label:   "Unit (e.g., bpm, count, kg, text)",
+					Default: "text",
+				}
+				propUnit, err := unitPrompt.Run()
+				if err != nil {
+					continue
+				}
+				propUnit = strings.TrimSpace(propUnit)
+				
+				// Add to manager
+				if err := propMgr.Add(propName, propUnit); err != nil {
+					fmt.Printf("Warning: Could not save property: %v\n", err)
+				}
+				
+				variant.TrackingProperties[propName] = propUnit
+				fmt.Printf("✓ Added: %s (%s)\n", propName, propUnit)
+			} else {
+				// Selected existing property
+				// Parse "name (unit)" format
+				propName := strings.Split(selected, " (")[0]
+				prop := propMgr.GetByName(propName)
+				if prop != nil {
+					variant.TrackingProperties[prop.Name] = prop.Unit
+					fmt.Printf("✓ Added: %s (%s)\n", prop.Name, prop.Unit)
+				}
 			}
 		}
 		

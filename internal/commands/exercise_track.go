@@ -137,15 +137,14 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		
 		// Prompt for tracking properties from selected variant
 		if len(selectedVariant.TrackingProperties) > 0 {
-			fmt.Println("\nEnter values for tracking properties:")
+			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
 			for name, unit := range selectedVariant.TrackingProperties {
 				prompt := promptui.Prompt{
 					Label: fmt.Sprintf("%s (%s)", name, unit),
 				}
 				valueStr, err := prompt.Run()
 				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
+					continue
 				}
 				if valueStr != "" {
 					// Try to parse as number, otherwise keep as string
@@ -165,15 +164,14 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		variantName = variant.Name
 		
 		if len(variant.TrackingProperties) > 0 {
-			fmt.Println("\nEnter values for tracking properties:")
+			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
 			for name, unit := range variant.TrackingProperties {
 				prompt := promptui.Prompt{
 					Label: fmt.Sprintf("%s (%s)", name, unit),
 				}
 				valueStr, err := prompt.Run()
 				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
+					continue
 				}
 				if valueStr != "" {
 					if intVal, err := strconv.Atoi(valueStr); err == nil {

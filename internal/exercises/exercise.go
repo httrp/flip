@@ -8,6 +8,7 @@ import (
 type Exercise struct {
 	// Core identification
 	ID      string `yaml:"id" json:"id"`
+	Type    string `yaml:"type" json:"type"` // Always "exercise" for type detection
 	Name    string `yaml:"name" json:"name"`
 	Context string `yaml:"context,omitempty" json:"context,omitempty"` // User-defined: Sport, Music, Language, Basketball, etc.
 
