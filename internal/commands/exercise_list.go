@@ -27,33 +27,45 @@ func init() {
 }
 
 func runExerciseList(cmd *cobra.Command, args []string) {
+	// When invoked from the interactive menu, cmd may be nil.
+	// In that case, default filters are empty.
+	var filterContext string
+	var filterTags []string
+
 	activeBrain, err := getActiveBrain()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		fmt.Println("⚠️  No active brain selected.")
+		fmt.Println("Use 'flip brain set-default <name>' or switch workspace.")
+		return
 	}
 	
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("⚠️  Could not detect brain type: %v\n", err)
+		return
 	}
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		fmt.Println("⚠️  Active brain is not a compatible directory.")
+		return
 	}
 
-	// Get filters
-	filterContext, _ := cmd.Flags().GetString("context")
-	filterTags, _ := cmd.Flags().GetStringSlice("tags")
+	// Get filters if cmd is available (CLI path); otherwise keep defaults (menu path)
+	if cmd != nil && cmd.Flags() != nil {
+		if v, err := cmd.Flags().GetString("context"); err == nil {
+			filterContext = v
+		}
+		if v, err := cmd.Flags().GetStringSlice("tags"); err == nil {
+			filterTags = v
+		}
+	}
 
 	// Scan exercises
 	scanner := exercises.NewScanner()
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error scanning exercises: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("⚠️  Error scanning exercises: %v\n", err)
+		return
 	}
 
 	// Apply filters
@@ -78,7 +90,8 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 
 	// Display
 	if len(filteredExercises) == 0 {
-		fmt.Println("No exercises found")
+		fmt.Println("ℹ️  No exercises found in the active brain.")
+		fmt.Println("Tip: Create one via 'flip exercise new'.")
 		return
 	}
 

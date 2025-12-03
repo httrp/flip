@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
+	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/git"
 	"github.com/httrp/flip/internal/lang"
 	"github.com/httrp/flip/internal/tasks"
@@ -3199,7 +3201,77 @@ func runExercisesSubmenu() error {
 			Description: "Show all exercises",
 			Command:     "flip exercise list",
 			Action: func() error {
-				ExerciseListCmd.Run(nil, []string{})
+				// Build selectable list of known contexts from existing exercises
+				ctx := ""
+				var tags []string
+
+				// Detect active brain and scan exercises to collect contexts
+				activeBrain, err := getActiveBrain()
+				if err == nil {
+					detector := brain.NewDetector()
+					if result, derr := detector.DetectBrainType(activeBrain.Path); derr == nil && result.Compatible {
+						scanner := exercises.NewScanner()
+						if exs, serr := scanner.ScanExercises(activeBrain.Path, string(result.Type)); serr == nil {
+							ctxSet := map[string]struct{}{}
+							for _, ex := range exs {
+								if ex.Context != "" {
+									ctxSet[ex.Context] = struct{}{}
+								}
+							}
+							var ctxList []string
+							for c := range ctxSet {
+								ctxList = append(ctxList, c)
+							}
+							sort.Strings(ctxList)
+							if len(ctxList) > 0 {
+								options := append([]string{"<no context filter>"}, ctxList...)
+								options = append(options, "<custom>")
+								prompt := promptui.Select{
+									Label:     "Filter by context",
+									Items:     options,
+									Templates: createSimpleSelectTemplates(),
+									Size:      calculateMenuSize(len(options)),
+									HideHelp:  true,
+								}
+								idx, _, perr := prompt.Run()
+								if perr == nil {
+									if idx == 0 {
+										ctx = ""
+									} else if options[idx] == "<custom>" {
+										fmt.Print("Enter custom context: ")
+										var input string
+										fmt.Scanln(&input)
+										ctx = strings.TrimSpace(input)
+									} else {
+										ctx = options[idx]
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// Optional tags filter (manual input)
+				fmt.Print("Filter by tags (comma-separated, optional): ")
+				reader := bufio.NewReader(os.Stdin)
+				tagLine, _ := reader.ReadString('\n')
+				tagLine = strings.TrimSpace(tagLine)
+				if tagLine != "" {
+					parts := strings.Split(tagLine, ",")
+					for _, p := range parts {
+						trim := strings.TrimSpace(p)
+						if trim != "" {
+							tags = append(tags, trim)
+						}
+					}
+				}
+
+				// Build a temporary cobra.Command carrying the flags for filtering
+				tmp := &cobra.Command{}
+				tmp.Flags().String("context", ctx, "")
+				tmp.Flags().StringSlice("tags", tags, "")
+
+				runExerciseList(tmp, []string{})
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runExercisesSubmenu()
