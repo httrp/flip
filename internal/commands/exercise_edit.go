@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
@@ -20,12 +21,13 @@ var ExerciseEditCmd = &cobra.Command{
 }
 
 func runExerciseEdit(cmd *cobra.Command, args []string) {
-	activeBrain, err := getActiveBrain()
+	// Allow user to select the brain before editing
+	activeBrain, err := selectBrainForOperation(lang.GetText("prompts.select_brain_for_edit_exercise"))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
@@ -167,18 +169,95 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 		}
 
 	case 4: // Variants
-		fmt.Printf("\nCurrent variants: %d\n", len(exercise.Variants))
-		for i, v := range exercise.Variants {
-			if v.Name != "" {
-				fmt.Printf("  %d. %s\n", i+1, v.Name)
-			} else {
-				fmt.Printf("  %d. (unnamed)\n", i+1)
+		for {
+			fmt.Printf("\nCurrent variants: %d\n", len(exercise.Variants))
+			for i, v := range exercise.Variants {
+				if v.Name != "" {
+					fmt.Printf("  %d. %s\n", i+1, v.Name)
+				} else {
+					fmt.Printf("  %d. (unnamed)\n", i+1)
+				}
+			}
+
+			actionPrompt := promptui.Select{
+				Label: lang.GetText("prompts.variants_title"),
+				Items: []string{lang.GetText("prompts.variant_add"), lang.GetText("prompts.open_in_editor"), lang.GetText("prompts.done")},
+			}
+			idx, _, err := actionPrompt.Run()
+			if err != nil || idx == 2 {
+				break
+			}
+
+			switch idx {
+			case 0: // Add variant
+				// Configure new variant similar to creation flow
+				variant := exercises.ExerciseVariant{TrackingProperties: make(map[string]string)}
+
+				varNamePrompt := promptui.Prompt{Label: "Variant Name (optional)"}
+				variant.Name, _ = varNamePrompt.Run()
+
+				varDescPrompt := promptui.Prompt{Label: "Description (optional)"}
+				variant.Description, _ = varDescPrompt.Run()
+
+				propMgr, err := exercises.NewPropertyManager(brainPath)
+				if err != nil {
+					fmt.Printf("Warning: Could not load property manager: %v\n", err)
+				}
+
+				for {
+					propOptions := propMgr.GetPropertyNames()
+					propOptions = append(propOptions, lang.GetText("prompts.property_add_new"), lang.GetText("prompts.property_done"))
+
+					selectPrompt := promptui.Select{
+						Label: lang.GetText("prompts.property_select"),
+						Items: propOptions,
+						Size:  15,
+					}
+					_, selected, err := selectPrompt.Run()
+					if err != nil || selected == lang.GetText("prompts.property_done") {
+						break
+					}
+
+					if selected == lang.GetText("prompts.property_add_new") {
+						namePrompt := promptui.Prompt{Label: lang.GetText("prompts.property_name")}
+						propName, err := namePrompt.Run()
+						if err != nil || strings.TrimSpace(propName) == "" {
+							continue
+						}
+						propName = strings.TrimSpace(propName)
+
+						unitPrompt := promptui.Prompt{Label: lang.GetText("prompts.property_unit"), Default: "text"}
+						propUnit, err := unitPrompt.Run()
+						if err != nil {
+							continue
+						}
+						propUnit = strings.TrimSpace(propUnit)
+
+						if err := propMgr.Add(propName, propUnit); err != nil {
+							fmt.Printf("Warning: Could not save property: %v\n", err)
+						}
+						variant.TrackingProperties[propName] = propUnit
+						fmt.Printf(lang.GetText("prompts.added")+"\n", propName, propUnit)
+					} else {
+						// Parse "name (unit)"
+						propName := strings.Split(selected, " (")[0]
+						prop := propMgr.GetByName(propName)
+						if prop != nil {
+							variant.TrackingProperties[prop.Name] = prop.Unit
+							fmt.Printf(lang.GetText("prompts.added")+"\n", prop.Name, prop.Unit)
+						}
+					}
+				}
+
+				exercise.Variants = append(exercise.Variants, variant)
+				fmt.Println(lang.GetText("prompts.variant_added"))
+
+			case 1: // Open in editor
+				if err := promptAndOpenEditor(exercise.FilePath); err != nil {
+					fmt.Printf("⚠️  Could not open editor: %v\n", err)
+				}
 			}
 		}
-		fmt.Println("\nNote: To modify variants and tracking properties, please edit the file directly")
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
-		return
 
 	case 5: // Status
 		statusOptions := []string{"active", "inactive", "paused"}

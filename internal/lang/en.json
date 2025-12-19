@@ -43,7 +43,13 @@
       "new_cmd": "flip exercise new",
       "show_label": "🔎 Show Exercise",
       "show_desc": "Show details and recent sessions",
-      "show_cmd": "flip exercise show <id>"
+      "show_cmd": "flip exercise show <id>",
+      "edit_label": "🧩 Edit Exercise (Variants)",
+      "edit_desc": "Add variants or open exercise for editing",
+      "edit_cmd": "flip exercise edit",
+      "plan_add_label": "➕ Add Exercises to Plan",
+      "plan_add_desc": "Append exercises to an existing plan",
+      "plan_add_cmd": "flip exercise plan edit"
     },
     "browse": {
       "recent_label": "📄 Recent Notes",
@@ -409,7 +415,24 @@
     "select_brain_remove": "Select brain to remove",
     "brain_path": "Path to existing brain directory",
     "workspace_name": "New workspace name",
-    "brain_name": "New brain name"
+    "brain_name": "New brain name",
+    "select_brain_for_new_exercise": "Select brain to store the new exercise",
+    "select_brain_for_edit_exercise": "Select brain to edit exercise in",
+    "select_brain_for_plan": "Select brain containing the plan",
+    "select_plan": "Select plan",
+    "add_exercise": "Add exercise",
+    "done": "Done",
+    "target_optional": "Target (optional)",
+    "variants_title": "Variants",
+    "variant_add": "Add variant",
+    "open_in_editor": "Open in editor",
+    "property_select": "Select tracking property",
+    "property_add_new": "➕ Add new property",
+    "property_done": "✓ Done",
+    "property_name": "Property name",
+    "property_unit": "Unit (e.g., bpm, count, kg, text)",
+    "variant_added": "✓ Variant added",
+    "added": "✓ Added: %s (%s)"
   },
   
   "errors": {
@@ -484,6 +507,10 @@
       "short": "Create a new exercise definition",
       "long": "Create a new exercise definition. Exercises are repeatable practice activities that you want to improve at over time. Examples: drum rudiments, language practice, fitness exercises."
     },
+    "edit": {
+      "short": "Edit an exercise (variants and metadata)",
+      "long": "Edit an existing exercise: rename, change context/description/goal, add variants, or open in editor."
+    },
     "list": {
       "short": "List all exercises",
       "long": "List all exercises in your brain. Filter by type or tags to find specific exercises."
@@ -498,7 +525,11 @@
     },
     "plan": {
       "short": "Manage exercise plans",
-      "long": "Create and manage exercise plans - structured groups of exercises for training routines, workouts, or learning programs."
+      "long": "Create and manage exercise plans - structured groups of exercises for training routines, workouts, or learning programs.",
+      "edit": {
+        "short": "Edit an exercise plan (add exercises)",
+        "long": "Edit an existing exercise plan to append exercises and targets."
+      }
     }
   }
 }
