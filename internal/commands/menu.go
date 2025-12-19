@@ -3294,12 +3294,34 @@ func runExercisesSubmenu() error {
 			},
 		},
 		{
+			Label:       lang.GetText("menu.exercises.edit_label"),
+			Description: lang.GetText("menu.exercises.edit_desc"),
+			Command:     lang.GetText("menu.exercises.edit_cmd"),
+			Action: func() error {
+				ExerciseEditCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
 			Label:       "🗂️  Plans",
 			Description: "Manage exercise plans",
 			Command:     "flip exercise plan",
 			Action: func() error {
 				// For now, just list plans
 				ExercisePlanListCmd.Run(nil, []string{})
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runExercisesSubmenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.exercises.plan_add_label"),
+			Description: lang.GetText("menu.exercises.plan_add_desc"),
+			Command:     lang.GetText("menu.exercises.plan_add_cmd"),
+			Action: func() error {
+				ExercisePlanEditCmd.Run(nil, []string{})
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runExercisesSubmenu()

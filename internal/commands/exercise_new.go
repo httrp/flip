@@ -22,13 +22,14 @@ var ExerciseNewCmd = &cobra.Command{
 }
 
 func runExerciseNew(cmd *cobra.Command, args []string) {
-	activeBrain, err := getActiveBrain()
+	// Ask user which brain to use (from active workspace)
+	selectedBrain, err := selectBrainForOperation(lang.GetText("prompts.select_brain_for_new_exercise"))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
-	brainPath := activeBrain.Path
+
+	brainPath := selectedBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 		if err != nil {
 			fmt.Printf("Error detecting brain: %v\n", err)
