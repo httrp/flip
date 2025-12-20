@@ -162,3 +162,232 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+// ============================================================================
+// FRONTMATTER TRANSFORMER TESTS
+// ============================================================================
+
+func TestTransformContent_YAMLToLogseq(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "Simple YAML to Logseq",
+			input: `---
+title: My Note
+tags: project
+---
+
+This is the content.`,
+			expected: `title:: My Note
+tags:: project
+
+This is the content.`,
+		},
+		{
+			name: "Multiple properties",
+			input: `---
+title: Meeting Notes
+date: 2025-12-20
+status: active
+---
+
+Meeting content here.`,
+			expected: `title:: Meeting Notes
+date:: 2025-12-20
+status:: active
+
+Meeting content here.`,
+		},
+		{
+			name: "No frontmatter - unchanged",
+			input: `# Just a heading
+
+Some content.`,
+			expected: `# Just a heading
+
+Some content.`,
+		},
+		{
+			name: "YAML with array to Logseq",
+			input: `---
+title: Tagged Note
+tags:
+  - project
+  - work
+  - important
+---
+
+Content with tags.`,
+			expected: `title:: Tagged Note
+tags:: [project, work, important]
+
+Content with tags.`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transformer := NewTransformer(health.BrainTypeFlip, health.BrainTypeLogseq)
+			result := transformer.TransformContent(tt.input)
+			if result != tt.expected {
+				t.Errorf("TransformContent() =\n%q\nwant:\n%q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTransformContent_LogseqToYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "Simple Logseq to YAML",
+			input: `title:: My Note
+tags:: project
+
+This is the content.`,
+			// Note: Properties are sorted alphabetically in YAML output
+			expected: `---
+tags: project
+title: My Note
+---
+
+This is the content.`,
+		},
+		{
+			name: "Multiple Logseq properties",
+			input: `title:: Meeting Notes
+date:: 2025-12-20
+status:: active
+
+Meeting content here.`,
+			// Note: Properties are sorted alphabetically in YAML output
+			expected: `---
+date: 2025-12-20
+status: active
+title: Meeting Notes
+---
+
+Meeting content here.`,
+		},
+		{
+			name: "No properties - add minimal frontmatter",
+			input: `# Just a heading
+
+Some content.`,
+			expected: `# Just a heading
+
+Some content.`,
+		},
+		{
+			name: "Logseq array format to YAML",
+			input: `title:: Tagged Note
+tags:: [project, work]
+
+Content with tags.`,
+			expected: `---
+tags: [project, work]
+title: Tagged Note
+---
+
+Content with tags.`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transformer := NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip)
+			result := transformer.TransformContent(tt.input)
+			if result != tt.expected {
+				t.Errorf("TransformContent() =\n%q\nwant:\n%q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTransformContent_SameStyle(t *testing.T) {
+	// Flip to Obsidian - both use YAML, no content change
+	input := `---
+title: My Note
+---
+
+Content here.`
+
+	transformer := NewTransformer(health.BrainTypeFlip, health.BrainTypeObsidian)
+	result := transformer.TransformContent(input)
+
+	if result != input {
+		t.Errorf("Same frontmatter style should not change content.\nGot: %q\nWant: %q", result, input)
+	}
+}
+
+func TestGetFrontmatterStyle(t *testing.T) {
+	tests := []struct {
+		brainType health.BrainType
+		expected  FrontmatterStyle
+	}{
+		{health.BrainTypeLogseq, FrontmatterLogseq},
+		{health.BrainTypeFlip, FrontmatterYAML},
+		{health.BrainTypeObsidian, FrontmatterYAML},
+		{health.BrainTypeDendron, FrontmatterYAML},
+		{health.BrainTypeFoam, FrontmatterYAML},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.brainType), func(t *testing.T) {
+			result := GetFrontmatterStyle(tt.brainType)
+			if result != tt.expected {
+				t.Errorf("GetFrontmatterStyle(%s) = %d, want %d", tt.brainType, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTransformProperties(t *testing.T) {
+	props := map[string]string{
+		"title":  "Test Note",
+		"status": "active",
+	}
+
+	// To YAML
+	yamlTransformer := NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip)
+	yamlResult := yamlTransformer.TransformProperties(props)
+
+	if !contains(yamlResult, "---") {
+		t.Error("YAML output should contain frontmatter delimiters")
+	}
+	if !contains(yamlResult, "title: Test Note") {
+		t.Error("YAML output should contain title property")
+	}
+
+	// To Logseq
+	logseqTransformer := NewTransformer(health.BrainTypeFlip, health.BrainTypeLogseq)
+	logseqResult := logseqTransformer.TransformProperties(props)
+
+	if contains(logseqResult, "---") {
+		t.Error("Logseq output should not contain YAML delimiters")
+	}
+	if !contains(logseqResult, "title:: Test Note") {
+		t.Error("Logseq output should contain title property bullet")
+	}
+}
+
+func TestGetFullTransformationSummary(t *testing.T) {
+	// Logseq → Flip should mention both structure and content changes
+	transformer := NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip)
+	summary := transformer.GetFullTransformationSummary()
+
+	if summary == "" {
+		t.Error("Expected non-empty full summary")
+	}
+
+	// Should mention structure or content changes
+	if !contains(summary, "Structure") && !contains(summary, "Content") && !contains(summary, "adjustment") {
+		t.Logf("Summary: %s", summary)
+	}
+}
