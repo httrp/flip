@@ -235,6 +235,10 @@ func generateNoteFilename(title string, brainType brain.BrainType) string {
 		// Dendron: notes.YYYY-MM-DD-title.md
 		return fmt.Sprintf("notes.%s-%s.md", now.Format("2006-01-02"), safeName)
 
+	case brain.BrainTypeFoam:
+		// Foam: simple title.md or YYYY-MM-DD-title.md (user preference, we use dated)
+		return fmt.Sprintf("%s-%s.md", now.Format("2006-01-02"), safeName)
+
 	case brain.BrainTypeFlip:
 		// Flip: YYYY-MM-DD-title.md
 		return fmt.Sprintf("%s-%s.md", now.Format("2006-01-02"), safeName)
@@ -341,6 +345,24 @@ created: %d
 - [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
 
 `, generateID(), title, author, now.Unix(), now.Unix(), title)
+
+	case brain.BrainTypeFoam:
+		return fmt.Sprintf(`---
+title: %s
+date: %s
+author: %s
+tags: []
+---
+
+# %s
+
+## Related
+- [[related-note]]
+
+## Tasks
+- [ ] Task title
+
+`, title, dateStr, author, title)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---

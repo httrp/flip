@@ -16,6 +16,7 @@ const (
 	BrainTypeLogseq   BrainType = "logseq"
 	BrainTypeObsidian BrainType = "obsidian"
 	BrainTypeDendron  BrainType = "dendron"
+	BrainTypeFoam     BrainType = "foam"
 	BrainTypeUnknown  BrainType = "unknown"
 )
 
@@ -51,6 +52,16 @@ func DetectBrainType(brainPath string) (BrainType, error) {
 	dendronConfig := filepath.Join(brainPath, "dendron.yml")
 	if _, err := os.Stat(dendronConfig); err == nil {
 		return BrainTypeDendron, nil
+	}
+
+	// Check for Foam brain
+	foamDir := filepath.Join(brainPath, ".foam")
+	foamSnippets := filepath.Join(brainPath, ".vscode", "foam.code-snippets")
+	if stat, err := os.Stat(foamDir); err == nil && stat.IsDir() {
+		return BrainTypeFoam, nil
+	}
+	if _, err := os.Stat(foamSnippets); err == nil {
+		return BrainTypeFoam, nil
 	}
 
 	// Check for common patterns
@@ -162,6 +173,8 @@ func (bt BrainType) String() string {
 		return "Obsidian Vault"
 	case BrainTypeDendron:
 		return "Dendron Workspace"
+	case BrainTypeFoam:
+		return "Foam Brain"
 	default:
 		return "Unknown"
 	}

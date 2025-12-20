@@ -48,6 +48,8 @@ func Load(brainType brain.BrainType, templateType TemplateType) (string, error) 
 		brainDir = "obsidian"
 	case brain.BrainTypeDendron:
 		brainDir = "dendron"
+	case brain.BrainTypeFoam:
+		brainDir = "foam"
 	case brain.BrainTypeFlip:
 		brainDir = "flip"
 	default:
@@ -95,6 +97,8 @@ func GetTemplatePath(brainType brain.BrainType, templateType TemplateType) (stri
 		brainDir = "obsidian"
 	case brain.BrainTypeDendron:
 		brainDir = "dendron"
+	case brain.BrainTypeFoam:
+		brainDir = "foam"
 	case brain.BrainTypeFlip:
 		brainDir = "flip"
 	default:
@@ -119,6 +123,8 @@ func ListTemplates(brainType brain.BrainType) ([]TemplateType, error) {
 		brainDir = "obsidian"
 	case brain.BrainTypeDendron:
 		brainDir = "dendron"
+	case brain.BrainTypeFoam:
+		brainDir = "foam"
 	case brain.BrainTypeFlip:
 		brainDir = "flip"
 	default:

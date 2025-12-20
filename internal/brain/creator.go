@@ -243,6 +243,15 @@ func (c *Creator) getDirectoriesForType(basePath string, brainType BrainType) []
 			"tasks",
 		}...)
 
+	case BrainTypeFoam:
+		// Foam compatible structure - flexible like Obsidian but with common conventions
+		return append(baseDirectories, []string{
+			"journal",     // Daily notes
+			"notes",       // General notes
+			"docs",        // Documentation (common in Foam for GitHub Pages)
+			"attachments", // Assets
+		}...)
+
 	default:
 		// Default flip structure
 		return append(baseDirectories, []string{

@@ -137,6 +137,25 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			SupportsMarkdown:   true,
 		}
 
+	case health.BrainTypeFoam:
+		return &BrainStructure{
+			Type:               health.BrainTypeFoam,
+			NotesDir:           "notes", // Common convention, but flexible
+			JournalDir:         "journal",
+			MeetingsDir:        "meetings", // Common pattern
+			TasksDir:           "",
+			AssetsDir:          "attachments", // Common convention
+			AttachmentsDir:     "attachments",
+			TemplatesDir:       "templates",
+			JournalFormat:      "2006-01-02",                            // YYYY-MM-DD (standard)
+			NoteFormat:         "free-form",                             // Very flexible like Obsidian
+			AssetStrategy:      AssetStrategyRootFolder,                 // Usually attachments/ folder
+			AssetLocations:     []string{"attachments", "assets", "docs/attachments"}, // Multiple common locations
+			PreferredLinkStyle: LinkStyleWikilink,                       // Wikilinks are core to Foam
+			SupportsWikilinks:  true,
+			SupportsMarkdown:   true, // Also supports regular markdown links (GitHub-friendly)
+		}
+
 	default:
 		// Unknown brain type - use safe defaults
 		return &BrainStructure{

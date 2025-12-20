@@ -183,6 +183,10 @@ func generateJournalFilename(date time.Time, brainType brain.BrainType) string {
 		// Dendron: journal.YYYY-MM-DD.md
 		return fmt.Sprintf("journal.%s.md", date.Format("2006-01-02"))
 
+	case brain.BrainTypeFoam:
+		// Foam: YYYY-MM-DD.md (standard daily note pattern)
+		return fmt.Sprintf("%s.md", date.Format("2006-01-02"))
+
 	case brain.BrainTypeFlip:
 		// Flip: YYYY-MM-DD.md in journal/
 		return fmt.Sprintf("%s.md", date.Format("2006-01-02"))
@@ -296,6 +300,31 @@ date: %s
 - 
 
 `, uuid.New().String(), dateStr, time.Now().Unix(), time.Now().Unix(), dateStr, dateStr, weekday)
+
+	case brain.BrainTypeFoam:
+		return fmt.Sprintf(`---
+date: %s
+day: %s
+tags: [daily]
+---
+
+# %s, %s
+
+## Morning
+
+## Work
+
+## Evening
+
+## Tasks
+- [ ] Daily task example
+
+## Notes
+
+## Grateful For
+- 
+
+`, dateStr, weekday, weekday, dateStr)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---

@@ -61,6 +61,15 @@ func getNotesDirectory(brainPath string, brainType brain.BrainType) string {
 		// Dendron: root directory
 		return brainPath
 
+	case brain.BrainTypeFoam:
+		// Foam: notes/ directory (common convention)
+		notesDir := filepath.Join(brainPath, "notes")
+		if _, err := os.Stat(notesDir); err == nil {
+			return notesDir
+		}
+		// Fallback to root if notes/ doesn't exist
+		return brainPath
+
 	case brain.BrainTypeFlip:
 		// Flip: notes/ directory
 		return filepath.Join(brainPath, "notes")
@@ -96,6 +105,20 @@ func getJournalDirectory(brainPath string, brainType brain.BrainType) string {
 		// Dendron: root directory
 		return brainPath
 
+	case brain.BrainTypeFoam:
+		// Foam: journal/ directory (common convention)
+		journalDir := filepath.Join(brainPath, "journal")
+		if _, err := os.Stat(journalDir); err == nil {
+			return journalDir
+		}
+		// Also check for Daily Notes pattern
+		dailyDir := filepath.Join(brainPath, "daily")
+		if _, err := os.Stat(dailyDir); err == nil {
+			return dailyDir
+		}
+		// Create journal/ if doesn't exist
+		return journalDir
+
 	case brain.BrainTypeFlip:
 		// Flip: journal/ directory
 		return filepath.Join(brainPath, "journal")
@@ -120,6 +143,20 @@ func getMeetingsDirectory(brainPath string, brainType brain.BrainType) string {
 	case brain.BrainTypeDendron:
 		// Dendron: root directory (uses hierarchy notation)
 		return brainPath
+
+	case brain.BrainTypeFoam:
+		// Foam: meetings/ directory (common convention)
+		meetingsDir := filepath.Join(brainPath, "meetings")
+		if _, err := os.Stat(meetingsDir); err == nil {
+			return meetingsDir
+		}
+		// Also check for notes/meetings pattern
+		notesDir := filepath.Join(brainPath, "notes", "meetings")
+		if _, err := os.Stat(notesDir); err == nil {
+			return notesDir
+		}
+		// Create meetings/ if doesn't exist
+		return meetingsDir
 
 	case brain.BrainTypeFlip:
 		// Flip: meetings/ directory

@@ -190,6 +190,7 @@ func listTemplatesFlow() error {
 		{"Obsidian", brain.BrainTypeObsidian},
 		{"Logseq", brain.BrainTypeLogseq},
 		{"Dendron", brain.BrainTypeDendron},
+		{"Foam", brain.BrainTypeFoam},
 	}
 
 	for _, bt := range brainTypes {
@@ -225,7 +226,7 @@ func viewTemplateFlow() error {
 	// Select brain type
 	brainTypePrompt := promptui.Select{
 		Label: "Select brain type",
-		Items: []string{"flip", "obsidian", "logseq", "dendron"},
+		Items: []string{"flip", "obsidian", "logseq", "dendron", "foam"},
 	}
 
 	brainIdx, brainStr, err := brainTypePrompt.Run()
@@ -243,6 +244,8 @@ func viewTemplateFlow() error {
 		brainType = brain.BrainTypeLogseq
 	case 3:
 		brainType = brain.BrainTypeDendron
+	case 4:
+		brainType = brain.BrainTypeFoam
 	}
 
 	// Select template type
@@ -297,7 +300,7 @@ func resetTemplateFlow() error {
 	// Select brain type
 	brainTypePrompt := promptui.Select{
 		Label: "Select brain type",
-		Items: []string{"flip", "obsidian", "logseq", "dendron"},
+		Items: []string{"flip", "obsidian", "logseq", "dendron", "foam"},
 	}
 
 	brainIdx, brainStr, err := brainTypePrompt.Run()
@@ -315,6 +318,8 @@ func resetTemplateFlow() error {
 		brainType = brain.BrainTypeLogseq
 	case 3:
 		brainType = brain.BrainTypeDendron
+	case 4:
+		brainType = brain.BrainTypeFoam
 	}
 
 	// Select template type
@@ -390,7 +395,8 @@ func showTemplateDirectoryFlow() error {
 	fmt.Println("    ├── flip/      (Flip brain templates)")
 	fmt.Println("    ├── obsidian/  (Obsidian vault templates)")
 	fmt.Println("    ├── logseq/    (Logseq graph templates)")
-	fmt.Println("    └── dendron/   (Dendron workspace templates)")
+	fmt.Println("    ├── dendron/   (Dendron workspace templates)")
+	fmt.Println("    └── foam/      (Foam brain templates)")
 	fmt.Println()
 	fmt.Println("Each directory contains:")
 	fmt.Println("  - note.md      (Regular notes)")
