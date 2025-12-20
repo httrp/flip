@@ -68,27 +68,27 @@ These commands detect brain type and adapt behavior:
     - Loads brain-specific templates
     - Fully brain-type aware
 
-### ❌ NOT Brain-Type Aware
+### ✅ Brain-Agnostic by Design
 
-**CRITICAL GAPS:**
+These commands intentionally use a universal format that works across all brain types:
 
-1. **`flip task new`** ❌
+1. **`flip task new`** ✅ (Brain-Agnostic)
    - File: [internal/commands/task_new.go](../internal/commands/task_new.go)
-   - **No brain type detection!**
-   - Issues:
-     - Always uses same task format
-     - No brain-specific frontmatter
-     - Doesn't adapt to brain conventions
-   - **Impact:** Tasks created in Logseq brain won't follow Logseq conventions
+   - **Intentionally NOT brain-specific!**
+   - Uses universal format:
+     - Checkbox: `- [x] Task description`
+     - Properties: `key:: value` (Logseq-native, readable everywhere)
+     - Location: `tasks/` directory (flip's own convention)
+   - **Rationale:** One consistent format = one parser = maintainable code
 
-2. **`flip task list`** ❌
+2. **`flip task list`** ✅ (Brain-Agnostic)
    - File: [internal/commands/task_list.go](../internal/commands/task_list.go)
-   - No brain type detection
-   - May miss tasks in brain-specific locations
+   - Scans `tasks/` directory in all brains
+   - Universal parser works with one format
 
-3. **`flip task browse`** ❌
+3. **`flip task browse`** ✅ (Brain-Agnostic)
    - File: [internal/commands/task_browse_cmd.go](../internal/commands/task_browse_cmd.go)
-   - Scanner doesn't account for brain-specific task locations
+   - Same universal format
 
 4. **`flip quicknote`** ❓ (Need to check)
    - File: [internal/commands/quicknote.go](../internal/commands/quicknote.go)
@@ -108,27 +108,16 @@ These commands use SOME brain-aware components but may have gaps:
 
 ## Impact Analysis
 
-### High Priority Fixes Needed
+### Architecture Decision: Task System
 
-**Tasks System:**
-- Tasks are a core feature
-- Currently blind to brain type
-- Could create incompatible task formats
-- Users expect brain-specific conventions
+The task system is **intentionally brain-agnostic**:
 
-**Example Problem:**
-```
-User has Logseq brain with:
-  pages/
-  journals/
-  
-flip task new creates:
-  tasks/todo.md  (Generic format, not Logseq-style!)
-  
-Should create:
-  pages/tasks.md  (Logseq location)
-  With property bullets: - status:: open
-```
+- **Format:** `- [x] Task` + `property::` syntax works everywhere
+- **Directory:** `tasks/` is flip's own convention, doesn't conflict with other tools
+- **Parser:** Single parser for all brains = consistent behavior
+- **Benefit:** Users can switch brain types without losing task data
+
+This is the correct architectural choice - flip provides a unified task experience.
 
 ### Medium Priority
 
