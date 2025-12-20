@@ -36,6 +36,8 @@ func newBrainCheckCommand() *cobra.Command {
 func newBrainHealthCommand() *cobra.Command {
 	var brainPath string
 	var jsonOutput bool
+	var fix bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "health [path]",
@@ -45,12 +47,19 @@ func newBrainHealthCommand() *cobra.Command {
 - Detects broken links (wikilinks and markdown links)
 - Finds missing assets (images, PDFs, etc.)
 - Identifies orphaned files (not linked from anywhere)
-- Supports Flip, Logseq, Obsidian, and Dendron brains
+- Supports Flip, Logseq, Obsidian, Dendron, and Foam brains
+
+Use --fix to automatically repair issues where possible:
+- Broken links: Marked with strikethrough and <!-- BROKEN --> comment
+- Orphaned files: Moved to .orphaned/ folder
+- Format issues: Normalized (trailing whitespace, line endings)
 
 Examples:
   flip brain check health              # Check current brain
   flip brain check health ~/my-vault   # Check specific brain
-  flip brain check health --json       # Output JSON for scripting`,
+  flip brain check health --json       # Output JSON for scripting
+  flip brain check health --fix        # Check and repair issues
+  flip brain check health --fix --dry-run  # Preview repairs without applying`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -58,11 +67,13 @@ Examples:
 			} else {
 				brainPath = "."
 			}
-			return runBrainHealthCheck(brainPath, jsonOutput)
+			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
 		},
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repairs without applying them (use with --fix)")
 
 	return cmd
 }
@@ -382,7 +393,7 @@ defaults:
 	return issues
 }
 
-func runBrainHealthCheck(brainPath string, jsonOutput bool) error {
+func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 	// Get absolute path
 	absPath := brainPath
 	if brainPath == "." {
@@ -421,8 +432,99 @@ func runBrainHealthCheck(brainPath string, jsonOutput bool) error {
 	reporter := health.NewReporter(result)
 	reporter.Print()
 
-	// Exit with error code if there are errors
-	if result.Stats.ErrorCount > 0 {
+	// Handle --fix mode
+	if fix && len(result.Issues) > 0 {
+		fmt.Println()
+		fmt.Println(strings.Repeat("━", 60))
+		
+		if dryRun {
+			fmt.Println("🔍 DRY RUN - Previewing repairs (no changes will be made)")
+		} else {
+			fmt.Println("🔧 Attempting to repair issues...")
+		}
+		fmt.Println()
+
+		repairer, err := health.NewRepairer(absPath, dryRun)
+		if err != nil {
+			return fmt.Errorf("failed to create repairer: %w", err)
+		}
+
+		// Show what can be repaired
+		repairableActions := repairer.GetRepairableIssues()
+		fmt.Println("📋 Available repair actions:")
+		for _, action := range repairableActions {
+			fmt.Printf("   • %s: %s\n", action.IssueType, action.Description)
+		}
+		fmt.Println()
+
+		// Filter to repairable issues
+		repairableIssues := make([]health.Issue, 0)
+		notRepairableCount := 0
+		for _, issue := range result.Issues {
+			if repairer.CanRepair(issue.Type) {
+				repairableIssues = append(repairableIssues, issue)
+			} else {
+				notRepairableCount++
+			}
+		}
+
+		if len(repairableIssues) == 0 {
+			fmt.Println("ℹ️  No issues can be automatically repaired")
+			if notRepairableCount > 0 {
+				fmt.Printf("   (%d issues require manual intervention)\n", notRepairableCount)
+			}
+		} else {
+			fmt.Printf("🔧 Repairing %d issues...\n\n", len(repairableIssues))
+			
+			repairResults := repairer.RepairIssues(repairableIssues)
+			
+			// Show results
+			for _, res := range repairResults {
+				icon := IconCheck
+				if !res.Success {
+					icon = IconError
+				}
+				
+				shortFile := res.Issue.File
+				if len(shortFile) > 40 {
+					shortFile = "..." + shortFile[len(shortFile)-37:]
+				}
+				
+				fmt.Printf("   %s %s\n", icon, shortFile)
+				if res.Message != "" && res.Message != "Repaired successfully" {
+					fmt.Printf("      └─ %s\n", res.Message)
+				}
+				if res.SkipReason != "" {
+					fmt.Printf("      └─ Skipped: %s\n", res.SkipReason)
+				}
+			}
+
+			// Summary
+			stats := health.CalculateStats(repairResults)
+			fmt.Println()
+			fmt.Println(strings.Repeat("─", 40))
+			if dryRun {
+				fmt.Printf("📊 Would repair: %d/%d issues\n", stats.Repaired, stats.TotalIssues)
+				fmt.Println("   Run without --dry-run to apply changes")
+			} else {
+				fmt.Printf("📊 Repaired: %d/%d issues\n", stats.Repaired, stats.TotalIssues)
+				if stats.Failed > 0 {
+					fmt.Printf("   ⚠️  %d repairs failed\n", stats.Failed)
+				}
+			}
+			if notRepairableCount > 0 {
+				fmt.Printf("   ℹ️  %d issues require manual intervention\n", notRepairableCount)
+			}
+		}
+	} else if !fix && result.Stats.ErrorCount > 0 {
+		// Hint to use --fix
+		fmt.Println()
+		fmt.Println("💡 Run 'flip brain check health --fix' to automatically repair some issues")
+		fmt.Println("   Use '--fix --dry-run' to preview changes first")
+	}
+
+	// Exit with error code if there are errors (but not if we're fixing)
+	if result.Stats.ErrorCount > 0 && !fix {
 		return fmt.Errorf("found %d errors", result.Stats.ErrorCount)
 	}
 
