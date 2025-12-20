@@ -64,6 +64,9 @@ func (d *Detector) DetectBrainType(path string) (*DetectionResult, error) {
 	}
 
 	// Check for existing brain systems
+	// Priority order: More specific systems first (with strong structural markers)
+	// then general systems, then Flip (which should only be primary if no other system detected)
+	
 	if d.isObsidianVault(path, result) {
 		result.Type = BrainTypeObsidian
 		result.Description = "Obsidian Vault detected"
@@ -190,9 +193,10 @@ func (d *Detector) isLogseqGraph(path string, result *DetectionResult) bool {
 
 	result.Indicators = append(result.Indicators, indicators...)
 
-	// Only recognize as Logseq if we have .logseq marker AND journals/pages,
-	// OR just journals+pages (for graphs without .logseq)
-	// This prevents detecting system-level .logseq config as a brain
+	// Recognize as Logseq if:
+	// 1. Has .logseq marker AND (journals/ OR pages/)
+	// 2. OR has journals/ AND pages/ together (strong indicator even without .logseq)
+	// This allows detection of Logseq graphs even if .logseq is missing
 	if hasLogseqDir {
 		return hasJournals || hasPages
 	}
