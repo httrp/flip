@@ -372,124 +372,91 @@ func (c *Creator) getJournalTemplate(brainType BrainType) string {
 
 	case BrainTypeObsidian:
 		// Obsidian template with template variables
-		return `# {{date:YYYY-MM-DD}}
+		return `---
+title: "Journal {{date:YYYY-MM-DD}}"
+date: {{date:YYYY-MM-DD}}
+type: journal
+mood: 
+energy: 
+weather: 
+tags: []
+---
 
-## Morning Reflection
-- 
+# {{date:YYYY-MM-DD}}
 
-## Tasks
-- [ ] 
-
-## Notes
-- 
-
-## Evening Reflection
-- What went well:
-- What could be improved:
-- Tomorrow's priority:`
+`
 
 	default:
-		// Default flip template
-		return `# {{.Date}}
+		// Default flip template - Metadata-rich, Content-minimal
+		return `---
+title: "Journal {{.Date}}"
+date: {{.Date}}
+type: journal
+mood: 
+energy: 
+weather: 
+tags: []
+highlights: []
+gratitude: []
+---
 
-## Morning Reflection
-- 
+# {{.Date}}
 
-## Tasks
-- [ ] 
-
-## Notes
-- 
-
-## Evening Reflection
-- What went well:
-- What could be improved:
-- Tomorrow's priority:`
+`
 	}
 }
 
 func (c *Creator) getMeetingTemplate(brainType BrainType) string {
 	switch brainType {
 	case BrainTypeLogseq:
-		return `- # Meeting: {{.Title}} - {{.Date}}
+		return `- # {{.Title}}
 - **Date:** {{.Date}}
-- **Time:** [HH:MM - HH:MM]
-- **Organization:** [{{.Organization}}]
-- **Participants:** {{.Participants}}
-- **Type:** [standup|planning|review|retrospective|other]
-- ## Agenda
-  - 
-- ## Discussion
-  - 
-- ## Decisions
+- **Organization:** {{.Organization}}
+- **Participants:** 
+- **Type:** 
+- ## Notes
   - 
 - ## Action Items
-  - TODO Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
-    - created:: {{.Date}}
-    - due:: 2025-10-30
-    - priority:: high
-    - assigned:: @[PERSON]
-    - project:: [[{{.Organization}}]]
-- ## Next Steps
-  - `
+  - TODO `
 
 	case BrainTypeObsidian:
-		return `# Meeting: {{title}} - {{date:YYYY-MM-DD}}
+		return `---
+title: "{{title}}"
+date: {{date:YYYY-MM-DD}}
+type: meeting
+attendees: []
+organization: 
+project: 
+location: 
+tags: []
+decisions: []
+action_items: []
+follow_up: 
+---
 
-**Date:** {{date:YYYY-MM-DD}}
-**Time:** [HH:MM - HH:MM]
-**Organization:** [{{.Organization}}]
-**Participants:** {{.Participants}}
-**Type:** [standup|planning|review|retrospective|other]
+# {{title}}
 
-## Agenda
-- 
-
-## Discussion
-- 
-
-## Decisions
-- 
-
-## Action Items
-- [ ] Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
-  created:: {{date:YYYY-MM-DD}}
-  due:: 2025-10-30
-  priority:: high
-  assigned:: @[PERSON]
-  project:: [[{{.Organization}}]]
-
-## Next Steps
-- `
+`
 
 	default:
-		return `# Meeting: {{.Title}} - {{.Date}}
+		// Default flip template - Metadata-rich, Content-minimal
+		return `---
+title: "{{.Title}}"
+date: {{.Date}}
+type: meeting
+attendees: []
+organization: {{.Organization}}
+project: 
+location: 
+tags: []
+decisions: []
+action_items: []
+follow_up: 
+---
 
-**Date:** {{.Date}}
-**Time:** [HH:MM - HH:MM]
-**Organization:** [{{.Organization}}]
-**Participants:** {{.Participants}}
-**Type:** [standup|planning|review|retrospective|other]
+# {{.Title}}
 
-## Agenda
-- 
-
-## Discussion
-- 
-
-## Decisions
-- 
-
-## Action Items
-- [ ] Follow up with team on project X 📅 2025-10-30 ⏫ #meeting #followup
-  created:: {{.Date}}
-  due:: 2025-10-30
-  priority:: high
-  assigned:: @[PERSON]
-  project:: [[{{.Organization}}]]
-
-## Next Steps
-- `
+`
 	}
 }
 
@@ -504,64 +471,37 @@ type:: note
 status:: active
 
 - # {{.Title}}
-- ## Summary
-  - Brief summary of the note content.
-- ## Content
-  - Main note content here.
-- ## Links
-  - [[Related Note 1]]
-  - [[Related Note 2]]
-- ## References
   - `
 
 	case BrainTypeObsidian:
-		// Obsidian uses YAML frontmatter
+		// Obsidian uses YAML frontmatter - Metadata-rich, Content-minimal
 		return `---
 title: "{{title}}"
 date: {{date:YYYY-MM-DD}}
-tags: [{{.Tags}}]
 type: note
 status: active
+tags: []
+related: []
 ---
 
 # {{title}}
 
-## Summary
-Brief summary of the note content.
-
-## Content
-Main note content here.
-
-## Links
-- [[Related Note 1]]
-- [[Related Note 2]]
-
-## References
-- `
+`
 
 	default:
+		// Default flip template - Metadata-rich, Content-minimal
 		return `---
 title: "{{.Title}}"
 date: {{.Date}}
-tags: [{{.Tags}}]
 type: note
 status: active
+tags: []
+related: []
 ---
 
 # {{.Title}}
 
-## Summary
-Brief summary of the note content.
-
-## Content
-Main note content here.
-
-## Links
-- [[Related Note 1]]
-- [[Related Note 2]]
-
-## References
-- `
+`
 	}
 }
 
