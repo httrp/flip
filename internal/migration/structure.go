@@ -80,8 +80,8 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			NoteFormat:         "slug-with-date",                                        // 2025-10-27-note-title.md
 			AssetStrategy:      AssetStrategyRootFolder,                                 // assets/image.png
 			AssetLocations:     []string{"assets", "assets/images", "assets/documents"}, // Check these in order
-			PreferredLinkStyle: LinkStyleWikilink,
-			SupportsWikilinks:  true,
+		PreferredLinkStyle: LinkStyleMarkdown,                                       // Standard Markdown links [text](path.md)
+		SupportsWikilinks:  true,                                                    // Can READ wikilinks (for migration)
 			SupportsMarkdown:   true,
 		}
 
