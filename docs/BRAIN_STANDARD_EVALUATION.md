@@ -497,7 +497,261 @@ Health Check kann dann:
 
 ---
 
-## 9. Fazit
+## 9. Zusätzliche Design-Prinzipien
+
+*Ergänzt am 21.12.2025 basierend auf Stakeholder-Feedback*
+
+### 9.1 🎯 Template-Philosophie: "Metadata-Rich, Content-Minimal"
+
+**Prinzip**: Templates sollten **viele Meta-Informationen** im YAML-Header anbieten, aber **minimalen Inhalt** vorgeben.
+
+**Warum?**
+- Benutzer müssen nichts löschen
+- Alle relevanten Felder sind sichtbar (man vergisst nichts)
+- Schneller Start – einfach ausfüllen
+- Konsistente Metadaten über alle Notes
+
+**Aktuelles Problem:**
+```markdown
+# {{.Title}}
+
+## Attendees
+- 
+
+## Agenda
+1. 
+
+## Notes
+
+## Action Items
+- [ ] 
+```
+→ Zu viel Struktur, die man oft löschen muss!
+
+**Besserer Ansatz:**
+```markdown
+---
+title: "{{.Title}}"
+date: {{.Date}}
+type: meeting
+attendees: []
+tags: []
+organization: {{.Organization}}
+project: 
+related: []
+---
+
+# {{.Title}}
+
+```
+→ Header ist reich, Content ist leer. Der Benutzer füllt, was er braucht.
+
+**Empfehlung für Template-Guideline:**
+| Bereich | Soll enthalten | Soll NICHT enthalten |
+|---------|----------------|----------------------|
+| YAML Header | Alle möglichen Metadaten-Felder | - |
+| Content | Nur Titel `# {{.Title}}` | Vorgegebene Sections |
+| Optional | Ein `<!-- Notes: -->` Kommentar | Lange Erklärungen |
+
+### 9.2 🔧 Tasks: Funktionalität bewahren, Format kanonisieren
+
+**Kernaussage**: Das Task-System ist ein **Herzstück von flip**. Der Task Browser mit all seinen Features (Filterung, Gruppierung, Status-Übergänge) darf **nicht beschnitten** werden!
+
+**Klarstellung**: Ein kanonisches Format bedeutet NICHT Feature-Verlust!
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  KANONISCHES FORMAT  ≠  WENIGER FEATURES                │
+│                                                         │
+│  Format = Wie Tasks GESPEICHERT werden                  │
+│  Features = Was die APP damit macht                     │
+│                                                         │
+│  → Parser kann weiterhin ALLE Formate LESEN             │
+│  → Neue Tasks werden im kanonischen Format GESCHRIEBEN  │
+│  → Migration-Tool für Legacy-Formate                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Vorschlag: Kanonisches Task-Format v2**
+
+```markdown
+- [ ] Task-Titel
+  created: 2025-12-21
+  due: 2025-01-15
+  priority: high
+  status: open
+  context: work
+  organization: DAN
+  project: flip
+  tags: [backend, urgent]
+```
+
+**Was bleibt erhalten:**
+- ✅ Alle Metadaten-Felder (due, priority, status, context, org, project, tags)
+- ✅ Task Browser Filterung (nach allen Feldern)
+- ✅ Status-Übergänge (open → in-progress → done)
+- ✅ Gruppierung (nach Projekt, Kontext, etc.)
+- ✅ Recurring Tasks (falls implementiert)
+
+**Was sich ändert:**
+- 📝 Einheitliche Syntax (kein Mix aus `::`, Emojis, etc.)
+- 📝 YAML-ähnliche Einrückung (konsistent mit Frontmatter)
+- 📝 Parser priorisiert kanonisches Format
+
+**Backward Compatibility:**
+```go
+// Parser-Strategie
+1. Versuche kanonisches Format zu parsen
+2. Fallback: Dataview-Style (due::)
+3. Fallback: Emoji-Style (📅)
+4. Fallback: Logseq-Style (TODO/DONE)
+5. Fallback: Simple Markdown
+```
+
+### 9.3 🕸️ Vernetzte Notizen: Graph statt Liste
+
+**Realität**: Ein Brain ist ein **Netz**, keine flache Liste!
+
+```
+                    ┌─────────┐
+                    │ Note A  │
+                    └────┬────┘
+                         │ links to
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+         ┌────────┐ ┌────────┐ ┌────────┐
+         │ Note B │ │ Note C │ │ Image  │
+         └───┬────┘ └────────┘ └────────┘
+             │ links to
+             ▼
+        ┌─────────┐
+        │ Note D  │
+        └─────────┘
+```
+
+**Was Notes enthalten können:**
+- 🔗 Links zu anderen Notes: `[Meeting](../meetings/2025-01-15-standup.md)`
+- 🖼️ Bilder: `![Diagram](../assets/images/architecture.png)`
+- 📎 Dokumente: `[PDF](../assets/documents/spec.pdf)`
+- 🌐 Externe URLs: `[Docs](https://example.com)`
+
+**Flip's Stärke hier:**
+- ✅ Standard-Markdown-Links funktionieren überall
+- ✅ Health Check findet broken links
+- ✅ Relative Pfade = portabel
+
+**Verbesserungspotential:**
+
+| Feature | Status | Priorität |
+|---------|--------|-----------|
+| Backlinks anzeigen | ❌ Nicht vorhanden | Mittel |
+| Graph-Visualisierung | ❌ Nicht vorhanden | Niedrig |
+| Wikilinks `[[Note]]` | ⚠️ Nur Health Check | Mittel |
+| Auto-complete für Links | ❌ Nicht vorhanden | Hoch |
+
+**Empfehlung:**
+1. **Kurzfristig**: Wikilink-Support in Health Check ausbauen
+2. **Mittelfristig**: `flip brain graph` Command für Visualisierung
+3. **Langfristig**: Backlink-Tracking (welche Notes verlinken hierher?)
+
+### 9.4 📐 Zukunft: Multi-Format Support
+
+**Vision**: Neben Markdown auch visuelle Formate unterstützen
+
+```
+brain/
+├── notes/
+│   ├── architecture.md           # Text-Note
+│   ├── system-diagram.excalidraw # Zeichnung
+│   ├── flowchart.drawio          # Diagramm
+│   └── whiteboard.tldraw         # Whiteboard
+```
+
+**Kandidaten für Support:**
+
+| Format | Tool | Use Case | Komplexität |
+|--------|------|----------|-------------|
+| `.excalidraw` | Excalidraw | Hand-drawn diagrams | Mittel |
+| `.drawio` | Draw.io | Technical diagrams | Niedrig |
+| `.tldraw` | tldraw | Whiteboarding | Mittel |
+| `.canvas` | Obsidian Canvas | Mind-maps | Hoch (proprietär) |
+
+**Wie integrieren?**
+
+```yaml
+# .flip-brain.yaml
+config:
+  supported_formats:
+    - md          # Markdown (always)
+    - excalidraw  # Excalidraw drawings
+    - drawio      # Draw.io diagrams
+```
+
+**Was flip tun sollte:**
+- ✅ Dateien in `notes/`, `assets/` erkennen
+- ✅ In Listen/Suche anzeigen
+- ✅ Nicht versuchen zu parsen (nur Markdown)
+- ✅ Health Check: Links zu diesen Dateien validieren
+- ⚠️ Öffnen mit externem Tool (`flip open diagram.excalidraw`)
+
+**Was flip NICHT tun sollte:**
+- ❌ Eigenen Editor bauen
+- ❌ Format-spezifische Features
+- ❌ Konvertierung zwischen Formaten
+
+### 9.5 👋 Onboarding: "Flip in 5 Minuten"
+
+**Ziel**: Jeder soll sich **schnell einarbeiten** und flip **feiern** für das durchdachte Format!
+
+**Aktueller Stand:**
+- README.md existiert ✅
+- DEVELOPMENT.md für Entwickler ✅
+- Keine "Getting Started" Guide ❌
+- Keine Format-Dokumentation ❌
+
+**Vorschlag: Onboarding-Materialien**
+
+```
+docs/
+├── QUICKSTART.md           # "Flip in 5 Minuten"
+├── FLIP_BRAIN_SPEC.md      # Formale Spezifikation
+├── BRAIN_STANDARD_EVALUATION.md  # Diese Analyse
+└── examples/
+    └── example-brain/      # Vorzeige-Brain zum Rumspielen
+```
+
+**QUICKSTART.md Struktur:**
+```markdown
+# Flip in 5 Minuten 🚀
+
+## Was ist flip?
+Ein CLI-Tool für strukturiertes Personal Knowledge Management.
+
+## Installation
+brew install flip  # oder go install
+
+## Dein erstes Brain
+flip brain init my-brain
+cd my-brain
+
+## Täglicher Workflow
+flip journal         # Heute's Journal öffnen
+flip note "Idee"     # Neue Notiz erstellen
+flip task add "..."  # Task hinzufügen
+flip task browse     # Tasks durchstöbern
+
+## Das war's!
+Dein Brain ist jetzt bereit. Alle Dateien sind plain Markdown.
+```
+
+**Warum wichtig?**
+- Erste Erfahrung prägt den Eindruck
+- Niedrige Einstiegshürde = mehr Adoption
+- Dokumentation = Vertrauen ins Projekt
+
+---
+
+## 10. Fazit
 
 ### Der Flip Brain Standard ist **solide** (77/100)!
 
@@ -507,18 +761,52 @@ Health Check kann dann:
 3. 🏆 Standard-Markdown (maximale Portabilität)
 
 **Top 3 Verbesserungsbereiche:**
-1. ⚠️ Task-Format vereinheitlichen
-2. ⚠️ Dokumentation/Spezifikation
+1. ⚠️ Task-Format vereinheitlichen (ohne Feature-Verlust!)
+2. ⚠️ Dokumentation/Spezifikation (QUICKSTART, SPEC)
 3. ⚠️ Schema-System aktivieren
+
+**Neue Design-Prinzipien:**
+1. 📝 Templates: Metadata-rich, Content-minimal
+2. 🔧 Tasks: Kanonisches Format, volle Backward-Compatibility
+3. 🕸️ Vernetzung: Graph-Denken, nicht Listen-Denken
+4. 📐 Multi-Format: Offen für .excalidraw, .drawio, etc.
+5. 👋 Onboarding: "Flip in 5 Minuten" als Ziel
 
 **Vergleich mit Konkurrenz:**
 - vs. Obsidian: Weniger Plugins, aber portabler
 - vs. Logseq: Weniger Block-Power, aber lesbarere Dateien
 - vs. Dendron: Ähnlich strukturiert, aber mit Schema-System
 
-**Empfehlung:**
-Der Flip-Standard hat das Potenzial, der **portabelste und strukturierteste** PKM-Standard zu werden. Die Grundlagen sind exzellent – jetzt gilt es, die Rough Edges zu polieren.
+**Vision:**
+> Flip soll der **portabelste, strukturierteste und am besten dokumentierte** PKM-Standard werden – 
+> ein Format, das jeder in 5 Minuten versteht und das trotzdem mächtige Features wie den Task Browser bietet.
+
+---
+
+## 11. Aktualisierte Roadmap
+
+### Phase 1: Dokumentation & Templates (Niedrig-hängend)
+1. ✏️ `FLIP_BRAIN_SPEC.md` erstellen
+2. ✏️ `QUICKSTART.md` – "Flip in 5 Minuten"
+3. ✏️ Templates überarbeiten (Metadata-rich, Content-minimal)
+4. ✏️ Task-Format kanonisch dokumentieren
+
+### Phase 2: Schema & Onboarding
+1. 🔧 Default-Schemas bei `init` erstellen
+2. 🔧 Example-Brain als Vorlage
+3. 🔧 `flip brain check schema` implementieren
+
+### Phase 3: Vernetzung & Links
+1. 🔧 Wikilink-Support ausbauen
+2. 🔧 `flip brain graph` für Visualisierung
+3. 🔧 Backlink-Tracking (optional)
+
+### Phase 4: Multi-Format & Zukunft
+1. 🔧 `.excalidraw`, `.drawio` Dateien erkennen
+2. 🔧 `flip open` für externe Formate
+3. 🔧 Health Check für Multi-Format Links
 
 ---
 
 *Erstellt während Code Review 2025, Branch: feat/flip-brain-standard*
+*Erweitert: 21.12.2025 – Design-Prinzipien & Stakeholder-Feedback*
