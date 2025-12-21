@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -221,15 +222,15 @@ func collectNotesFromBrain(brainPath, brainName string) ([]NoteFile, error) {
 		".rst":      true,
 	}
 
-	err := filepath.Walk(brainPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
 
 		// Skip directories
-		if info.IsDir() {
+		if d.IsDir() {
 			// Skip common exclude directories
-			name := info.Name()
+			name := d.Name()
 			if strings.HasPrefix(name, ".") ||
 				name == "node_modules" ||
 				name == "vendor" ||
@@ -247,6 +248,12 @@ func collectNotesFromBrain(brainPath, brainName string) ([]NoteFile, error) {
 
 		// Get relative path from brain root
 		relPath, _ := filepath.Rel(brainPath, path)
+
+		// Get file info for metadata
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
 
 		notes = append(notes, NoteFile{
 			Path:         path,

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -178,20 +179,20 @@ func checkSyncHealth(brainPath string, syncService string) SyncHealthStatus {
 	}
 
 	// Walk directory to find conflict files
-	filepath.Walk(brainPath, func(path string, info os.FileInfo, err error) error {
+	filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			// Skip hidden and system directories
-			if strings.HasPrefix(info.Name(), ".") && info.Name() != "." {
+			if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
 		// Check for conflict patterns in filename
-		filename := info.Name()
+		filename := d.Name()
 		for _, pattern := range conflictPatterns {
 			if strings.Contains(filename, pattern) {
 				status.HasConflicts = true

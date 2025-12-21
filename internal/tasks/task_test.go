@@ -27,7 +27,8 @@ func TestUpdateTaskStatusInLine(t *testing.T) {
 			name:      "Open to In Progress",
 			input:     "- [ ] Task to start",
 			newStatus: StatusInProgress,
-			expected:  "- [>] Task to start",
+			// Uses '/' as defined in CheckboxFromStatus
+			expected:  "- [/] Task to start",
 		},
 		{
 			name:      "Indented task",
@@ -51,7 +52,8 @@ func TestUpdateTaskStatusInLine(t *testing.T) {
 			name:      "To Deferred",
 			input:     "- [ ] Task to defer",
 			newStatus: StatusDeferred,
-			expected:  "- [~] Task to defer",
+			// Uses '>' as defined in CheckboxFromStatus
+			expected:  "- [>] Task to defer",
 		},
 		{
 			name:      "To Cancelled",

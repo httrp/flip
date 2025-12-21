@@ -2,6 +2,7 @@ package brain
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -283,12 +284,12 @@ func (d *Detector) hasMarkdownFiles(path string, result *DetectionResult) bool {
 	indicators := []string{}
 	mdCount := 0
 
-	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Continue walking even if there's an error
 		}
 
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			mdCount++
 			if mdCount <= 3 { // Only show first few as indicators
 				relPath, _ := filepath.Rel(path, filePath)

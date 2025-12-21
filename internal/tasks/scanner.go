@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,15 +29,15 @@ func (s *Scanner) ScanBrain() ([]Task, error) {
 		".markdown": true,
 	}
 
-	err := filepath.Walk(s.brainPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(s.brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
 
 		// Skip directories
-		if info.IsDir() {
+		if d.IsDir() {
 			// Skip common exclude directories
-			name := info.Name()
+			name := d.Name()
 			if strings.HasPrefix(name, ".") ||
 				name == "node_modules" ||
 				name == "vendor" ||

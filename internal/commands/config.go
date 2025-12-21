@@ -204,6 +204,26 @@ func getActiveBrain() (*Brain, error) {
 	return &ws.Brains[0], nil
 }
 
+// getAllBrainsInWorkspace returns all brains from the active workspace with their paths
+// Returns a map of brain name -> brain path for convenient iteration
+func getAllBrainsInWorkspace() (map[string]string, error) {
+	ws, err := getActiveWorkspace()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ws.Brains) == 0 {
+		return nil, fmt.Errorf("no brains in active workspace")
+	}
+
+	brainPaths := make(map[string]string, len(ws.Brains))
+	for _, brain := range ws.Brains {
+		brainPaths[brain.Name] = brain.Path
+	}
+
+	return brainPaths, nil
+}
+
 // ensureDefaultWorkspace ensures the "default" workspace exists and returns it
 func ensureDefaultWorkspace() (*Workspace, error) {
 	config, err := loadWorkspaceConfig()
