@@ -1,0 +1,20 @@
+# Organizations
+
+organizations:
+  PERSONAL:
+    name: "Personal"
+    type: "personal"
+    description: "Personal projects and tasks"
+    color: "#10B981"
+
+  WORK:
+    name: "Work Company"
+    type: "employer"
+    description: "Primary employer"
+    color: "#3B82F6"
+
+  LEARN:
+    name: "Learning"
+    type: "education"
+    description: "Courses, tutorials, self-improvement"
+    color: "#F59E0B"

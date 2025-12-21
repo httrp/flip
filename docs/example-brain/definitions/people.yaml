@@ -1,0 +1,20 @@
+# People
+
+people:
+  - name: "Your Name"
+    abbreviation: "ME"
+    organization: "PERSONAL"
+    role: "Brain Owner"
+    email: "you@example.com"
+
+  - name: "Alice Smith"
+    abbreviation: "AS"
+    organization: "WORK"
+    role: "Project Manager"
+    email: "alice@example.com"
+
+  - name: "Bob Johnson"
+    abbreviation: "BJ"
+    organization: "WORK"
+    role: "Developer"
+    email: "bob@example.com"

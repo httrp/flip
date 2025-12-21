@@ -323,7 +323,256 @@ func (c *Creator) createDefinitions(basePath string, config Config) error {
     email: "your.email@example.com"
 `, config.Author, config.DefaultOrganization)
 
-	return c.writeFile(filepath.Join(basePath, "definitions", "people.yaml"), peopleContent)
+	if err := c.writeFile(filepath.Join(basePath, "definitions", "people.yaml"), peopleContent); err != nil {
+		return err
+	}
+
+	// Create default schemas
+	return c.createDefaultSchemas(basePath)
+}
+
+func (c *Creator) createDefaultSchemas(basePath string) error {
+	schemasDir := filepath.Join(basePath, "definitions", "schemas")
+
+	// Note schema
+	noteSchema := `# Note Schema v1.1
+# Defines the structure for general notes in this brain
+
+version: "1.1"
+name: "note"
+description: "Schema for general notes"
+
+fields:
+  - name: title
+    type: string
+    required: true
+    description: "Note title"
+
+  - name: date
+    type: date
+    required: true
+    description: "Creation date (YYYY-MM-DD)"
+
+  - name: type
+    type: string
+    required: false
+    default: "note"
+    description: "Note type (note, reference, idea, etc.)"
+
+  - name: status
+    type: string
+    required: false
+    default: "active"
+    description: "Note status (active, archived, draft)"
+
+  - name: tags
+    type: array
+    required: false
+    description: "Categorization tags"
+
+  - name: related
+    type: array
+    required: false
+    description: "Links to related notes"
+`
+	if err := c.writeFile(filepath.Join(schemasDir, "note.yaml"), noteSchema); err != nil {
+		return err
+	}
+
+	// Meeting schema
+	meetingSchema := `# Meeting Schema v1.1
+# Defines the structure for meeting notes
+
+version: "1.1"
+name: "meeting"
+description: "Schema for meeting notes"
+
+fields:
+  - name: title
+    type: string
+    required: true
+    description: "Meeting title"
+
+  - name: date
+    type: date
+    required: true
+    description: "Meeting date (YYYY-MM-DD)"
+
+  - name: type
+    type: string
+    required: false
+    default: "meeting"
+    description: "Always 'meeting'"
+
+  - name: attendees
+    type: array
+    required: false
+    description: "List of meeting participants"
+
+  - name: organization
+    type: string
+    required: false
+    description: "Organization abbreviation"
+
+  - name: project
+    type: string
+    required: false
+    description: "Related project"
+
+  - name: location
+    type: string
+    required: false
+    description: "Meeting location or video link"
+
+  - name: tags
+    type: array
+    required: false
+    description: "Categorization tags"
+
+  - name: decisions
+    type: array
+    required: false
+    description: "Key decisions made"
+
+  - name: action_items
+    type: array
+    required: false
+    description: "Action items from the meeting"
+
+  - name: follow_up
+    type: date
+    required: false
+    description: "Follow-up date"
+`
+	if err := c.writeFile(filepath.Join(schemasDir, "meeting.yaml"), meetingSchema); err != nil {
+		return err
+	}
+
+	// Journal schema
+	journalSchema := `# Journal Schema v1.1
+# Defines the structure for daily journal entries
+
+version: "1.1"
+name: "journal"
+description: "Schema for daily journal entries"
+
+fields:
+  - name: title
+    type: string
+    required: true
+    description: "Journal title (usually 'Journal YYYY-MM-DD')"
+
+  - name: date
+    type: date
+    required: true
+    description: "Journal date (YYYY-MM-DD)"
+
+  - name: type
+    type: string
+    required: false
+    default: "journal"
+    description: "Always 'journal'"
+
+  - name: mood
+    type: string
+    required: false
+    description: "Overall mood for the day"
+
+  - name: energy
+    type: string
+    required: false
+    description: "Energy level (low, medium, high)"
+
+  - name: weather
+    type: string
+    required: false
+    description: "Weather conditions"
+
+  - name: tags
+    type: array
+    required: false
+    description: "Categorization tags"
+
+  - name: highlights
+    type: array
+    required: false
+    description: "Day highlights"
+
+  - name: gratitude
+    type: array
+    required: false
+    description: "Things to be grateful for"
+`
+	if err := c.writeFile(filepath.Join(schemasDir, "journal.yaml"), journalSchema); err != nil {
+		return err
+	}
+
+	// Task schema
+	taskSchema := `# Task Schema v1.1
+# Defines the structure for tasks
+
+version: "1.1"
+name: "task"
+description: "Schema for task metadata"
+
+fields:
+  - name: created
+    type: date
+    required: false
+    description: "Task creation date"
+
+  - name: due
+    type: date
+    required: false
+    description: "Due date"
+
+  - name: priority
+    type: string
+    required: false
+    description: "Priority level (low, medium, high, urgent)"
+
+  - name: status
+    type: string
+    required: false
+    default: "open"
+    description: "Task status (open, in-progress, blocked, done, cancelled)"
+
+  - name: context
+    type: string
+    required: false
+    description: "Task context (work, home, errands, etc.)"
+
+  - name: organization
+    type: string
+    required: false
+    description: "Organization abbreviation"
+
+  - name: project
+    type: string
+    required: false
+    description: "Related project"
+
+  - name: tags
+    type: array
+    required: false
+    description: "Additional tags"
+
+  - name: assigned
+    type: string
+    required: false
+    description: "Person assigned to task"
+
+  - name: recurring
+    type: string
+    required: false
+    description: "Recurrence pattern"
+
+  - name: estimate
+    type: string
+    required: false
+    description: "Time estimate"
+`
+	return c.writeFile(filepath.Join(schemasDir, "task.yaml"), taskSchema)
 }
 
 func (c *Creator) createTemplates(basePath string) error {

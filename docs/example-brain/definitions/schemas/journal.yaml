@@ -1,0 +1,44 @@
+# Journal Schema v1.1
+# Defines the structure for daily journal entries
+
+version: "1.1"
+name: "journal"
+description: "Schema for daily journal entries"
+
+fields:
+  - name: title
+    type: string
+    required: true
+
+  - name: date
+    type: date
+    required: true
+
+  - name: type
+    type: string
+    required: false
+    default: "journal"
+
+  - name: mood
+    type: string
+    required: false
+
+  - name: energy
+    type: string
+    required: false
+
+  - name: weather
+    type: string
+    required: false
+
+  - name: tags
+    type: array
+    required: false
+
+  - name: highlights
+    type: array
+    required: false
+
+  - name: gratitude
+    type: array
+    required: false

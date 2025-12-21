@@ -1,0 +1,14 @@
+# Flip Brain Configuration
+# This file marks the directory as a Flip Brain
+
+brain:
+  name: "example-brain"
+  type: "personal"
+  created: "2025-01-15T10:00:00+01:00"
+  version: "1.1"
+
+config:
+  author: "Your Name"
+  default_organization: "PERSONAL"
+  task_format: "flip"
+  wikilinks: false

@@ -1,0 +1,39 @@
+# Note Schema v1.1
+# Defines the structure for general notes
+
+version: "1.1"
+name: "note"
+description: "Schema for general notes"
+
+fields:
+  - name: title
+    type: string
+    required: true
+    description: "Note title"
+
+  - name: date
+    type: date
+    required: true
+    description: "Creation date (YYYY-MM-DD)"
+
+  - name: type
+    type: string
+    required: false
+    default: "note"
+    description: "Note type"
+
+  - name: status
+    type: string
+    required: false
+    default: "active"
+    description: "Note status (active, archived, draft)"
+
+  - name: tags
+    type: array
+    required: false
+    description: "Categorization tags"
+
+  - name: related
+    type: array
+    required: false
+    description: "Links to related notes"
