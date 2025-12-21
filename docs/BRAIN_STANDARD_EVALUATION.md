@@ -459,41 +459,52 @@ config:
   task_format: "flip"  # flip | logseq | dataview | emoji
 ```
 
-### 7.4 Wikilink Support
+### ~~7.4 Wikilink Support~~ ❌ GESTRICHEN
 
-```go
-// Neuer Flag in Brain Config
-config:
-  wikilinks: true  # Enable [[Note]] syntax
-```
+> **Update 21.12.2025**: Wikilink-Support wurde aus der Roadmap entfernt.
+> Standard-Markdown-Links sind eine **Kernstärke** von Flip und sollten nicht verwässert werden.
 
-Health Check kann dann:
-- Wikilinks auflösen (notes/, pages/, meetings/ durchsuchen)
-- Optional zu Markdown-Links konvertieren
+**Begründung:**
+- Standard-Markdown `[text](path.md)` funktioniert ÜBERALL (GitHub, VS Code, jeder Editor)
+- Keine Tool-Abhängigkeit
+- Eindeutige Pfade (kein Raten wo die Datei liegt)
+- Maximale Portabilität
+
+**Stattdessen:** Features *um* Standard-Links herum bauen (Backlinks, Graph), nicht alternative Syntax.
 
 ---
 
 ## 8. Priorisierte Roadmap
 
-### Phase 1: Dokumentation (Niedrig-hängend)
-1. ✏️ `FLIP_BRAIN_SPEC.md` erstellen
-2. ✏️ Task-Format kanonisch definieren
-3. ✏️ README aktualisieren
+### Phase 1: Dokumentation ✅ ERLEDIGT
+1. ✅ `FLIP_BRAIN_SPEC.md` erstellt
+2. ✅ `QUICKSTART.md` erstellt
+3. ✅ `TASK_REFERENCE.md` erstellt
+4. ✅ Templates überarbeitet (Metadata-rich, Content-minimal)
 
-### Phase 2: Schema-Aktivierung
-1. 🔧 Default-Schemas bei `init` erstellen
-2. 🔧 `flip brain check schema` implementieren
-3. 🔧 Schema-Validierung bei Note-Erstellung
+### Phase 2: Schema-Aktivierung ✅ ERLEDIGT
+1. ✅ Default-Schemas bei `init` erstellen
+2. ✅ `flip brain check schema` implementiert
+3. ✅ Example-Brain erstellt
 
-### Phase 3: Wikilink-Support
-1. 🔧 Wikilink-Parsing in Health Check
-2. 🔧 Optional: Wikilink-zu-Markdown Konverter
-3. 🔧 Config-Option für Wikilinks
+### Phase 3: Vernetzung (OHNE Wikilinks!)
+> Standard-Markdown bleibt die Basis – wir bauen Features drum herum.
 
-### Phase 4: Task-Vereinheitlichung
-1. 🔧 Canonical Task Format implementieren
-2. 🔧 Legacy-Format-Migration-Tool
-3. 🔧 Format-Detection verbessern
+1. 🔧 `flip brain backlinks <note>` – zeigt verlinkende Notes
+2. 🔧 `flip brain graph` – Visualisierung der Verbindungen
+3. 🔧 Link-Suggestions beim Erstellen
+
+### Phase 4: Content-Only Brains (NEU!)
+> Externe Markdown-Ordner einbinden ohne volles Brain-Feature-Set.
+
+1. 🔧 Brain-Typ `content` für reine Markdown-Ordner
+2. 🔧 Eingeschränkte Features (kein Task/Journal/Meeting erstellen)
+3. 🔧 Integration mit MkDocs, Hugo, Docusaurus, etc.
+
+### Phase 5: Multi-Format Support
+1. 🔧 `.excalidraw`, `.drawio`, `.tldraw` erkennen
+2. 🔧 `flip open` für externe Formate
+3. 🔧 Health Check für Multi-Format Links
 
 ---
 
@@ -639,22 +650,115 @@ related: []
 - ✅ Standard-Markdown-Links funktionieren überall
 - ✅ Health Check findet broken links
 - ✅ Relative Pfade = portabel
+- ✅ **Keine Wikilinks nötig** – Standard-Markdown ist die Stärke!
 
-**Verbesserungspotential:**
+**Geplante Features (alle mit Standard-Markdown!):**
 
 | Feature | Status | Priorität |
 |---------|--------|-----------|
-| Backlinks anzeigen | ❌ Nicht vorhanden | Mittel |
-| Graph-Visualisierung | ❌ Nicht vorhanden | Niedrig |
-| Wikilinks `[[Note]]` | ⚠️ Nur Health Check | Mittel |
-| Auto-complete für Links | ❌ Nicht vorhanden | Hoch |
+| Backlinks anzeigen | ❌ Geplant | Mittel |
+| Graph-Visualisierung | ❌ Geplant | Niedrig |
+| ~~Wikilinks~~ | ❌ **GESTRICHEN** | - |
+| Link-Suggestions | ❌ Geplant | Hoch |
+
+> **Design-Entscheidung**: Wikilinks werden NICHT unterstützt.
+> Standard-Markdown `[text](path.md)` ist universell und portabel – das ist unsere Stärke.
 
 **Empfehlung:**
-1. **Kurzfristig**: Wikilink-Support in Health Check ausbauen
-2. **Mittelfristig**: `flip brain graph` Command für Visualisierung
-3. **Langfristig**: Backlink-Tracking (welche Notes verlinken hierher?)
+1. **Kurzfristig**: `flip brain backlinks <note>` Command
+2. **Mittelfristig**: `flip brain graph` für Visualisierung
+3. **Langfristig**: Link-Suggestions beim Erstellen
 
-### 9.4 📐 Zukunft: Multi-Format Support
+### 9.4 📂 Content-Only Brains (NEU!)
+
+*Ergänzt am 21.12.2025*
+
+**Problem**: Nicht jeder Markdown-Ordner braucht Tasks, Journals und Meetings.
+
+**Beispiele für Content-Only Brains:**
+
+| Typ | Beispiel | Struktur |
+|-----|----------|----------|
+| **Dokumentation** | MkDocs, Docusaurus | `docs/` mit beliebiger Struktur |
+| **Blog** | Hugo, Jekyll, Astro | `content/posts/` |
+| **Wiki** | GitBook, VuePress | Flache oder hierarchische Struktur |
+| **Zettelkasten** | Reiner Notiz-Ordner | `notes/` ohne Tasks |
+| **Projekt-Docs** | README-Sammlung | Beliebige `.md` Dateien |
+
+**Vision**: Diese Ordner als "Light-Brains" einbinden:
+
+```yaml
+# .flip-brain.yaml
+brain:
+  name: "my-docs"
+  type: "content"           # NEU: Content-only mode
+  created: "2025-01-15"
+
+config:
+  # Diese Features sind bei type: content DEAKTIVIERT:
+  features:
+    tasks: false
+    journals: false
+    meetings: false
+    definitions: false
+  
+  # Diese Features bleiben AKTIV:
+  # - Suche über alle Markdown-Dateien
+  # - Health Check (broken links)
+  # - Backlinks / Graph (wenn implementiert)
+  # - Multi-Format Support
+```
+
+**Oder: Automatische Erkennung ohne .flip-brain.yaml:**
+
+```bash
+# Explizit als Content-Brain einbinden
+flip brain add ~/projects/my-docs --type content
+
+# Flip erkennt bekannte Frameworks automatisch:
+# - mkdocs.yml vorhanden → MkDocs Brain
+# - config.toml mit Hugo-Syntax → Hugo Brain
+# - docusaurus.config.js → Docusaurus Brain
+```
+
+**Was Content-Brains KÖNNEN:**
+- ✅ In Suche einbezogen werden
+- ✅ Health Check (broken links finden)
+- ✅ In Graph/Backlinks erscheinen
+- ✅ Mit `flip open` öffnen
+
+**Was Content-Brains NICHT können:**
+- ❌ `flip journal` (kein Journal-Ordner)
+- ❌ `flip task add` (keine Tasks)
+- ❌ `flip meeting` (keine Meetings)
+- ❌ Schema-Validierung (keine Schemas)
+
+**Warum ist das nützlich?**
+
+1. **Einheitliche Suche**: `flip search "API"` findet auch in der MkDocs-Doku
+2. **Link-Integrität**: Health Check über alle Content-Quellen
+3. **Kein Zwang**: Bestehende Strukturen bleiben unverändert
+4. **Flexibilität**: Jeder Markdown-Ordner kann Teil des Wissens-Netzes sein
+
+**Beispiel-Workflow:**
+
+```bash
+# Workspace mit gemischten Brains
+flip brain list
+
+  📂 danobrain (personal)     - Full brain
+  📂 work-brain (work)        - Full brain  
+  📂 dano-docs (content)      - MkDocs documentation
+  📂 blog (content)           - Hugo blog
+  
+# Suche geht über ALLE Brains
+flip search "kubernetes"
+  → danobrain/notes/k8s-setup.md
+  → dano-docs/docs/deployment.md
+  → blog/content/posts/k8s-intro.md
+```
+
+### 9.5 📐 Multi-Format Support
 
 **Vision**: Neben Markdown auch visuelle Formate unterstützen
 
@@ -699,7 +803,7 @@ config:
 - ❌ Format-spezifische Features
 - ❌ Konvertierung zwischen Formaten
 
-### 9.5 👋 Onboarding: "Flip in 5 Minuten"
+### 9.6 👋 Onboarding: "Flip in 5 Minuten"
 
 **Ziel**: Jeder soll sich **schnell einarbeiten** und flip **feiern** für das durchdachte Format!
 
@@ -758,55 +862,67 @@ Dein Brain ist jetzt bereit. Alle Dateien sind plain Markdown.
 **Top 3 Stärken:**
 1. 🏆 Strukturierte Ordner (beste im Markt)
 2. 🏆 Schema-System (einzigartig)
-3. 🏆 Standard-Markdown (maximale Portabilität)
+3. 🏆 **Standard-Markdown** (maximale Portabilität, KEINE Wikilinks!)
 
 **Top 3 Verbesserungsbereiche:**
-1. ⚠️ Task-Format vereinheitlichen (ohne Feature-Verlust!)
-2. ⚠️ Dokumentation/Spezifikation (QUICKSTART, SPEC)
-3. ⚠️ Schema-System aktivieren
+1. ~~Task-Format vereinheitlichen~~ ✅ Dokumentiert
+2. ~~Dokumentation/Spezifikation~~ ✅ SPEC, QUICKSTART, TASK_REFERENCE
+3. ~~Schema-System aktivieren~~ ✅ Default-Schemas, check schema Command
 
-**Neue Design-Prinzipien:**
+**Design-Prinzipien:**
 1. 📝 Templates: Metadata-rich, Content-minimal
 2. 🔧 Tasks: Kanonisches Format, volle Backward-Compatibility
-3. 🕸️ Vernetzung: Graph-Denken, nicht Listen-Denken
-4. 📐 Multi-Format: Offen für .excalidraw, .drawio, etc.
-5. 👋 Onboarding: "Flip in 5 Minuten" als Ziel
+3. 🕸️ Vernetzung: Standard-Markdown Links (KEINE Wikilinks!)
+4. 📂 Content-Brains: Externe Markdown-Ordner als Light-Brains
+5. 📐 Multi-Format: Offen für .excalidraw, .drawio, etc.
+6. 👋 Onboarding: "Flip in 5 Minuten" als Ziel
 
 **Vergleich mit Konkurrenz:**
-- vs. Obsidian: Weniger Plugins, aber portabler
+- vs. Obsidian: Weniger Plugins, aber portabler (kein Wikilink-Lock-in!)
 - vs. Logseq: Weniger Block-Power, aber lesbarere Dateien
 - vs. Dendron: Ähnlich strukturiert, aber mit Schema-System
 
 **Vision:**
 > Flip soll der **portabelste, strukturierteste und am besten dokumentierte** PKM-Standard werden – 
-> ein Format, das jeder in 5 Minuten versteht und das trotzdem mächtige Features wie den Task Browser bietet.
+> ein Format, das jeder in 5 Minuten versteht, mit Standard-Markdown überall funktioniert,
+> und trotzdem mächtige Features wie den Task Browser bietet.
 
 ---
 
 ## 11. Aktualisierte Roadmap
 
-### Phase 1: Dokumentation & Templates (Niedrig-hängend)
-1. ✏️ `FLIP_BRAIN_SPEC.md` erstellen
-2. ✏️ `QUICKSTART.md` – "Flip in 5 Minuten"
-3. ✏️ Templates überarbeiten (Metadata-rich, Content-minimal)
-4. ✏️ Task-Format kanonisch dokumentieren
+### Phase 1: Dokumentation & Templates ✅ ERLEDIGT
+1. ✅ `FLIP_BRAIN_SPEC.md` erstellt
+2. ✅ `QUICKSTART.md` – "Flip in 5 Minuten"
+3. ✅ `TASK_REFERENCE.md` – Komplette Task-Dokumentation
+4. ✅ Templates überarbeitet (Metadata-rich, Content-minimal)
 
-### Phase 2: Schema & Onboarding
-1. 🔧 Default-Schemas bei `init` erstellen
-2. 🔧 Example-Brain als Vorlage
-3. 🔧 `flip brain check schema` implementieren
+### Phase 2: Schema & Onboarding ✅ ERLEDIGT
+1. ✅ Default-Schemas bei `init` (note, meeting, journal, task)
+2. ✅ Example-Brain als Vorlage (`docs/example-brain/`)
+3. ✅ `flip brain check schema` implementiert
 
-### Phase 3: Vernetzung & Links
-1. 🔧 Wikilink-Support ausbauen
-2. 🔧 `flip brain graph` für Visualisierung
-3. 🔧 Backlink-Tracking (optional)
+### Phase 3: Vernetzung (Standard-Markdown!)
+> **KEINE Wikilinks!** Standard-Markdown ist die Stärke.
 
-### Phase 4: Multi-Format & Zukunft
-1. 🔧 `.excalidraw`, `.drawio` Dateien erkennen
+1. 🔧 `flip brain backlinks <note>` – zeigt verlinkende Notes
+2. 🔧 `flip brain graph` – ASCII/Mermaid Visualisierung
+3. 🔧 Link-Suggestions beim Erstellen
+
+### Phase 4: Content-Only Brains
+> Externe Markdown-Ordner einbinden (MkDocs, Hugo, etc.)
+
+1. 🔧 Brain-Typ `content` für reine Markdown-Ordner
+2. 🔧 Automatische Framework-Erkennung
+3. 🔧 Einheitliche Suche über alle Brains
+
+### Phase 5: Multi-Format Support
+1. 🔧 `.excalidraw`, `.drawio`, `.tldraw` erkennen
 2. 🔧 `flip open` für externe Formate
 3. 🔧 Health Check für Multi-Format Links
 
 ---
 
 *Erstellt während Code Review 2025, Branch: feat/flip-brain-standard*
-*Erweitert: 21.12.2025 – Design-Prinzipien & Stakeholder-Feedback*
+*Erweitert: 21.12.2025 – Design-Prinzipien, Stakeholder-Feedback*
+*Aktualisiert: 21.12.2025 – Wikilinks gestrichen, Content-Brains Konzept*
