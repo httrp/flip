@@ -60,17 +60,8 @@ func NewMenuCommand() *cobra.Command {
 }
 
 func runInteractiveMenu() error {
-	// Load banner from embedded files
-	banner := lang.GetBanner()
-
 	fmt.Println()
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println(banner)
-	fmt.Println(getText("welcome_banner"))
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-
-	// Show status header
+	// Compact status line
 	displayStatusHeader()
 	fmt.Println()
 
@@ -105,6 +96,12 @@ func runInteractiveMenu() error {
 			Description: lang.GetText("menu.main.help_desc"),
 			Command:     lang.GetText("menu.main.help_cmd"),
 			Action:      runHelpMenu,
+		},
+		{
+			Label:       "ℹ️  About",
+			Description: "About flip, version info, and credits",
+			Command:     "flip about",
+			Action:      runAboutMenu,
 		},
 		{
 			Label:       lang.GetText("menu.main.exit_label"),
@@ -2138,6 +2135,53 @@ func runStatusMenu() error {
 }
 
 // runHelpMenu shows help and documentation menu
+// runAboutMenu shows information about flip
+func runAboutMenu() error {
+	fmt.Println()
+	
+	// ASCII Art Banner
+	banner := lang.GetBanner()
+	fmt.Println(banner)
+	fmt.Println()
+	
+	// Version and description
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("  Personal Knowledge Management Tool")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+	
+	// Key features
+	fmt.Println("  📝 Standard Markdown - no proprietary formats")
+	fmt.Println("  🧠 Multi-brain support - Obsidian, Logseq, Dendron, Foam")
+	fmt.Println("  📂 Workspace organization - group related brains")
+	fmt.Println("  🔄 Built-in Git integration")
+	fmt.Println("  📊 Task & exercise tracking")
+	fmt.Println("  🔀 Brain migration tools")
+	fmt.Println()
+	
+	// Links
+	fmt.Println("  📖 Docs:   flip help / flip intro / flip quickstart")
+	fmt.Println("  🌐 GitHub: github.com/danorama-dh/flip")
+	fmt.Println()
+	
+	// Stats
+	config, err := loadWorkspaceConfig()
+	if err == nil && len(config.Workspaces) > 0 {
+		totalBrains := 0
+		for _, ws := range config.Workspaces {
+			totalBrains += len(ws.Brains)
+		}
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("  Your setup: %d workspace(s), %d brain(s)\n", len(config.Workspaces), totalBrains)
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println()
+	}
+	
+	fmt.Println(lang.GetText("prompts.continue"))
+	fmt.Scanln()
+	return runInteractiveMenu()
+}
+
 func runHelpMenu() error {
 	fmt.Println()
 	displayStatusHeader()
