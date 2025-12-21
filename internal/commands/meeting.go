@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -651,12 +652,12 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 	}
 
 	// Walk through all meetings to find those with series field
-	err := filepath.Walk(meetingsDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(meetingsDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 
-		if info.IsDir() {
+		if d.IsDir() {
 			return nil
 		}
 
@@ -668,6 +669,12 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 		// Try to extract series name from frontmatter
 		seriesName, err := extractSeriesNameFromFile(path)
 		if err != nil || seriesName == "" {
+			return nil
+		}
+
+		// Get file info for mod time
+		info, err := d.Info()
+		if err != nil {
 			return nil
 		}
 

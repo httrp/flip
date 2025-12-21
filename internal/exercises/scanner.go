@@ -2,6 +2,7 @@ package exercises
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,18 +32,18 @@ func (s *Scanner) ScanExercises(brainPath string, brainType string) ([]*Exercise
 			continue // Path doesn't exist, skip
 		}
 
-		err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil // Skip errors, continue walking
 			}
 
 			// Skip directories
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
 			// Only process .md files
-			if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 				return nil
 			}
 
@@ -85,16 +86,16 @@ func (s *Scanner) ScanSessions(brainPath, exerciseID string, brainType string) (
 			continue
 		}
 
-		err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
 
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
-			if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 				return nil
 			}
 
@@ -143,16 +144,16 @@ func (s *Scanner) ScanAllSessions(brainPath string, brainType string) ([]*Exerci
 			continue
 		}
 
-		err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
 
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
-			if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 				return nil
 			}
 
@@ -187,16 +188,16 @@ func (s *Scanner) ScanPlans(brainPath string, brainType string) ([]*ExercisePlan
 			continue
 		}
 
-		err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
 
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
-			if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 				return nil
 			}
 
@@ -236,16 +237,16 @@ func (s *Scanner) ScanPlanSessions(brainPath, planID string, brainType string) (
 			continue
 		}
 
-		err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
 
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
-			if !strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+			if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 				return nil
 			}
 

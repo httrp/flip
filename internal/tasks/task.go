@@ -165,6 +165,42 @@ func CheckboxFromStatus(status Status) string {
 	}
 }
 
+// StatusIcon returns the emoji icon for a status (for display in UI)
+func StatusIcon(status Status) string {
+	switch status {
+	case StatusOpen:
+		return "⬜"
+	case StatusDone:
+		return "✅"
+	case StatusInProgress:
+		return "🔄"
+	case StatusDeferred:
+		return "⏸️"
+	case StatusCancelled:
+		return "❌"
+	default:
+		return "⬜"
+	}
+}
+
+// StatusLabel returns a human-readable label for a status
+func StatusLabel(status Status) string {
+	switch status {
+	case StatusOpen:
+		return "Open"
+	case StatusDone:
+		return "Done"
+	case StatusInProgress:
+		return "In Progress"
+	case StatusDeferred:
+		return "Deferred"
+	case StatusCancelled:
+		return "Cancelled"
+	default:
+		return "Unknown"
+	}
+}
+
 // PriorityIcon returns the emoji icon for a priority
 func PriorityIcon(priority Priority) string {
 	switch priority {
@@ -225,22 +261,9 @@ func (t *Task) SaveToFile() error {
 
 // updateTaskStatusInLine replaces the status marker in a task line
 func updateTaskStatusInLine(line string, newStatus Status) string {
-	// Determine new marker
-	var newMarker string
-	switch newStatus {
-	case StatusOpen:
-		newMarker = "[ ]"
-	case StatusDone:
-		newMarker = "[x]"
-	case StatusInProgress:
-		newMarker = "[>]"
-	case StatusDeferred:
-		newMarker = "[~]"
-	case StatusCancelled:
-		newMarker = "[-]"
-	default:
-		newMarker = "[ ]"
-	}
+	// Use CheckboxFromStatus for consistent marker generation
+	marker := CheckboxFromStatus(newStatus)
+	newMarker := "[" + marker + "]"
 
 	// Find and replace checkbox marker
 	// Pattern: - [ ], - [x], - [>], etc. (also supports * and + list markers)

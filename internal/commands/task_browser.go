@@ -159,14 +159,7 @@ func (m taskBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Revert status change
 					task.Status = oldStatus
 				} else {
-					statusName := map[tasks.Status]string{
-						tasks.StatusOpen:       "Open",
-						tasks.StatusDone:       "Done",
-						tasks.StatusInProgress: "In Progress",
-						tasks.StatusDeferred:   "Deferred",
-						tasks.StatusCancelled:  "Cancelled",
-					}
-					m.message = fmt.Sprintf("✅ Saved: %s → %s", statusName[oldStatus], statusName[task.Status])
+					m.message = fmt.Sprintf("✅ Saved: %s → %s", tasks.StatusLabel(oldStatus), tasks.StatusLabel(task.Status))
 				}
 			}
 
@@ -432,17 +425,7 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 	}
 
 	// Status
-	statusIcon := "[ ]"
-	switch task.Status {
-	case tasks.StatusDone:
-		statusIcon = "[✓]"
-	case tasks.StatusInProgress:
-		statusIcon = "[~]"
-	case tasks.StatusDeferred:
-		statusIcon = "[>]"
-	case tasks.StatusCancelled:
-		statusIcon = "[-]"
-	}
+	statusIcon := fmt.Sprintf("[%s]", tasks.StatusIcon(task.Status))
 
 	// Organization/Project/Context metadata
 	metaStr := ""

@@ -2,6 +2,7 @@ package migration
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -184,20 +185,20 @@ func (p *Planner) addFolderSelection(plan *MigrationPlan, folders []string, dept
 
 // addFullBrain walks entire source brain and collects notes & assets
 func (p *Planner) addFullBrain(plan *MigrationPlan) error {
-	return filepath.Walk(p.sourceRoot, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(p.sourceRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip errors
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			// skip hidden/internal dirs maybe
-			name := info.Name()
+			name := d.Name()
 			if strings.HasPrefix(name, ".") || name == "logseq" || name == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		rel, _ := filepath.Rel(p.sourceRoot, path)
-		lower := strings.ToLower(info.Name())
+		lower := strings.ToLower(d.Name())
 		switch {
 		case strings.HasSuffix(lower, ".md"):
 			plan.Items = append(plan.Items, PlanItem{
@@ -208,7 +209,7 @@ func (p *Planner) addFullBrain(plan *MigrationPlan) error {
 		case isAssetExt(filepath.Ext(lower)):
 			plan.Items = append(plan.Items, PlanItem{
 				SourcePath: rel,
-				TargetPath: p.targetStructure.GetAssetTargetPath(info.Name(), ""),
+				TargetPath: p.targetStructure.GetAssetTargetPath(d.Name(), ""),
 				Type:       "asset",
 			})
 		}

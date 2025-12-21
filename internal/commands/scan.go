@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -153,16 +154,16 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		"snap", "flatpak",
 	}
 
-	err := filepath.Walk(scanPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(scanPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip errors
 		}
-		if !info.IsDir() {
+		if !d.IsDir() {
 			return nil
 		}
 
 		// Skip hidden directories at root level (anything starting with .)
-		if strings.HasPrefix(info.Name(), ".") && path != scanPath {
+		if strings.HasPrefix(d.Name(), ".") && path != scanPath {
 			return filepath.SkipDir
 		}
 
@@ -519,11 +520,15 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 // getLastModified returns the last modification time of any file in the directory (recursive)
 func getLastModified(base string) string {
 	var lastMod int64
-	_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
+		if !d.IsDir() {
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
 			mod := info.ModTime().Unix()
 			if mod > lastMod {
 				lastMod = mod
@@ -597,11 +602,11 @@ func fileExists(base, name string) bool {
 
 func countMarkdownFiles(base string) int {
 	count := 0
-	_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			count++
 		}
 		// Don't go too deep
@@ -679,12 +684,12 @@ func countContentFiles(base string) int {
 	count := 0
 	extensions := []string{".md", ".txt", ".org", ".markdown", ".rst"}
 
-	_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
-			lower := strings.ToLower(info.Name())
+		if !d.IsDir() {
+			lower := strings.ToLower(d.Name())
 			for _, ext := range extensions {
 				if strings.HasSuffix(lower, ext) {
 					count++

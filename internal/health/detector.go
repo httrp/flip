@@ -2,6 +2,7 @@ package health
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -91,22 +92,22 @@ func AnalyzeBrain(brainPath string) (*BrainInfo, error) {
 	noteCount := 0
 	assetCount := 0
 
-	err = filepath.Walk(brainPath, func(path string, fileInfo os.FileInfo, err error) error {
+	err = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
 
-		if fileInfo.IsDir() {
+		if d.IsDir() {
 			// Skip hidden and config directories
-			if strings.HasPrefix(fileInfo.Name(), ".") ||
-				fileInfo.Name() == "logseq" ||
-				fileInfo.Name() == "node_modules" {
+			if strings.HasPrefix(d.Name(), ".") ||
+				d.Name() == "logseq" ||
+				d.Name() == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		ext := strings.ToLower(filepath.Ext(fileInfo.Name()))
+		ext := strings.ToLower(filepath.Ext(d.Name()))
 
 		// Count markdown files
 		if ext == ".md" {

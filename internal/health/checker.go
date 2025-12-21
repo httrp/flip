@@ -2,6 +2,7 @@ package health
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,14 +135,14 @@ func (c *Checker) Check() (*CheckResult, error) {
 
 // indexFiles builds an index of all files in the brain
 func (c *Checker) indexFiles() error {
-	return filepath.Walk(c.brainPath, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(c.brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
 
-		if info.IsDir() {
+		if d.IsDir() {
 			// Skip hidden and config directories
-			dirName := info.Name()
+			dirName := d.Name()
 			if strings.HasPrefix(dirName, ".") ||
 				dirName == "logseq" ||
 				dirName == "node_modules" ||
@@ -161,7 +162,7 @@ func (c *Checker) indexFiles() error {
 		// Track all files
 		c.allFiles[relPath] = true
 
-		ext := strings.ToLower(filepath.Ext(info.Name()))
+		ext := strings.ToLower(filepath.Ext(d.Name()))
 
 		// Track markdown files
 		if ext == ".md" {

@@ -3,6 +3,7 @@ package commands
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -652,7 +653,7 @@ func containsExistingBrain(targetPath string) (bool, []string, error) {
 	var foundBrains []string
 
 	// Walk through subdirectories looking for .flip.yaml
-	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -663,7 +664,7 @@ func containsExistingBrain(targetPath string) (bool, []string, error) {
 		}
 
 		// Check if this directory has .flip.yaml
-		if info.IsDir() {
+		if d.IsDir() {
 			markerPath := filepath.Join(path, ".flip.yaml")
 			if _, err := os.Stat(markerPath); err == nil {
 				relPath, _ := filepath.Rel(absPath, path)

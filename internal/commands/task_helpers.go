@@ -321,17 +321,7 @@ func runTaskUpdate(args []string) error {
 	// Task selection
 	items := make([]string, len(taskList))
 	for i, task := range taskList {
-		statusIcon := "⭕"
-		switch task.Status {
-		case tasks.StatusInProgress:
-			statusIcon = "🔄"
-		case tasks.StatusDone:
-			statusIcon = "✅"
-		case tasks.StatusDeferred:
-			statusIcon = "⏸️"
-		case tasks.StatusCancelled:
-			statusIcon = "❌"
-		}
+		statusIcon := tasks.StatusIcon(task.Status)
 		priorityIcon := tasks.PriorityIcon(task.Priority)
 		dueInfo := ""
 		if task.Due != nil {
