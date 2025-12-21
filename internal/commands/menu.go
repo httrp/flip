@@ -1,5 +1,34 @@
 package commands
 
+// menu.go - Interactive Menu System
+//
+// This file contains all interactive menu functions (~2700 lines).
+// The size is intentional - all navigation logic belongs together.
+//
+// Structure:
+//   - NewMenuCommand()           CLI command entry point
+//   - runInteractiveMenu()       Main menu
+//   - runCreateNewMenu()         Create submenu (notes, meetings, tasks...)
+//   - runBrowseSearchMenu()      Browse submenu (search, recent, tasks)
+//   - runManageResourcesMenu()   Manage submenu (brains, workspaces)
+//   - runStatusMenu()            Status & Git submenu
+//   - runHelpMenu()              Help submenu
+//   - run*Details()              Detail views for brains/workspaces
+//
+// Pattern: Each menu function follows the same structure:
+//   1. Display header + breadcrumb
+//   2. Define []MenuItem with Label, Description, Command, Action
+//   3. Show promptui.Select
+//   4. Execute selected Action (which returns to self or parent)
+//
+// Navigation: Menus call each other via Action closures, creating
+// a tree structure with "Back" options returning to parent menus.
+//
+// Related files:
+//   - menu_helpers.go  Templates, MenuItem type, terminal helpers
+//   - menu_git.go      Git sync operations (pull, commit, conflicts)
+//   - menu_exercises.go Exercise tracking submenu
+
 import (
 	"bufio"
 	"fmt"
