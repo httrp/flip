@@ -182,17 +182,6 @@ func runStatus() error {
 		}
 	}
 
-	// Quick menu
-	fmt.Println("Menu:")
-	fmt.Println("  intro          Short introduction to Flip")
-	fmt.Println("  quickstart     Guided onboarding")
-	fmt.Println("  workspace      Manage workspaces (create/list/switch/remove/rename/repair)")
-	fmt.Println("  brain          Manage brains (add/list/remove/set-default/rename/repair)")
-	fmt.Println("  brain init     Initialize a brain in a directory")
-	fmt.Println("  brain new      Create a new brain with a chosen dialect")
-	fmt.Println("  brain scan     Find existing brain folders")
-	fmt.Println()
-
 	// Stats
 	totalBrains := 0
 	for _, ws := range config.Workspaces {
