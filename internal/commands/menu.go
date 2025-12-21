@@ -1454,10 +1454,13 @@ func runEditBrainMenu() error {
 						}
 					}
 				case "o":
-					// Open folder
+					// Open folder (cross-platform)
 					if _, err := os.Stat(brain.Path); err == nil {
-						exec.Command("open", brain.Path).Start()
-						fmt.Printf("\n%s Opening folder...\n", IconCheck)
+						if err := openInFileManager(brain.Path); err != nil {
+							fmt.Printf("\n%s Error opening folder: %v\n", IconError, err)
+						} else {
+							fmt.Printf("\n%s Opening folder...\n", IconCheck)
+						}
 					} else {
 						fmt.Printf("\n%s Error: Cannot open folder - path does not exist\n", IconError)
 					}
@@ -2466,9 +2469,8 @@ func runBrainDetails(brainInfo Brain) func() error {
 				Description: lang.GetText("menu.brain_details.open_folder_desc"),
 				Command:     lang.GetText("menu.brain_details.open_folder_command"),
 				Action: func() error {
-					// Open in file manager
-					cmd := exec.Command("xdg-open", brainInfo.Path)
-					if err := cmd.Start(); err != nil {
+					// Open in file manager (cross-platform)
+					if err := openInFileManager(brainInfo.Path); err != nil {
 						fmt.Printf("❌ Error opening folder: %v\n", err)
 						time.Sleep(2 * time.Second)
 					} else {

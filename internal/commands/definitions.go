@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -623,15 +622,10 @@ func runDefinitionsExportToNote() error {
 
 	openIdx, _, err := openPrompt.Run()
 	if err == nil && openIdx == 0 {
-		// Try to open in VS Code (non-blocking)
-		cmd := exec.Command("code", notePath)
-		if err := cmd.Start(); err != nil {
-			// Fallback to xdg-open on Linux
-			cmd = exec.Command("xdg-open", notePath)
-			if err := cmd.Start(); err != nil {
-				fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
-				fmt.Printf("   File path: %s\n", notePath)
-			}
+		// Open in editor (cross-platform)
+		if err := openInEditor(notePath); err != nil {
+			fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
+			fmt.Printf("   File path: %s\n", notePath)
 		}
 	}
 
@@ -647,16 +641,11 @@ func runDefinitionsOpenFile() error {
 
 	fmt.Printf("\n📂 Definitions file: %s\n", path)
 
-	// Try to open in VS Code (non-blocking)
-	cmd := exec.Command("code", path)
-	if err := cmd.Start(); err != nil {
-		// Fallback to xdg-open on Linux
-		cmd = exec.Command("xdg-open", path)
-		if err := cmd.Start(); err != nil {
-			fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
-			fmt.Printf("   File path: %s\n", path)
-			return nil
-		}
+	// Open in editor (cross-platform)
+	if err := openInEditor(path); err != nil {
+		fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
+		fmt.Printf("   File path: %s\n", path)
+		return nil
 	}
 
 	fmt.Printf("✅ Opening in editor...\n")
@@ -1686,15 +1675,10 @@ func promptOpenDefinitionsFile() error {
 			return nil
 		}
 
-		// Try to open in VS Code (non-blocking)
-		cmd := exec.Command("code", path)
-		if err := cmd.Start(); err != nil {
-			// Fallback to xdg-open on Linux
-			cmd = exec.Command("xdg-open", path)
-			if err := cmd.Start(); err != nil {
-				fmt.Printf("⚠️  Could not open editor: %v\n", err)
-				fmt.Printf("   File path: %s\n", path)
-			}
+		// Open in editor (cross-platform)
+		if err := openInEditor(path); err != nil {
+			fmt.Printf("⚠️  Could not open editor: %v\n", err)
+			fmt.Printf("   File path: %s\n", path)
 		}
 
 		fmt.Printf("✅ Opening %s\n", path)
