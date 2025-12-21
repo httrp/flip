@@ -149,14 +149,15 @@ func TestSingleNoteMigration(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 
-	// Check target migrated
-	targetMigrated := filepath.Join(dst, "target.md")
+	// Check target migrated - Obsidian has no enforced structure, so file goes to root
+	// The filename is preserved since both Flip and Obsidian use same format
+	targetMigrated := filepath.Join(dst, "notes", "target.md")
 	if _, err := os.Stat(targetMigrated); err != nil {
 		t.Fatalf("target note not migrated: %v", err)
 	}
 
 	// Other should NOT be migrated
-	otherMigrated := filepath.Join(dst, "other.md")
+	otherMigrated := filepath.Join(dst, "notes", "other.md")
 	if _, err := os.Stat(otherMigrated); err == nil {
 		t.Errorf("other note should not be migrated in single mode")
 	}
@@ -167,9 +168,10 @@ func TestConflictDetection(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
 
-	// Two files that slug to same target name
-	mkNote(t, filepath.Join(src, "dir1", "Test Note.md"), "# Test")
-	mkNote(t, filepath.Join(src, "dir2", "test-note.md"), "# Test")
+	// Two files in SAME directory that slug to same target name
+	// "Test Note.md" and "test-note.md" both become "test-note.md" in Flip
+	mkNote(t, filepath.Join(src, "notes", "Test Note.md"), "# Test")
+	mkNote(t, filepath.Join(src, "notes", "test-note.md"), "# Test")
 
 	sourceStruct := GetBrainStructure(health.BrainTypeObsidian)
 	targetStruct := GetBrainStructure(health.BrainTypeFlip)

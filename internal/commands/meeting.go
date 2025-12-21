@@ -367,6 +367,8 @@ func generateMeetingFilename(title, seriesName string, brainType brain.BrainType
 		return fmt.Sprintf("meeting-%s-%s.md", now.Format("2006-01-02"), safeName)
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf("meetings.%s-%s.md", now.Format("2006-01-02"), safeName)
+	case brain.BrainTypeFoam:
+		return fmt.Sprintf("meeting-%s-%s.md", now.Format("2006-01-02"), safeName)
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf("%s-meeting-%s.md", now.Format("2006-01-02"), safeName)
 	default:

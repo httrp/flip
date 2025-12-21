@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/httrp/flip/internal/health"
 )
 
 // MigrationMode represents the scope of migration
@@ -49,6 +47,7 @@ type Planner struct {
 	targetStructure *BrainStructure
 	sourceRoot      string
 	targetRoot      string
+	transformer     *Transformer
 }
 
 // NewPlanner constructs a Planner
@@ -58,6 +57,7 @@ func NewPlanner(sourceRoot, targetRoot string, sourceStruct, targetStruct *Brain
 		targetStructure: targetStruct,
 		sourceRoot:      sourceRoot,
 		targetRoot:      targetRoot,
+		transformer:     NewTransformer(sourceStruct.Type, targetStruct.Type),
 	}
 }
 
@@ -243,23 +243,60 @@ func (p *Planner) detectConflicts(plan *MigrationPlan) {
 	}
 }
 
-// computeTargetNotePath maps a source relative path to target conventions (basic version)
+// computeTargetNotePath maps a source relative path to target conventions
+// Uses the Transformer for proper filename conversion between brain types
 func (p *Planner) computeTargetNotePath(sourceRel string) string {
+	dir := filepath.Dir(sourceRel)
 	base := filepath.Base(sourceRel)
-	nameNoExt := strings.TrimSuffix(base, filepath.Ext(base))
-	// Simple slug conversion for target that enforces slug style
-	if p.targetStructure.Type == health.BrainTypeFlip {
-		slug := strings.ToLower(strings.ReplaceAll(nameNoExt, " ", "-"))
-		if p.targetStructure.NotesDir != "" {
-			return filepath.Join(p.targetStructure.NotesDir, slug+".md")
+
+	// Transform the filename using brain-type aware converter
+	newFilename := p.transformer.TransformFilename(base)
+
+	// Determine target directory based on note type
+	targetDir := p.mapSourceDirToTarget(dir)
+
+	if targetDir != "" && targetDir != "." {
+		return filepath.Join(targetDir, newFilename)
+	}
+	return newFilename
+}
+
+// mapSourceDirToTarget converts source directory to appropriate target directory
+func (p *Planner) mapSourceDirToTarget(sourceDir string) string {
+	// Handle journal directory mapping
+	if p.sourceStructure.JournalDir != "" && 
+	   (sourceDir == p.sourceStructure.JournalDir || strings.HasPrefix(sourceDir, p.sourceStructure.JournalDir+"/")) {
+		if p.targetStructure.JournalDir != "" {
+			// Replace source journal dir with target journal dir
+			return strings.Replace(sourceDir, p.sourceStructure.JournalDir, p.targetStructure.JournalDir, 1)
 		}
-		return slug + ".md"
+		return sourceDir
 	}
-	// Keep original name by default
-	if p.targetStructure.NotesDir != "" {
-		return filepath.Join(p.targetStructure.NotesDir, base)
+
+	// Handle notes directory mapping
+	if p.sourceStructure.NotesDir != "" && 
+	   (sourceDir == p.sourceStructure.NotesDir || strings.HasPrefix(sourceDir, p.sourceStructure.NotesDir+"/")) {
+		if p.targetStructure.NotesDir != "" {
+			return strings.Replace(sourceDir, p.sourceStructure.NotesDir, p.targetStructure.NotesDir, 1)
+		}
+		return sourceDir
 	}
-	return base
+
+	// Handle meetings directory mapping
+	if p.sourceStructure.MeetingsDir != "" && 
+	   (sourceDir == p.sourceStructure.MeetingsDir || strings.HasPrefix(sourceDir, p.sourceStructure.MeetingsDir+"/")) {
+		if p.targetStructure.MeetingsDir != "" {
+			return strings.Replace(sourceDir, p.sourceStructure.MeetingsDir, p.targetStructure.MeetingsDir, 1)
+		}
+		return sourceDir
+	}
+
+	// Keep original directory if no mapping applies
+	if p.targetStructure.NotesDir != "" && sourceDir == "." {
+		return p.targetStructure.NotesDir
+	}
+
+	return sourceDir
 }
 
 func classifyNote(rel string, sourceStruct *BrainStructure) string {

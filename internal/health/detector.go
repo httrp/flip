@@ -16,6 +16,7 @@ const (
 	BrainTypeLogseq   BrainType = "logseq"
 	BrainTypeObsidian BrainType = "obsidian"
 	BrainTypeDendron  BrainType = "dendron"
+	BrainTypeFoam     BrainType = "foam"
 	BrainTypeUnknown  BrainType = "unknown"
 )
 
@@ -30,14 +31,16 @@ type BrainInfo struct {
 
 // DetectBrainType analyzes a directory and determines the brain type
 func DetectBrainType(brainPath string) (BrainType, error) {
-	// Check for Flip brain
-	if _, err := os.Stat(filepath.Join(brainPath, ".flip.yaml")); err == nil {
-		return BrainTypeFlip, nil
-	}
-
-	// Check for Logseq brain
+	// Check for Logseq brain FIRST (before Flip) because log brain might have both
+	// .flip.yaml and Logseq structure
 	logseqConfig := filepath.Join(brainPath, "logseq", "config.edn")
-	if _, err := os.Stat(logseqConfig); err == nil {
+	hasLogseqConfig, _ := exists(logseqConfig)
+	
+	hasJournals, _ := exists(filepath.Join(brainPath, "journals"))
+	hasPages, _ := exists(filepath.Join(brainPath, "pages"))
+
+	if hasLogseqConfig || (hasJournals && hasPages) {
+		// Logseq brain: has logseq/config.edn OR journals+pages directories
 		return BrainTypeLogseq, nil
 	}
 
@@ -53,13 +56,19 @@ func DetectBrainType(brainPath string) (BrainType, error) {
 		return BrainTypeDendron, nil
 	}
 
-	// Check for common patterns
-	hasJournals, _ := exists(filepath.Join(brainPath, "journals"))
-	hasPages, _ := exists(filepath.Join(brainPath, "pages"))
+	// Check for Foam brain
+	foamDir := filepath.Join(brainPath, ".foam")
+	foamSnippets := filepath.Join(brainPath, ".vscode", "foam.code-snippets")
+	if stat, err := os.Stat(foamDir); err == nil && stat.IsDir() {
+		return BrainTypeFoam, nil
+	}
+	if _, err := os.Stat(foamSnippets); err == nil {
+		return BrainTypeFoam, nil
+	}
 
-	if hasJournals && hasPages {
-		// Likely Logseq without config
-		return BrainTypeLogseq, nil
+	// Check for Flip brain LAST (lowest priority)
+	if _, err := os.Stat(filepath.Join(brainPath, ".flip.yaml")); err == nil {
+		return BrainTypeFlip, nil
 	}
 
 	return BrainTypeUnknown, fmt.Errorf("could not determine brain type for: %s", brainPath)
@@ -162,6 +171,8 @@ func (bt BrainType) String() string {
 		return "Obsidian Vault"
 	case BrainTypeDendron:
 		return "Dendron Workspace"
+	case BrainTypeFoam:
+		return "Foam Brain"
 	default:
 		return "Unknown"
 	}

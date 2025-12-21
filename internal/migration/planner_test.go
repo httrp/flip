@@ -55,17 +55,17 @@ func TestBuildPlanPartialFolders(t *testing.T) {
 	if plan.NotesCount != 2 {
 		t.Fatalf("expected 2 notes, got %d", plan.NotesCount)
 	}
-	// Expect slugged targets under notes/
+	// Source folder is preserved, filenames are transformed to Flip slug format
 	expected := map[string]bool{
-		filepath.Join("notes", "project-a.md"): true,
-		filepath.Join("notes", "project-b.md"): true,
+		filepath.Join("projects", "project-a.md"): true,
+		filepath.Join("projects", "project-b.md"): true,
 	}
 	for _, it := range plan.Items {
 		if it.Type != "note" {
 			continue
 		}
 		if !expected[it.TargetPath] {
-			t.Fatalf("unexpected target: %s", it.TargetPath)
+			t.Fatalf("unexpected target: %s (expected one of %v)", it.TargetPath, expected)
 		}
 	}
 }
@@ -97,9 +97,9 @@ func TestDetectConflictsOnTarget(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
 
-	// Two different source files that slug to the same target name 'alpha.md'
-	writeFile(t, filepath.Join(src, "A", "Alpha.md"), "# Alpha\n")
-	writeFile(t, filepath.Join(src, "B", "alpha.md"), "# alpha\n")
+	// Two different source files in SAME directory that slug to the same target name
+	writeFile(t, filepath.Join(src, "notes", "Alpha Note.md"), "# Alpha\n")
+	writeFile(t, filepath.Join(src, "notes", "alpha-note.md"), "# alpha\n")
 
 	p := NewPlanner(src, dst, GetBrainStructure(health.BrainTypeObsidian), GetBrainStructure(health.BrainTypeFlip))
 	plan, err := p.BuildPlan(ModeFull, "", nil, 0)
