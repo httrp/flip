@@ -9,6 +9,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/health"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func newBrainCheckCommand() *cobra.Command {
@@ -29,6 +30,7 @@ func newBrainCheckCommand() *cobra.Command {
 
 	// Add subcommands
 	cmd.AddCommand(newBrainHealthCommand())
+	cmd.AddCommand(newBrainSchemaCommand())
 
 	return cmd
 }
@@ -529,4 +531,344 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 	}
 
 	return nil
+}
+
+func newBrainSchemaCommand() *cobra.Command {
+	var brainPath string
+	var verbose bool
+
+	cmd := &cobra.Command{
+		Use:   "schema [path]",
+		Short: "Validate notes against schema definitions",
+		Long: `Validates note frontmatter against schema definitions.
+
+Checks that:
+- Required fields are present
+- Field types are correct (string, date, array, etc.)
+- Date formats are valid (YYYY-MM-DD)
+
+Schemas are defined in definitions/schemas/*.yaml
+
+Examples:
+  flip brain check schema              # Check current brain
+  flip brain check schema ~/my-brain   # Check specific brain
+  flip brain check schema -v           # Verbose output`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				brainPath = args[0]
+			} else {
+				brainPath = "."
+			}
+			return runBrainSchemaCheck(brainPath, verbose)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+
+	return cmd
+}
+
+func runBrainSchemaCheck(brainPath string, verbose bool) error {
+	// Resolve absolute path
+	absPath, err := filepath.Abs(brainPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	result, err := detector.DetectBrainType(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to detect brain type: %w", err)
+	}
+
+	if result.Type == brain.BrainTypeUnknown || result.Type == brain.BrainTypeEmpty {
+		return fmt.Errorf("no valid brain found at %s", absPath)
+	}
+
+	// Check for schemas directory
+	schemasDir := filepath.Join(absPath, "definitions", "schemas")
+	if _, err := os.Stat(schemasDir); os.IsNotExist(err) {
+		fmt.Println("🔍 Schema Check")
+		fmt.Println(strings.Repeat("─", 60))
+		fmt.Println()
+		fmt.Println("⚠️  No schemas defined")
+		fmt.Println()
+		fmt.Println("   Schema directory not found: definitions/schemas/")
+		fmt.Println()
+		fmt.Println("💡 To enable schema validation:")
+		fmt.Println("   1. Create a new brain with 'flip brain init' (includes default schemas)")
+		fmt.Println("   2. Or manually create definitions/schemas/ with schema files")
+		fmt.Println()
+		return nil
+	}
+
+	// Load schemas
+	schemas, err := loadSchemas(schemasDir)
+	if err != nil {
+		return fmt.Errorf("failed to load schemas: %w", err)
+	}
+
+	if len(schemas) == 0 {
+		fmt.Println("⚠️  No schema files found in definitions/schemas/")
+		return nil
+	}
+
+	// Print header
+	fmt.Println("🔍 Schema Validation")
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Printf("  Brain:   %s\n", filepath.Base(absPath))
+	fmt.Printf("  Path:    %s\n", absPath)
+	fmt.Printf("  Schemas: %d loaded\n", len(schemas))
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Println()
+
+	// Print loaded schemas
+	if verbose {
+		fmt.Println("📋 Loaded Schemas:")
+		for name, schema := range schemas {
+			fmt.Printf("   • %s (v%s) - %d fields\n", name, schema.Version, len(schema.Fields))
+		}
+		fmt.Println()
+	}
+
+	// Find and validate notes
+	var totalFiles, validFiles, invalidFiles, skippedFiles int
+	var issues []schemaIssue
+
+	// Check each directory that might have notes
+	noteDirs := []struct {
+		dir        string
+		schemaName string
+	}{
+		{"notes", "note"},
+		{"journal", "journal"},
+		{"meetings", "meeting"},
+	}
+
+	for _, nd := range noteDirs {
+		dirPath := filepath.Join(absPath, nd.dir)
+		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+			continue
+		}
+
+		schema, hasSchema := schemas[nd.schemaName]
+		if !hasSchema {
+			if verbose {
+				fmt.Printf("⏭️  Skipping %s/ (no %s schema)\n", nd.dir, nd.schemaName)
+			}
+			continue
+		}
+
+		err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+
+			// Skip templates
+			if strings.Contains(path, "template") {
+				skippedFiles++
+				return nil
+			}
+
+			totalFiles++
+			relPath, _ := filepath.Rel(absPath, path)
+
+			fileIssues := validateFileAgainstSchema(path, schema)
+			if len(fileIssues) == 0 {
+				validFiles++
+				if verbose {
+					fmt.Printf("✅ %s\n", relPath)
+				}
+			} else {
+				invalidFiles++
+				for _, issue := range fileIssues {
+					issue.File = relPath
+					issues = append(issues, issue)
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Print results
+	fmt.Println()
+	fmt.Println("📊 Results")
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Printf("  Files checked:  %d\n", totalFiles)
+	fmt.Printf("  Valid:          %d ✅\n", validFiles)
+	fmt.Printf("  Invalid:        %d ❌\n", invalidFiles)
+	fmt.Printf("  Skipped:        %d ⏭️\n", skippedFiles)
+	fmt.Println()
+
+	if len(issues) > 0 {
+		fmt.Println("❌ Issues Found:")
+		fmt.Println()
+		
+		currentFile := ""
+		for _, issue := range issues {
+			if issue.File != currentFile {
+				currentFile = issue.File
+				fmt.Printf("  📄 %s\n", issue.File)
+			}
+			fmt.Printf("     • %s: %s\n", issue.Field, issue.Message)
+		}
+		fmt.Println()
+	}
+
+	if invalidFiles == 0 {
+		fmt.Println("✅ All notes conform to their schemas!")
+	}
+
+	return nil
+}
+
+type schemaIssue struct {
+	File    string
+	Field   string
+	Message string
+}
+
+type schemaDefinition struct {
+	Version string        `yaml:"version"`
+	Name    string        `yaml:"name"`
+	Fields  []schemaField `yaml:"fields"`
+}
+
+type schemaField struct {
+	Name     string `yaml:"name"`
+	Type     string `yaml:"type"`
+	Required bool   `yaml:"required"`
+}
+
+func loadSchemas(schemasDir string) (map[string]*schemaDefinition, error) {
+	schemas := make(map[string]*schemaDefinition)
+
+	entries, err := os.ReadDir(schemasDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(schemasDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+
+		var schema schemaDefinition
+		if err := parseYAML(data, &schema); err != nil {
+			continue
+		}
+
+		// Use filename without extension as key if name not set
+		name := schema.Name
+		if name == "" {
+			name = strings.TrimSuffix(entry.Name(), ".yaml")
+		}
+		schemas[name] = &schema
+	}
+
+	return schemas, nil
+}
+
+func validateFileAgainstSchema(path string, schema *schemaDefinition) []schemaIssue {
+	var issues []schemaIssue
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []schemaIssue{{Message: fmt.Sprintf("cannot read file: %v", err)}}
+	}
+
+	content := string(data)
+	
+	// Check if file has frontmatter
+	if !strings.HasPrefix(content, "---") {
+		return []schemaIssue{{Field: "frontmatter", Message: "missing YAML frontmatter"}}
+	}
+
+	// Extract frontmatter
+	parts := strings.SplitN(content, "---", 3)
+	if len(parts) < 3 {
+		return []schemaIssue{{Field: "frontmatter", Message: "invalid frontmatter format"}}
+	}
+
+	frontmatter := make(map[string]interface{})
+	if err := parseYAML([]byte(parts[1]), &frontmatter); err != nil {
+		return []schemaIssue{{Field: "frontmatter", Message: fmt.Sprintf("invalid YAML: %v", err)}}
+	}
+
+	// Check each required field
+	for _, field := range schema.Fields {
+		value, exists := frontmatter[field.Name]
+
+		if field.Required && !exists {
+			issues = append(issues, schemaIssue{
+				Field:   field.Name,
+				Message: "required field missing",
+			})
+			continue
+		}
+
+		if !exists {
+			continue
+		}
+
+		// Type validation
+		switch field.Type {
+		case "date":
+			if str, ok := value.(string); ok {
+				if !isValidDate(str) {
+					issues = append(issues, schemaIssue{
+						Field:   field.Name,
+						Message: fmt.Sprintf("invalid date format '%s' (expected YYYY-MM-DD)", str),
+					})
+				}
+			}
+		case "array":
+			if _, ok := value.([]interface{}); !ok {
+				// Also accept nil for empty arrays
+				if value != nil {
+					issues = append(issues, schemaIssue{
+						Field:   field.Name,
+						Message: "expected array",
+					})
+				}
+			}
+		}
+	}
+
+	return issues
+}
+
+func isValidDate(s string) bool {
+	// Accept YYYY-MM-DD format
+	if len(s) != 10 {
+		return false
+	}
+	if s[4] != '-' || s[7] != '-' {
+		return false
+	}
+	// Basic check - could be more thorough
+	for i, c := range s {
+		if i == 4 || i == 7 {
+			continue
+		}
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseYAML(data []byte, v interface{}) error {
+	return yaml.Unmarshal(data, v)
 }

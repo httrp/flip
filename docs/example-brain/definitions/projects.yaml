@@ -1,0 +1,21 @@
+# Projects
+
+projects:
+  - name: "Flip Learning"
+    abbreviation: "FLIP"
+    organization: "PERSONAL"
+    status: "active"
+    description: "Learning and mastering Flip PKM"
+    start_date: "2025-01-15"
+
+  - name: "Personal Website"
+    abbreviation: "WEB"
+    organization: "PERSONAL"
+    status: "planned"
+    description: "Build personal website"
+
+  - name: "Home Automation"
+    abbreviation: "HOME"
+    organization: "PERSONAL"
+    status: "someday"
+    description: "Smart home setup"

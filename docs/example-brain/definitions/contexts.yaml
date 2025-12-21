@@ -1,0 +1,29 @@
+# Contexts
+
+# Contexts define WHERE or WHEN you can do tasks
+# Keep it simple: 5-7 contexts max
+
+contexts:
+  - name: "work"
+    description: "At work, with work tools"
+    color: "#3B82F6"
+
+  - name: "home"
+    description: "At home"
+    color: "#10B981"
+
+  - name: "errands"
+    description: "Out and about"
+    color: "#F59E0B"
+
+  - name: "computer"
+    description: "Need a computer"
+    color: "#8B5CF6"
+
+  - name: "phone"
+    description: "Can do from phone"
+    color: "#EC4899"
+
+  - name: "focus"
+    description: "Need deep focus time"
+    color: "#EF4444"

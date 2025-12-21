@@ -1,0 +1,56 @@
+# Meeting Schema v1.1
+# Defines the structure for meeting notes
+
+version: "1.1"
+name: "meeting"
+description: "Schema for meeting notes"
+
+fields:
+  - name: title
+    type: string
+    required: true
+    description: "Meeting title"
+
+  - name: date
+    type: date
+    required: true
+    description: "Meeting date"
+
+  - name: type
+    type: string
+    required: false
+    default: "meeting"
+
+  - name: attendees
+    type: array
+    required: false
+    description: "Meeting participants"
+
+  - name: organization
+    type: string
+    required: false
+
+  - name: project
+    type: string
+    required: false
+
+  - name: location
+    type: string
+    required: false
+
+  - name: tags
+    type: array
+    required: false
+
+  - name: decisions
+    type: array
+    required: false
+    description: "Key decisions made"
+
+  - name: action_items
+    type: array
+    required: false
+
+  - name: follow_up
+    type: date
+    required: false
