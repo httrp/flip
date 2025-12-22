@@ -54,9 +54,14 @@ func main() {
 	rootCmd.AddCommand(commands.NewDefinitionsCommand())
 	// Register file-info command (for VS Code integration)
 	rootCmd.AddCommand(commands.NewFileInfoCommand())
+	// Register vscode command for VS Code integration
+	rootCmd.AddCommand(commands.NewVSCodeCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")
+
+	// Check for VS Code tasks updates (only shows hint if in VS Code and outdated)
+	commands.CheckVSCodeTasksUpdate()
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
