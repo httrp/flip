@@ -200,8 +200,60 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeInstallCommand())
 	cmd.AddCommand(newVSCodeStatusCommand())
 	cmd.AddCommand(newVSCodeUninstallCommand())
+	cmd.AddCommand(newVSCodeInfoCommand())
 
 	return cmd
+}
+
+func newVSCodeInfoCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "info",
+		Short: "Output flip info for VS Code extension (JSON)",
+		Long:  "Returns JSON with all information needed by the VS Code extension",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVSCodeInfo()
+		},
+	}
+}
+
+func runVSCodeInfo() error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("vscode-info", err)
+		return nil
+	}
+
+	info := VSCodeInfo{
+		FlipVersion:     FlipVersion,
+		ActiveWorkspace: config.ActiveWorkspace,
+		Brains:          []BrainInfo{},
+		Commands: []string{
+			"journal", "note", "quicknote", "meeting-note",
+			"search", "recent", "status", "brain switch",
+			"task new", "task done", "task list",
+		},
+	}
+
+	// Find active workspace and its brains
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			info.ActiveBrain = ws.DefaultBrain
+
+			for _, b := range ws.Brains {
+				brainInfo := BrainInfo{
+					Name:   b.Name,
+					Path:   b.Path,
+					Type:   b.Type,
+					Active: b.Name == ws.DefaultBrain,
+				}
+				info.Brains = append(info.Brains, brainInfo)
+			}
+			break
+		}
+	}
+
+	OutputJSONSuccess("vscode-info", info)
+	return nil
 }
 
 func newVSCodeInstallCommand() *cobra.Command {

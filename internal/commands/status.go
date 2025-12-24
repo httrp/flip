@@ -7,8 +7,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// FlipVersion is set at build time or defaults to dev
+var FlipVersion = "dev"
+
 func NewStatusCommand() *cobra.Command {
 	var theme string
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show overview of workspaces and brains",
@@ -17,11 +22,78 @@ func NewStatusCommand() *cobra.Command {
 			if theme != "" {
 				SetIconTheme(theme)
 			}
+			JSONOutput = jsonOutput
+			if JSONOutput {
+				return runStatusJSON()
+			}
 			return runStatus()
 		},
 	}
 	cmd.Flags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 	return cmd
+}
+
+// runStatusJSON outputs status as JSON for VS Code integration
+func runStatusJSON() error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("status", err)
+		return nil
+	}
+
+	result := StatusResult{
+		FlipVersion: FlipVersion,
+		IsVSCode:    IsRunningInVSCode(),
+		Brains:      []BrainInfo{},
+	}
+
+	// Find active workspace
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			result.Workspace = WorkspaceInfo{
+				Name:   ws.Name,
+				Path:   "", // Workspaces don't have paths anymore
+				Active: true,
+			}
+
+			// Get brains in active workspace
+			for _, b := range ws.Brains {
+				brainInfo := BrainInfo{
+					Name:   b.Name,
+					Path:   b.Path,
+					Type:   b.Type,
+					Active: b.Name == ws.DefaultBrain,
+				}
+
+				// Add git info if available
+				health := checkBrainHealth(b.Path)
+				if health.IsGitRepo && health.GitStatus.Branch != "" {
+					brainInfo.GitBranch = health.GitStatus.Branch
+					if health.GitStatus.HasUncommitted {
+						brainInfo.GitStatus = "uncommitted"
+					} else if health.GitStatus.AheadCount > 0 {
+						brainInfo.GitStatus = "ahead"
+					} else if health.GitStatus.BehindCount > 0 {
+						brainInfo.GitStatus = "behind"
+					} else {
+						brainInfo.GitStatus = "clean"
+					}
+				}
+
+				result.Brains = append(result.Brains, brainInfo)
+
+				// Set active brain
+				if brainInfo.Active {
+					result.ActiveBrain = &brainInfo
+				}
+			}
+			break
+		}
+	}
+
+	OutputJSONSuccess("status", result)
+	return nil
 }
 
 func runStatus() error {

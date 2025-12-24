@@ -2111,6 +2111,12 @@ func runStatusMenu() error {
 			},
 		},
 		{
+			Label:       lang.GetText("menu.status.vscode_label"),
+			Description: lang.GetText("menu.status.vscode_desc"),
+			Command:     lang.GetText("menu.status.vscode_cmd"),
+			Action:      runVSCodeMenu,
+		},
+		{
 			Label:       lang.GetText("menu.status.back_label"),
 			Description: lang.GetText("menu.status.back_desc"),
 			Command:     "",
@@ -2131,6 +2137,91 @@ func runStatusMenu() error {
 	idx, _, err := selectMenu.Run()
 	if err != nil {
 		return runInteractiveMenu()
+	}
+
+	fmt.Println()
+	return menuItems[idx].Action()
+}
+
+// runVSCodeMenu shows VS Code integration submenu
+func runVSCodeMenu() error {
+	fmt.Println()
+	displayStatusHeader()
+	fmt.Println()
+	showBreadcrumb("Main", "Status & Git", "VS Code Integration")
+
+	menuItems := []MenuItem{
+		{
+			Label:       lang.GetText("menu.vscode.install_label"),
+			Description: lang.GetText("menu.vscode.install_desc"),
+			Command:     lang.GetText("menu.vscode.install_cmd"),
+			Action: func() error {
+				if err := installTasksGlobal(); err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.vscode.install_local_label"),
+			Description: lang.GetText("menu.vscode.install_local_desc"),
+			Command:     lang.GetText("menu.vscode.install_local_cmd"),
+			Action: func() error {
+				if err := installTasksLocal(); err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.vscode.status_label"),
+			Description: lang.GetText("menu.vscode.status_desc"),
+			Command:     lang.GetText("menu.vscode.status_cmd"),
+			Action: func() error {
+				showVSCodeStatus()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.vscode.uninstall_label"),
+			Description: lang.GetText("menu.vscode.uninstall_desc"),
+			Command:     lang.GetText("menu.vscode.uninstall_cmd"),
+			Action: func() error {
+				if err := uninstallTasksGlobal(); err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       lang.GetText("menu.vscode.back_label"),
+			Description: lang.GetText("menu.vscode.back_desc"),
+			Command:     "",
+			Action:      runStatusMenu,
+		},
+	}
+
+	templates := createMenuItemWithCommandTemplates()
+
+	selectMenu := promptui.Select{
+		Label:     "VS Code Integration",
+		Items:     menuItems,
+		Templates: templates,
+		Size:      calculateMenuSize(len(menuItems)),
+		HideHelp:  true,
+	}
+
+	idx, _, err := selectMenu.Run()
+	if err != nil {
+		return runStatusMenu()
 	}
 
 	fmt.Println()
