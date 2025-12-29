@@ -56,6 +56,8 @@ func main() {
 	rootCmd.AddCommand(commands.NewFileInfoCommand())
 	// Register vscode command for VS Code integration
 	rootCmd.AddCommand(commands.NewVSCodeCommand())
+	// Register file-info command (for VS Code integration)
+	rootCmd.AddCommand(commands.NewFileInfoCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")

@@ -2,19 +2,19 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/httrp/flip/internal/git"
 )
 
-// displayStatusHeader shows the current workspace and default brain
+// displayStatusHeader shows a compact one-line status
 func displayStatusHeader() {
 	config, err := loadWorkspaceConfig()
 	if err != nil || len(config.Workspaces) == 0 {
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println("⚠️  No workspace configured")
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("⚠️  No workspace configured · Run: flip quickstart")
 		return
 	}
 
@@ -27,19 +27,20 @@ func displayStatusHeader() {
 	}
 
 	if activeWS == nil {
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println("⚠️  No active workspace")
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		return
 	}
 
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("📂 Workspace: %s", activeWS.Name)
+	// Build compact status line
+	parts := []string{}
+	
+	// Workspace
+	parts = append(parts, fmt.Sprintf("📂 %s", activeWS.Name))
 
-	// Show default brain if set
+	// Default brain
 	var defaultBrain *Brain
 	if activeWS.DefaultBrain != "" {
-		fmt.Printf(" | 🧠 Brain: %s", activeWS.DefaultBrain)
+		parts = append(parts, fmt.Sprintf("🧠 %s", activeWS.DefaultBrain))
 		for i := range activeWS.Brains {
 			if activeWS.Brains[i].Name == activeWS.DefaultBrain {
 				defaultBrain = &activeWS.Brains[i]
@@ -47,69 +48,94 @@ func displayStatusHeader() {
 			}
 		}
 	} else if len(activeWS.Brains) > 0 {
-		fmt.Printf(" | 🧠 Brain: %s", activeWS.Brains[0].Name)
+		parts = append(parts, fmt.Sprintf("🧠 %s", activeWS.Brains[0].Name))
 		defaultBrain = &activeWS.Brains[0]
-	} else {
-		fmt.Printf(" | 🧠 Brain: (none)")
 	}
 
-	// Show git status for default brain
+	// Git status (compact)
 	if defaultBrain != nil {
-		showBrainGitStatus(defaultBrain)
+		gitParts := getCompactGitStatus(defaultBrain)
+		parts = append(parts, gitParts...)
+		
+		// Today's journal check
+		if hasJournalToday(defaultBrain.Path) {
+			parts = append(parts, "📓 ✓")
+		}
+		
+		// Open tasks count
+		if taskCount := getOpenTaskCount(defaultBrain.Path); taskCount > 0 {
+			parts = append(parts, fmt.Sprintf("✅ %d", taskCount))
+		}
 	}
 
-	fmt.Println()
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println(strings.Join(parts, " · "))
 }
 
-// showBrainGitStatus displays git status information for a brain
-func showBrainGitStatus(brain *Brain) {
+// getCompactGitStatus returns compact git info
+func getCompactGitStatus(brain *Brain) []string {
 	status, err := git.GetStatus(brain.Path)
 	if err != nil || !status.IsRepo {
-		return // Silently skip if not a git repo
+		return nil
 	}
 
-	// Build status line
-	var statusParts []string
+	parts := []string{}
 
-	// Branch info
+	// Branch
 	if status.Branch != "" {
-		statusParts = append(statusParts, fmt.Sprintf("⎇ %s", status.Branch))
+		parts = append(parts, fmt.Sprintf("⎇ %s", status.Branch))
 	}
 
-	// Changes indicator
+	// Changes indicator (very compact)
 	if status.HasChanges {
-		changeInfo := []string{}
-		if status.ModifiedFiles > 0 {
-			changeInfo = append(changeInfo, fmt.Sprintf("%d modified", status.ModifiedFiles))
-		}
-		if status.StagedFiles > 0 {
-			changeInfo = append(changeInfo, fmt.Sprintf("%d staged", status.StagedFiles))
-		}
-		if status.UntrackedFiles > 0 {
-			changeInfo = append(changeInfo, fmt.Sprintf("%d untracked", status.UntrackedFiles))
-		}
-		statusParts = append(statusParts, "⚡ "+strings.Join(changeInfo, ", "))
+		total := status.ModifiedFiles + status.StagedFiles + status.UntrackedFiles
+		parts = append(parts, fmt.Sprintf("⚡%d", total))
 	} else {
-		statusParts = append(statusParts, "✓ clean")
+		parts = append(parts, "✓")
 	}
 
-	// Last commit info
-	if status.LastCommitHash != "" {
-		timeSince := formatTimeSince(status.LastCommitDate)
-		commitMsg := truncate(status.LastCommitMsg, 40)
-		statusParts = append(statusParts, fmt.Sprintf("📝 %s: %s (%s)", status.LastCommitHash, commitMsg, timeSince))
-	}
-
-	// Remote sync status
+	// Remote sync
 	if status.AheadBehind != "" && status.AheadBehind != "up to date" {
-		statusParts = append(statusParts, "🔄 "+status.AheadBehind)
+		parts = append(parts, "🔄")
 	}
 
-	if len(statusParts) > 0 {
-		fmt.Println()
-		fmt.Printf("   %s\n", strings.Join(statusParts, " | "))
+	return parts
+}
+
+// hasJournalToday checks if today's journal exists
+func hasJournalToday(brainPath string) bool {
+	today := time.Now().Format("2006-01-02")
+	journalPath := filepath.Join(brainPath, "journal", today+".md")
+	_, err := os.Stat(journalPath)
+	return err == nil
+}
+
+// getOpenTaskCount counts open tasks in the brain
+func getOpenTaskCount(brainPath string) int {
+	tasksDir := filepath.Join(brainPath, "tasks")
+	if _, err := os.Stat(tasksDir); os.IsNotExist(err) {
+		return 0
 	}
+
+	count := 0
+	filepath.Walk(tasksDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		
+		// Count unchecked task markers
+		content := string(data)
+		count += strings.Count(content, "- [ ]")
+		count += strings.Count(content, "* [ ]")
+		
+		return nil
+	})
+
+	return count
 }
 
 // formatTimeSince formats a time duration in a human-readable way
