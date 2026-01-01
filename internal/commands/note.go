@@ -151,6 +151,17 @@ func runCreateNote() error {
 		fmt.Printf("⚠️  Git commit failed: %v\n", err)
 	}
 
+	// STEP 6b: Ask if user wants to add link to journal
+	relPath := relativePathFromBrain(filePath, activeBrain.Path)
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType: "note",
+		ItemName: title,
+		ItemPath: relPath,
+		Brain:    activeBrain,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
+
 	// STEP 7: Ask if user wants to edit the note
 	if err := promptAndOpenEditor(filePath); err != nil {
 		// Don't fail if editor opening fails, note is already created

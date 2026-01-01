@@ -145,6 +145,16 @@ func runCreateTask() error {
 	fmt.Println(tasks.FormatTask(task))
 	fmt.Println()
 
+	// Ask if user wants to add link to journal
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType: "task",
+		ItemName: description,
+		ItemPath: relPath,
+		Brain:    activeBrain,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
+
 	return nil
 }
 
