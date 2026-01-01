@@ -85,10 +85,20 @@ func runCreateTask() error {
 	tagsStr, _ := tagsPrompt.Run()
 	tagList := parseTagsString(tagsStr)
 
-	// Get active brain
-	activeBrain, err := getActiveBrain()
+	// Get active brain and allow selection if multiple brains exist
+	activeWs, err := getActiveWorkspace()
 	if err != nil {
-		return fmt.Errorf("failed to get active brain: %w", err)
+		return fmt.Errorf("failed to get active workspace: %w", err)
+	}
+
+	if len(activeWs.Brains) == 0 {
+		return fmt.Errorf("no brains configured")
+	}
+
+	// Use confirmOrSelectBrain to allow selection if multiple brains
+	activeBrain, err := confirmOrSelectBrain(activeWs)
+	if err != nil {
+		return err
 	}
 
 	// Select where to save with improved options
