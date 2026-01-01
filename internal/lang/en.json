@@ -334,8 +334,27 @@
       "git_pull_label": "⬇️  Pull Updates",
       "git_pull_desc": "Pull updates from remote repositories",
       "git_pull_cmd": "",
+      "vscode_label": "💻 VS Code Integration",
+      "vscode_desc": "Manage flip tasks for VS Code",
+      "vscode_cmd": "flip vscode",
       "back_label": "◀️  Back",
       "back_desc": "Return to main menu"
+    },
+    "vscode": {
+      "install_label": "📥 Install/Update Tasks",
+      "install_desc": "Install flip tasks globally for VS Code",
+      "install_cmd": "flip vscode install",
+      "install_local_label": "📁 Install Local Tasks",
+      "install_local_desc": "Install tasks in current project only",
+      "install_local_cmd": "flip vscode install --local",
+      "status_label": "📊 Show Status",
+      "status_desc": "Check installed tasks version",
+      "status_cmd": "flip vscode status",
+      "uninstall_label": "🗑️  Uninstall Tasks",
+      "uninstall_desc": "Remove flip tasks from VS Code",
+      "uninstall_cmd": "flip vscode uninstall",
+      "back_label": "◀️  Back",
+      "back_desc": "Return to status menu"
     },
     "help": {
       "quickstart_label": "🚀 Quick Start",

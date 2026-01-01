@@ -13,18 +13,337 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// TaskNewOptions holds options for task creation
+type TaskNewOptions struct {
+	File        string // Target file for task (for VS Code integration)
+	Line        int    // Line number to insert at (for VS Code integration)
+	Description string // Task description (for non-interactive mode)
+	Brain       string // Brain name
+	Due         string // Due date (YYYY-MM-DD, today, tomorrow)
+	Priority    string // Priority (high, medium, low)
+	NoEdit      bool   // Don't open editor
+	NoLink      bool   // Don't add link to journal
+}
+
+// TaskResult is the JSON response for task creation
+type TaskResult struct {
+	Action      string `json:"action"`
+	Path        string `json:"path"`
+	Line        int    `json:"line,omitempty"`
+	Description string `json:"description"`
+	Due         string `json:"due,omitempty"`
+	Priority    string `json:"priority,omitempty"`
+	BrainName   string `json:"brain_name"`
+	BrainPath   string `json:"brain_path"`
+}
+
 // NewTaskNewCommand creates the task new command
 func NewTaskNewCommand() *cobra.Command {
+	var opts TaskNewOptions
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:     "new",
 		Aliases: []string{"n"},
 		Short:   "Create a new task",
-		Long:    "Create a new task interactively.",
+		Long: `Create a new task interactively or non-interactively.
+
+Examples:
+  flip task new                                    # Interactive mode
+  flip task new --file /path/to/note.md --line 42 # Insert at cursor position
+  flip task new --description "My task" --json    # Non-interactive with JSON output
+  flip task new --description "Do X" --due today --priority high --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			// Non-interactive mode if description is provided
+			if opts.Description != "" || JSONOutput {
+				return runCreateTaskNonInteractive(opts)
+			}
+			// Position-based mode
+			if opts.File != "" {
+				return runCreateTaskAtPosition(opts)
+			}
 			return runCreateTask()
 		},
 	}
+
+	cmd.Flags().StringVar(&opts.File, "file", "", "Target file for task (VS Code integration)")
+	cmd.Flags().IntVar(&opts.Line, "line", 0, "Line number to insert at (VS Code integration)")
+	cmd.Flags().StringVar(&opts.Description, "description", "", "Task description (for non-interactive mode)")
+	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().StringVar(&opts.Due, "due", "", "Due date (YYYY-MM-DD, today, tomorrow)")
+	cmd.Flags().StringVar(&opts.Priority, "priority", "", "Priority (high, medium, low)")
+	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&opts.NoLink, "no-link", false, "Don't add link to journal")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+
 	return cmd
+}
+
+// runCreateTaskNonInteractive creates a task without prompts (for VS Code integration)
+func runCreateTaskNonInteractive(opts TaskNewOptions) error {
+	// Validate required fields
+	if opts.Description == "" {
+		err := fmt.Errorf("--description is required for non-interactive mode")
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get workspace
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get brain
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("task", err)
+				return nil
+			}
+			return err
+		}
+	} else {
+		// Use default brain
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
+	}
+
+	if activeBrain == nil {
+		err := fmt.Errorf("no brain available")
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Parse due date
+	var dueDate *time.Time
+	if opts.Due != "" {
+		dueDate = parseDueDateString(opts.Due)
+	}
+
+	// Create task
+	task := &tasks.Task{
+		ID:          uuid.New().String()[:8],
+		Description: opts.Description,
+		Status:      tasks.StatusOpen,
+		Priority:    parsePriorityString(opts.Priority),
+		Due:         dueDate,
+		Created:     time.Now(),
+	}
+
+	// Get task directory
+	taskDir := filepath.Join(activeBrain.Path, "tasks")
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Target file
+	var filePath string
+	if opts.File != "" {
+		filePath = opts.File
+	} else {
+		// Default tasks file
+		filePath = filepath.Join(taskDir, "todo.md")
+	}
+
+	// Append task to file
+	if err := appendTaskToFile(filePath, task); err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Add link to journal (unless disabled)
+	if !opts.NoLink {
+		relPath := relativePathFromBrain(filePath, activeBrain.Path)
+		_ = AddLinkToJournal(JournalLinkOptions{
+			ItemType:    "task",
+			ItemName:    opts.Description,
+			ItemPath:    relPath,
+			Brain:       activeBrain,
+			Interactive: false,
+		})
+	}
+
+	// Output result
+	if JSONOutput {
+		result := TaskResult{
+			Action:      "created",
+			Path:        filePath,
+			Description: opts.Description,
+			BrainName:   activeBrain.Name,
+			BrainPath:   activeBrain.Path,
+		}
+		if dueDate != nil {
+			result.Due = dueDate.Format("2006-01-02")
+		}
+		if opts.Priority != "" {
+			result.Priority = opts.Priority
+		}
+		OutputJSONSuccess("task", result)
+		return nil
+	}
+
+	fmt.Printf("✅ Task created: %s\n", filePath)
+
+	// Open editor if not disabled
+	if !opts.NoEdit {
+		_ = openInEditor(filePath)
+	}
+
+	return nil
+}
+
+// parsePriorityString converts a priority string to tasks.Priority
+func parsePriorityString(s string) tasks.Priority {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "high", "h", "1":
+		return tasks.PriorityHigh
+	case "medium", "med", "m", "2":
+		return tasks.PriorityMedium
+	case "low", "l", "3":
+		return tasks.PriorityLow
+	default:
+		return tasks.PriorityNone
+	}
+}
+
+// runCreateTaskAtPosition creates a task at a specific file/line (for VS Code integration)
+func runCreateTaskAtPosition(opts TaskNewOptions) error {
+	fmt.Println("\n📝 Create Task at Current Position")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("📄 File: %s\n", opts.File)
+	if opts.Line > 0 {
+		fmt.Printf("📍 Line: %d\n", opts.Line)
+	}
+	fmt.Println()
+
+	// Verify file exists
+	if _, err := os.Stat(opts.File); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", opts.File)
+	}
+
+	// Get task description
+	descPrompt := promptui.Prompt{
+		Label: "Task Description",
+	}
+	description, err := descPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Get due date (simplified for cursor-based insertion)
+	duePrompt := promptui.Prompt{
+		Label:   "Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)",
+		Default: "",
+	}
+	dueStr, _ := duePrompt.Run()
+	dueDate := parseDueDateString(dueStr)
+
+	// Get priority
+	prioritySelect := promptui.Select{
+		Label:     "Priority",
+		Items:     []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
+		CursorPos: 3, // Default to None for quick inline tasks
+	}
+	priorityIdx, _, _ := prioritySelect.Run()
+	priority := indexToPriority(priorityIdx)
+
+	// Create task object
+	task := &tasks.Task{
+		ID:          uuid.New().String(),
+		Description: description,
+		Status:      tasks.StatusOpen,
+		Created:     time.Now(),
+		Due:         dueDate,
+		Priority:    priority,
+	}
+
+	// Insert at position or append
+	if opts.Line > 0 {
+		err = insertTaskAtLine(opts.File, opts.Line, task)
+	} else {
+		err = appendTaskToFile(opts.File, task)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to save task: %w", err)
+	}
+
+	fmt.Printf("\n✅ Task inserted at %s", opts.File)
+	if opts.Line > 0 {
+		fmt.Printf(":%d", opts.Line)
+	}
+	fmt.Println()
+	fmt.Println(tasks.FormatTask(task))
+	fmt.Println()
+
+	return nil
+}
+
+// insertTaskAtLine inserts a task at a specific line in a file
+func insertTaskAtLine(filePath string, lineNum int, task *tasks.Task) error {
+	// Read existing content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+
+	// Format task
+	taskLine := tasks.FormatTask(task)
+
+	// Ensure line number is valid
+	if lineNum < 1 {
+		lineNum = 1
+	}
+	if lineNum > len(lines) {
+		// Append to end
+		lines = append(lines, "", taskLine)
+	} else {
+		// Insert at line (1-indexed)
+		idx := lineNum - 1
+		newLines := make([]string, 0, len(lines)+2)
+		newLines = append(newLines, lines[:idx]...)
+		newLines = append(newLines, taskLine, "")
+		newLines = append(newLines, lines[idx:]...)
+		lines = newLines
+	}
+
+	// Write back
+	return os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 // runCreateTask creates a new task interactively
@@ -85,10 +404,20 @@ func runCreateTask() error {
 	tagsStr, _ := tagsPrompt.Run()
 	tagList := parseTagsString(tagsStr)
 
-	// Get active brain
-	activeBrain, err := getActiveBrain()
+	// Get active brain and allow selection if multiple brains exist
+	activeWs, err := getActiveWorkspace()
 	if err != nil {
-		return fmt.Errorf("failed to get active brain: %w", err)
+		return fmt.Errorf("failed to get active workspace: %w", err)
+	}
+
+	if len(activeWs.Brains) == 0 {
+		return fmt.Errorf("no brains configured")
+	}
+
+	// Use confirmOrSelectBrain to allow selection if multiple brains
+	activeBrain, err := confirmOrSelectBrain(activeWs)
+	if err != nil {
+		return err
 	}
 
 	// Select where to save with improved options
@@ -134,6 +463,17 @@ func runCreateTask() error {
 	fmt.Println()
 	fmt.Println(tasks.FormatTask(task))
 	fmt.Println()
+
+	// Ask if user wants to add link to journal
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType:    "task",
+		ItemName:    description,
+		ItemPath:    relPath,
+		Brain:       activeBrain,
+		Interactive: true,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
 
 	return nil
 }
@@ -680,22 +1020,38 @@ func promptForTaskFile(brain *Brain) (string, error) {
 	// 2. Default task file
 	items = append(items, "📋 tasks/tasks.md (recommended)")
 
-	// 3. Recently used files
+	// 3. Recently modified markdown files in brain (last 5)
+	recentMdFiles := getRecentlyModifiedMdFiles(brain.Path, 5)
+	for _, file := range recentMdFiles {
+		// Skip if it's the same as defaults or journals
+		if file != journalPath && file != "tasks/tasks.md" && !strings.HasPrefix(file, "journal/") {
+			items = append(items, fmt.Sprintf("📄 %s (recent)", file))
+		}
+	}
+
+	// 4. Recently used task files from history
 	if len(history.RecentFiles) > 0 {
 		for _, file := range history.RecentFiles {
-			// Skip if it's the same as defaults
-			if file != journalPath && file != "tasks/tasks.md" {
+			// Skip if already shown or same as defaults
+			alreadyShown := false
+			for _, item := range items {
+				if strings.Contains(item, file) {
+					alreadyShown = true
+					break
+				}
+			}
+			if !alreadyShown && file != journalPath && file != "tasks/tasks.md" {
 				items = append(items, fmt.Sprintf("🕒 %s", file))
 			}
 		}
 	}
 
-	// 4. Legacy options (for backward compatibility)
+	// 5. Legacy options (for backward compatibility)
 	items = append(items, "📂 tasks/backlog.md")
 	items = append(items, "📆 tasks/today.md")
 	items = append(items, "📆 tasks/this-week.md")
 
-	// 5. Custom file
+	// 6. Custom file
 	items = append(items, "📁 Specify custom file...")
 
 	selector := promptui.Select{
@@ -736,8 +1092,12 @@ func promptForTaskFile(brain *Brain) (string, error) {
 		var relPath string
 
 		if strings.HasPrefix(selected, "🕒 ") {
-			// Recent file
+			// Recent task file from history
 			relPath = strings.TrimPrefix(selected, "🕒 ")
+		} else if strings.HasPrefix(selected, "📄 ") {
+			// Recent markdown file
+			relPath = strings.TrimPrefix(selected, "📄 ")
+			relPath = strings.TrimSuffix(relPath, " (recent)")
 		} else if strings.HasPrefix(selected, "📂 ") {
 			relPath = strings.TrimPrefix(selected, "📂 ")
 		} else if strings.HasPrefix(selected, "📆 ") {
@@ -944,4 +1304,74 @@ func promptForNewContext() (string, error) {
 	}
 
 	return abbr, nil
+}
+
+// getRecentlyModifiedMdFiles returns the most recently modified .md files in a brain
+func getRecentlyModifiedMdFiles(brainPath string, limit int) []string {
+	type fileInfo struct {
+		relPath string
+		modTime time.Time
+	}
+
+	var files []fileInfo
+
+	// Walk the brain directory
+	filepath.Walk(brainPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+
+		// Skip directories and hidden files/folders
+		if info.IsDir() {
+			if strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Only .md files
+		if !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
+
+		// Skip hidden files
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		// Get relative path
+		relPath, err := filepath.Rel(brainPath, path)
+		if err != nil {
+			return nil
+		}
+
+		// Skip .git and node_modules
+		if strings.Contains(relPath, ".git") || strings.Contains(relPath, "node_modules") {
+			return nil
+		}
+
+		files = append(files, fileInfo{
+			relPath: relPath,
+			modTime: info.ModTime(),
+		})
+
+		return nil
+	})
+
+	// Sort by modification time (newest first)
+	for i := 0; i < len(files)-1; i++ {
+		for j := i + 1; j < len(files); j++ {
+			if files[j].modTime.After(files[i].modTime) {
+				files[i], files[j] = files[j], files[i]
+			}
+		}
+	}
+
+	// Return top N
+	result := make([]string, 0, limit)
+	for i := 0; i < len(files) && i < limit; i++ {
+		result = append(result, files[i].relPath)
+	}
+
+	return result
 }

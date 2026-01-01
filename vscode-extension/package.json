@@ -1,0 +1,121 @@
+{
+  "name": "flip-vscode",
+  "displayName": "Flip - Personal Knowledge Management",
+  "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
+  "version": "0.1.0",
+  "publisher": "danorama",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "knowledge management",
+    "notes",
+    "journal",
+    "second brain",
+    "pkm"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "flip.journal",
+        "title": "Flip: Open/Create Journal"
+      },
+      {
+        "command": "flip.note",
+        "title": "Flip: New Note"
+      },
+      {
+        "command": "flip.quicknote",
+        "title": "Flip: Quick Note"
+      },
+      {
+        "command": "flip.meetingNote",
+        "title": "Flip: New Meeting Note"
+      },
+      {
+        "command": "flip.search",
+        "title": "Flip: Search Notes"
+      },
+      {
+        "command": "flip.status",
+        "title": "Flip: Show Status"
+      },
+      {
+        "command": "flip.switchBrain",
+        "title": "Flip: Switch Brain"
+      },
+      {
+        "command": "flip.taskNew",
+        "title": "Flip: New Task"
+      },
+      {
+        "command": "flip.taskDone",
+        "title": "Flip: Mark Task Done"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "flip.journal",
+        "key": "ctrl+alt+j",
+        "mac": "cmd+alt+j"
+      },
+      {
+        "command": "flip.note",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n"
+      },
+      {
+        "command": "flip.quicknote",
+        "key": "ctrl+alt+q",
+        "mac": "cmd+alt+q"
+      }
+    ],
+    "configuration": {
+      "title": "Flip",
+      "properties": {
+        "flip.executablePath": {
+          "type": "string",
+          "default": "flip",
+          "description": "Path to flip executable (default: uses PATH)"
+        },
+        "flip.timeout": {
+          "type": "number",
+          "default": 10000,
+          "description": "Timeout for flip commands in milliseconds"
+        },
+        "flip.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show flip status in status bar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/httrp/flip"
+  }
+}

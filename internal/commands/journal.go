@@ -14,20 +14,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// JournalOptions holds options for journal creation
+type JournalOptions struct {
+	Date   string // Date in YYYY-MM-DD format (empty = today)
+	Brain  string // Brain name (empty = active brain)
+	NoEdit bool   // Don't open editor after creation
+}
+
 func NewJournalCommand() *cobra.Command {
+	var opts JournalOptions
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:   "journal [new]",
 		Short: "Create or open a daily journal note",
-		Long:  "Create a new daily journal/daily note or open existing one. Prevents duplicate entries for the same date.\n\nExamples:\n  flip journal         # Create/open journal (default action)\n  flip journal new     # Create/open journal (explicit)\n  flip journal n       # Create/open journal (shortcut)\n  flip new journal     # Create/open journal (alternative syntax)",
+		Long: `Create a new daily journal/daily note or open existing one. Prevents duplicate entries for the same date.
+
+Examples:
+  flip journal                    # Interactive: Create/open journal
+  flip journal --date 2025-12-22  # Create journal for specific date
+  flip journal --json             # JSON output for VS Code integration
+  flip journal --brain log        # Use specific brain`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Default action: create/open journal
-			// Support: flip journal, flip journal new, flip journal n
+			JSONOutput = jsonOutput
 			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				if JSONOutput || opts.Date != "" || opts.Brain != "" {
+					return runCreateJournalNonInteractive(opts)
+				}
 				return runCreateJournal()
 			}
 			return fmt.Errorf("unknown subcommand: %s", args[0])
 		},
 	}
+
+	// Flags for non-interactive mode
+	cmd.Flags().StringVar(&opts.Date, "date", "", "Date for journal (YYYY-MM-DD, default: today)")
+	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	// Add explicit 'new' subcommand for clarity
 	newCmd := &cobra.Command{
@@ -35,6 +59,10 @@ func NewJournalCommand() *cobra.Command {
 		Aliases: []string{"n"},
 		Short:   "Create or open a daily journal note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			if JSONOutput || opts.Date != "" || opts.Brain != "" {
+				return runCreateJournalNonInteractive(opts)
+			}
 			return runCreateJournal()
 		},
 	}
@@ -43,7 +71,146 @@ func NewJournalCommand() *cobra.Command {
 	return cmd
 }
 
-// runCreateJournal creates or opens a daily journal note
+// runCreateJournalNonInteractive creates journal without prompts (for VS Code integration)
+func runCreateJournalNonInteractive(opts JournalOptions) error {
+	// Parse date
+	var targetDate time.Time
+	if opts.Date == "" {
+		targetDate = time.Now()
+	} else {
+		var err error
+		targetDate, err = time.Parse("2006-01-02", opts.Date)
+		if err != nil {
+			if JSONOutput {
+				OutputJSONError("journal", fmt.Errorf("invalid date format: %s (use YYYY-MM-DD)", opts.Date))
+				return nil
+			}
+			return fmt.Errorf("invalid date format: %s (use YYYY-MM-DD)", opts.Date)
+		}
+	}
+
+	// Get workspace and brain
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("journal", err)
+			return nil
+		}
+		return err
+	}
+
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		// Find specified brain
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("journal", err)
+				return nil
+			}
+			return err
+		}
+	} else {
+		// Use default brain
+		if activeWs.DefaultBrain != "" {
+			for i := range activeWs.Brains {
+				if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+					activeBrain = &activeWs.Brains[i]
+					break
+				}
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
+	}
+
+	if activeBrain == nil {
+		err := fmt.Errorf("no brains found in workspace")
+		if JSONOutput {
+			OutputJSONError("journal", err)
+			return nil
+		}
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(activeBrain.Path)
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("journal", err)
+			return nil
+		}
+		return err
+	}
+
+	// Generate filename and path
+	filename := generateJournalFilename(targetDate, detection.Type)
+	journalDir := getJournalDirectory(activeBrain.Path, detection.Type)
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("journal", err)
+			return nil
+		}
+		return err
+	}
+
+	filePath := filepath.Join(journalDir, filename)
+
+	// Check if exists
+	action := "created"
+	if _, err := os.Stat(filePath); err == nil {
+		action = "opened"
+	} else {
+		// Create new journal
+		content := generateJournalContent(targetDate, detection.Type)
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+			if JSONOutput {
+				OutputJSONError("journal", err)
+				return nil
+			}
+			return err
+		}
+	}
+
+	// JSON output
+	if JSONOutput {
+		OutputJSONSuccess("journal", JournalResult{
+			Action:    action,
+			Path:      filePath,
+			Date:      targetDate.Format("2006-01-02"),
+			BrainName: activeBrain.Name,
+			BrainPath: activeBrain.Path,
+			BrainType: string(detection.Type),
+		})
+		return nil
+	}
+
+	// Human-readable output
+	if action == "created" {
+		fmt.Printf("✓ Journal created: %s\n", filePath)
+	} else {
+		fmt.Printf("📖 Journal exists: %s\n", filePath)
+	}
+
+	// Open editor unless --no-edit
+	if !opts.NoEdit {
+		if err := openInEditor(filePath); err != nil {
+			fmt.Printf("⚠️  Could not open editor: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// runCreateJournal creates or opens a daily journal note (interactive mode)
 func runCreateJournal() error {
 	fmt.Println("\n📔 Daily Journal / Daily Note")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -207,7 +374,9 @@ func generateJournalContent(date time.Time, brainType brain.BrainType) string {
 	tmpl, err := templates.Load(brainType, templates.TemplateTypeJournal)
 	if err != nil {
 		// Fallback to hardcoded template if file not found
-		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		if !JSONOutput {
+			fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		}
 		return generateDefaultJournalContent(date, brainType)
 	}
 

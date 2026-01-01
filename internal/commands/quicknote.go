@@ -14,20 +14,45 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// QuicknoteOptions holds options for quicknote creation (VS Code integration)
+type QuicknoteOptions struct {
+	Title  string // Note title (required for non-interactive)
+	Brain  string // Brain name (empty = active brain)
+	NoEdit bool   // Don't open editor after creation
+}
+
 func NewQuicknoteCommand() *cobra.Command {
+	var opts QuicknoteOptions
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:     "quicknote [new]",
 		Aliases: []string{"qn", "quick"},
 		Short:   "Create a quick note (minimal prompts)",
-		Long:    "Create a quick note with minimal prompts. Organization, project, and context can be filled in later in the file frontmatter.\n\nExamples:\n  flip quicknote       # Create quick note (default action)\n  flip quicknote new   # Create quick note (explicit)\n  flip qn              # Create quick note (shortcut)\n  flip new quicknote   # Create quick note (alternative syntax)",
+		Long: `Create a quick note with minimal prompts. Organization, project, and context can be filled in later in the file frontmatter.
+
+Examples:
+  flip quicknote                          # Interactive: Create quick note
+  flip quicknote --title "My Note" --json # Non-interactive with JSON output
+  flip qn --title "Quick idea" --brain log`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
 			// Default action: create quick note
 			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				if JSONOutput || opts.Title != "" {
+					return runCreateQuicknoteNonInteractive(opts)
+				}
 				return runCreateQuicknote()
 			}
 			return fmt.Errorf("unknown subcommand: %s", args[0])
 		},
 	}
+
+	// Flags for non-interactive mode (VS Code integration)
+	cmd.Flags().StringVar(&opts.Title, "title", "", "Note title (required for non-interactive mode)")
+	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	// Add explicit 'new' subcommand for clarity
 	newCmd := &cobra.Command{
@@ -35,12 +60,147 @@ func NewQuicknoteCommand() *cobra.Command {
 		Aliases: []string{"n"},
 		Short:   "Create a new quick note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			if JSONOutput || opts.Title != "" {
+				return runCreateQuicknoteNonInteractive(opts)
+			}
 			return runCreateQuicknote()
 		},
 	}
 	cmd.AddCommand(newCmd)
 
 	return cmd
+}
+
+// runCreateQuicknoteNonInteractive creates quick note without prompts (for VS Code integration)
+func runCreateQuicknoteNonInteractive(opts QuicknoteOptions) error {
+	// Validate required fields
+	if opts.Title == "" {
+		err := fmt.Errorf("--title is required for non-interactive mode")
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get workspace
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get brain
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("quicknote", err)
+				return nil
+			}
+			return err
+		}
+	} else {
+		// Use default brain
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
+	}
+
+	if activeBrain == nil {
+		err := fmt.Errorf("no brain available")
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(activeBrain.Path)
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Generate filename
+	filename := generateQuicknoteFilename(opts.Title, detection.Type)
+
+	// Target directory (notes root, no subfolder for quicknotes)
+	targetDir := getNotesDirectory(activeBrain.Path, detection.Type)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Full file path
+	filePath := filepath.Join(targetDir, filename)
+
+	// Check if file already exists
+	if _, err := os.Stat(filePath); err == nil {
+		err := fmt.Errorf("file already exists: %s", filePath)
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Generate content
+	content := generateQuicknoteContent(opts.Title, "", detection.Type, activeBrain.Path)
+
+	// Write file
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		if JSONOutput {
+			OutputJSONError("quicknote", err)
+			return nil
+		}
+		return err
+	}
+
+	// Output result
+	if JSONOutput {
+		OutputJSONSuccess("quicknote", QuicknoteResult{
+			Action:    "created",
+			Path:      filePath,
+			BrainName: activeBrain.Name,
+			BrainPath: activeBrain.Path,
+		})
+		return nil
+	}
+
+	fmt.Printf("✅ Quick note created: %s\n", filePath)
+
+	// Open editor if not disabled
+	if !opts.NoEdit {
+		_ = openInEditor(filePath)
+	}
+
+	return nil
 }
 
 // runCreateQuicknote creates a quick note with minimal prompts
