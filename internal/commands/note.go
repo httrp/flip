@@ -15,20 +15,60 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// NoteOptions holds options for note creation (VS Code integration)
+type NoteOptions struct {
+	Title     string   // Note title (required for non-interactive)
+	Tags      []string // Tags for the note
+	Brain     string   // Brain name (empty = active brain)
+	Subfolder string   // Subfolder within notes directory
+	NoEdit    bool     // Don't open editor after creation
+	NoLink    bool     // Don't add link to journal
+}
+
 func NewNoteCommand() *cobra.Command {
+	var opts NoteOptions
+	var jsonOutput bool
+	var tagsStr string
+
 	cmd := &cobra.Command{
 		Use:   "note [new]",
 		Short: "Create a new note",
-		Long:  "Create a new note in your active brain with appropriate template and naming conventions.\n\nExamples:\n  flip note           # Create new note (default action)\n  flip note new       # Create new note (explicit)\n  flip note n         # Create new note (shortcut)\n  flip new note       # Create new note (alternative syntax)",
+		Long: `Create a new note in your active brain with appropriate template and naming conventions.
+
+Examples:
+  flip note                              # Interactive: Create new note
+  flip note --title "My Note" --json     # Non-interactive with JSON output
+  flip note --title "My Note" --brain log --tags "project,important"
+  flip note --title "My Note" --subfolder projects`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			// Parse tags from comma-separated string
+			if tagsStr != "" {
+				opts.Tags = strings.Split(tagsStr, ",")
+				for i := range opts.Tags {
+					opts.Tags[i] = strings.TrimSpace(opts.Tags[i])
+				}
+			}
 			// Default action: create new note
 			// Support: flip note, flip note new, flip note n
 			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
+				if JSONOutput || opts.Title != "" {
+					return runCreateNoteNonInteractive(opts)
+				}
 				return runCreateNote()
 			}
 			return fmt.Errorf("unknown subcommand: %s", args[0])
 		},
 	}
+
+	// Flags for non-interactive mode (VS Code integration)
+	cmd.Flags().StringVar(&opts.Title, "title", "", "Note title (required for non-interactive mode)")
+	cmd.Flags().StringVar(&tagsStr, "tags", "", "Comma-separated tags (e.g., 'project,important')")
+	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().StringVar(&opts.Subfolder, "subfolder", "", "Subfolder within notes directory")
+	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&opts.NoLink, "no-link", false, "Don't add link to journal")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	// Add explicit 'new' subcommand for clarity
 	newCmd := &cobra.Command{
@@ -36,12 +76,260 @@ func NewNoteCommand() *cobra.Command {
 		Aliases: []string{"n"},
 		Short:   "Create a new note (explicit)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			if tagsStr != "" {
+				opts.Tags = strings.Split(tagsStr, ",")
+				for i := range opts.Tags {
+					opts.Tags[i] = strings.TrimSpace(opts.Tags[i])
+				}
+			}
+			if JSONOutput || opts.Title != "" {
+				return runCreateNoteNonInteractive(opts)
+			}
 			return runCreateNote()
 		},
 	}
 	cmd.AddCommand(newCmd)
 
 	return cmd
+}
+
+// runCreateNoteNonInteractive creates note without prompts (for VS Code integration)
+func runCreateNoteNonInteractive(opts NoteOptions) error {
+	// Validate required fields
+	if opts.Title == "" {
+		err := fmt.Errorf("--title is required for non-interactive mode")
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get workspace
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get brain
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("note", err)
+				return nil
+			}
+			return err
+		}
+	} else {
+		// Use default brain
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
+	}
+
+	if activeBrain == nil {
+		err := fmt.Errorf("no brain available")
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(activeBrain.Path)
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Generate filename
+	filename := generateNoteFilename(opts.Title, detection.Type)
+
+	// Determine target directory
+	baseDir := getNotesDirectory(activeBrain.Path, detection.Type)
+	targetDir := baseDir
+	if opts.Subfolder != "" {
+		targetDir = filepath.Join(baseDir, opts.Subfolder)
+	}
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Full file path
+	filePath := filepath.Join(targetDir, filename)
+
+	// Check if file already exists
+	if _, err := os.Stat(filePath); err == nil {
+		err := fmt.Errorf("file already exists: %s", filePath)
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Generate content with tags
+	content := generateNoteContentWithTags(opts.Title, opts.Tags, detection.Type, activeBrain.Path)
+
+	// Write file
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		if JSONOutput {
+			OutputJSONError("note", err)
+			return nil
+		}
+		return err
+	}
+
+	// Auto-commit
+	_ = autoCommitFile(activeBrain.Path, filePath, "note")
+
+	// Add link to journal (unless disabled)
+	if !opts.NoLink {
+		relPath := relativePathFromBrain(filePath, activeBrain.Path)
+		_ = AddLinkToJournal(JournalLinkOptions{
+			ItemType:    "note",
+			ItemName:    opts.Title,
+			ItemPath:    relPath,
+			Brain:       activeBrain,
+			Interactive: false,
+		})
+	}
+
+	// Output result
+	if JSONOutput {
+		OutputJSONSuccess("note", NoteResult{
+			Action:    "created",
+			Path:      filePath,
+			Title:     opts.Title,
+			Tags:      opts.Tags,
+			BrainName: activeBrain.Name,
+			BrainPath: activeBrain.Path,
+			BrainType: string(detection.Type),
+		})
+		return nil
+	}
+
+	fmt.Printf("✓ Note created: %s\n", filePath)
+
+	// Open editor if not disabled
+	if !opts.NoEdit {
+		_ = openInEditor(filePath)
+	}
+
+	return nil
+}
+
+// generateNoteContentWithTags creates note content with tags
+func generateNoteContentWithTags(title string, tags []string, brainType brain.BrainType, brainPath string) string {
+	now := time.Now()
+	dateStr := now.Format("2006-01-02")
+
+	author := getBrainAuthor(brainPath)
+	if author == "" {
+		author = "Unknown"
+	}
+
+	// Format tags based on brain type
+	var tagsStr string
+	if len(tags) == 0 {
+		tags = []string{"note"}
+	}
+
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		// Logseq: tag1, tag2
+		tagsStr = strings.Join(tags, ", ")
+	default:
+		// YAML array: [tag1, tag2]
+		tagsStr = fmt.Sprintf("[%s]", strings.Join(tags, ", "))
+	}
+
+	// Try to load template
+	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
+	if err != nil {
+		// Use inline template with tags
+		return generateDefaultNoteContentWithTags(title, tagsStr, brainType, author, dateStr)
+	}
+
+	// Prepare template variables
+	vars := map[string]string{
+		"title":   title,
+		"date":    dateStr,
+		"tags":    tagsStr,
+		"author":  author,
+		"id":      uuid.New().String(),
+		"updated": fmt.Sprintf("%d", now.Unix()),
+		"created": fmt.Sprintf("%d", now.Unix()),
+	}
+
+	return templates.Render(tmpl, vars)
+}
+
+// generateDefaultNoteContentWithTags provides fallback templates with tags
+func generateDefaultNoteContentWithTags(title, tags string, brainType brain.BrainType, author, dateStr string) string {
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		return fmt.Sprintf(`- title:: %s
+- created:: %s
+- author:: %s
+- tags:: %s
+
+## %s
+
+`, title, dateStr, author, tags, title)
+
+	case brain.BrainTypeObsidian:
+		return fmt.Sprintf(`---
+title: %s
+created: %s
+author: %s
+tags: %s
+---
+
+# %s
+
+`, title, dateStr, author, tags, title)
+
+	default:
+		return fmt.Sprintf(`---
+title: %s
+created: %s
+author: %s
+tags: %s
+---
+
+# %s
+
+`, title, dateStr, author, tags, title)
+	}
 }
 
 // runCreateNote creates a new note in the active brain
@@ -154,10 +442,11 @@ func runCreateNote() error {
 	// STEP 6b: Ask if user wants to add link to journal
 	relPath := relativePathFromBrain(filePath, activeBrain.Path)
 	if err := AddLinkToJournal(JournalLinkOptions{
-		ItemType: "note",
-		ItemName: title,
-		ItemPath: relPath,
-		Brain:    activeBrain,
+		ItemType:    "note",
+		ItemName:    title,
+		ItemPath:    relPath,
+		Brain:       activeBrain,
+		Interactive: true,
 	}); err != nil {
 		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
 	}

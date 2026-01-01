@@ -16,6 +16,24 @@ func autoCommitFile(brainPath, filePath, contentType string) error {
 		return nil // Silently skip if not a git repo
 	}
 
+	// In JSON mode, auto-commit silently if FLIP_AUTO_COMMIT is set
+	if JSONOutput {
+		autoCommit := os.Getenv("FLIP_AUTO_COMMIT")
+		if autoCommit != "always" {
+			return nil // Skip commit in JSON mode unless auto-commit is enabled
+		}
+		// Silent commit
+		if err := git.AddFile(brainPath, filePath); err != nil {
+			return err
+		}
+		filename := filepath.Base(filePath)
+		commitMsg := fmt.Sprintf("Add %s: %s", contentType, filename)
+		return git.Commit(brainPath, git.CommitOptions{
+			Message: commitMsg,
+			AddAll:  false,
+		})
+	}
+
 	// Ask user if they want to commit
 	shouldCommit := promptForCommit()
 	if !shouldCommit {

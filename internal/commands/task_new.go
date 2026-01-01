@@ -15,23 +15,51 @@ import (
 
 // TaskNewOptions holds options for task creation
 type TaskNewOptions struct {
-	File string // Target file for task (for VS Code integration)
-	Line int    // Line number to insert at (for VS Code integration)
+	File        string // Target file for task (for VS Code integration)
+	Line        int    // Line number to insert at (for VS Code integration)
+	Description string // Task description (for non-interactive mode)
+	Brain       string // Brain name
+	Due         string // Due date (YYYY-MM-DD, today, tomorrow)
+	Priority    string // Priority (high, medium, low)
+	NoEdit      bool   // Don't open editor
+	NoLink      bool   // Don't add link to journal
+}
+
+// TaskResult is the JSON response for task creation
+type TaskResult struct {
+	Action      string `json:"action"`
+	Path        string `json:"path"`
+	Line        int    `json:"line,omitempty"`
+	Description string `json:"description"`
+	Due         string `json:"due,omitempty"`
+	Priority    string `json:"priority,omitempty"`
+	BrainName   string `json:"brain_name"`
+	BrainPath   string `json:"brain_path"`
 }
 
 // NewTaskNewCommand creates the task new command
 func NewTaskNewCommand() *cobra.Command {
 	var opts TaskNewOptions
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:     "new",
 		Aliases: []string{"n"},
 		Short:   "Create a new task",
-		Long: `Create a new task interactively.
+		Long: `Create a new task interactively or non-interactively.
 
-For VS Code integration, use --file and --line to insert at cursor position:
-  flip task new --file /path/to/note.md --line 42`,
+Examples:
+  flip task new                                    # Interactive mode
+  flip task new --file /path/to/note.md --line 42 # Insert at cursor position
+  flip task new --description "My task" --json    # Non-interactive with JSON output
+  flip task new --description "Do X" --due today --priority high --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			// Non-interactive mode if description is provided
+			if opts.Description != "" || JSONOutput {
+				return runCreateTaskNonInteractive(opts)
+			}
+			// Position-based mode
 			if opts.File != "" {
 				return runCreateTaskAtPosition(opts)
 			}
@@ -41,8 +69,175 @@ For VS Code integration, use --file and --line to insert at cursor position:
 
 	cmd.Flags().StringVar(&opts.File, "file", "", "Target file for task (VS Code integration)")
 	cmd.Flags().IntVar(&opts.Line, "line", 0, "Line number to insert at (VS Code integration)")
+	cmd.Flags().StringVar(&opts.Description, "description", "", "Task description (for non-interactive mode)")
+	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().StringVar(&opts.Due, "due", "", "Due date (YYYY-MM-DD, today, tomorrow)")
+	cmd.Flags().StringVar(&opts.Priority, "priority", "", "Priority (high, medium, low)")
+	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&opts.NoLink, "no-link", false, "Don't add link to journal")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
+}
+
+// runCreateTaskNonInteractive creates a task without prompts (for VS Code integration)
+func runCreateTaskNonInteractive(opts TaskNewOptions) error {
+	// Validate required fields
+	if opts.Description == "" {
+		err := fmt.Errorf("--description is required for non-interactive mode")
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get workspace
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Get brain
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("task", err)
+				return nil
+			}
+			return err
+		}
+	} else {
+		// Use default brain
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
+	}
+
+	if activeBrain == nil {
+		err := fmt.Errorf("no brain available")
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Parse due date
+	var dueDate *time.Time
+	if opts.Due != "" {
+		dueDate = parseDueDateString(opts.Due)
+	}
+
+	// Create task
+	task := &tasks.Task{
+		ID:          uuid.New().String()[:8],
+		Description: opts.Description,
+		Status:      tasks.StatusOpen,
+		Priority:    parsePriorityString(opts.Priority),
+		Due:         dueDate,
+		Created:     time.Now(),
+	}
+
+	// Get task directory
+	taskDir := filepath.Join(activeBrain.Path, "tasks")
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Target file
+	var filePath string
+	if opts.File != "" {
+		filePath = opts.File
+	} else {
+		// Default tasks file
+		filePath = filepath.Join(taskDir, "todo.md")
+	}
+
+	// Append task to file
+	if err := appendTaskToFile(filePath, task); err != nil {
+		if JSONOutput {
+			OutputJSONError("task", err)
+			return nil
+		}
+		return err
+	}
+
+	// Add link to journal (unless disabled)
+	if !opts.NoLink {
+		relPath := relativePathFromBrain(filePath, activeBrain.Path)
+		_ = AddLinkToJournal(JournalLinkOptions{
+			ItemType:    "task",
+			ItemName:    opts.Description,
+			ItemPath:    relPath,
+			Brain:       activeBrain,
+			Interactive: false,
+		})
+	}
+
+	// Output result
+	if JSONOutput {
+		result := TaskResult{
+			Action:      "created",
+			Path:        filePath,
+			Description: opts.Description,
+			BrainName:   activeBrain.Name,
+			BrainPath:   activeBrain.Path,
+		}
+		if dueDate != nil {
+			result.Due = dueDate.Format("2006-01-02")
+		}
+		if opts.Priority != "" {
+			result.Priority = opts.Priority
+		}
+		OutputJSONSuccess("task", result)
+		return nil
+	}
+
+	fmt.Printf("✅ Task created: %s\n", filePath)
+
+	// Open editor if not disabled
+	if !opts.NoEdit {
+		_ = openInEditor(filePath)
+	}
+
+	return nil
+}
+
+// parsePriorityString converts a priority string to tasks.Priority
+func parsePriorityString(s string) tasks.Priority {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "high", "h", "1":
+		return tasks.PriorityHigh
+	case "medium", "med", "m", "2":
+		return tasks.PriorityMedium
+	case "low", "l", "3":
+		return tasks.PriorityLow
+	default:
+		return tasks.PriorityNone
+	}
 }
 
 // runCreateTaskAtPosition creates a task at a specific file/line (for VS Code integration)
@@ -271,10 +466,11 @@ func runCreateTask() error {
 
 	// Ask if user wants to add link to journal
 	if err := AddLinkToJournal(JournalLinkOptions{
-		ItemType: "task",
-		ItemName: description,
-		ItemPath: relPath,
-		Brain:    activeBrain,
+		ItemType:    "task",
+		ItemName:    description,
+		ItemPath:    relPath,
+		Brain:       activeBrain,
+		Interactive: true,
 	}); err != nil {
 		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
 	}

@@ -12,10 +12,11 @@ import (
 
 // JournalLinkOptions holds options for adding a link to journal
 type JournalLinkOptions struct {
-	ItemType string // "note", "task", "exercise", etc.
-	ItemName string // display name of the item
-	ItemPath string // relative path to the item from brain root
-	Brain    *Brain // brain where the item was created (required)
+	ItemType    string // "note", "task", "exercise", etc.
+	ItemName    string // display name of the item
+	ItemPath    string // relative path to the item from brain root
+	Brain       *Brain // brain where the item was created (required)
+	Interactive bool   // true = ask user, false = always add link
 }
 
 // AddLinkToJournal asks user if they want to add a link to today's journal entry.
@@ -25,19 +26,22 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 		return fmt.Errorf("brain is required for journal link")
 	}
 
-	// Ask if user wants to add link
-	promptLink := promptui.Select{
-		Label: "Add link to today's journal?",
-		Items: []string{"Yes", "No"},
-	}
+	// Only ask in interactive mode
+	if opts.Interactive {
+		// Ask if user wants to add link
+		promptLink := promptui.Select{
+			Label: "Add link to today's journal?",
+			Items: []string{"Yes", "No"},
+		}
 
-	idx, _, err := promptLink.Run()
-	if err != nil {
-		return nil // User cancelled
-	}
+		idx, _, err := promptLink.Run()
+		if err != nil {
+			return nil // User cancelled
+		}
 
-	if idx == 1 { // No
-		return nil
+		if idx == 1 { // No
+			return nil
+		}
 	}
 
 	// Get today's date

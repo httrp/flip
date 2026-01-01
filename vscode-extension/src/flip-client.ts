@@ -63,6 +63,19 @@ export interface NoteResult {
 }
 
 /**
+ * Task creation result
+ */
+export interface TaskResult {
+  action: string;
+  path: string;
+  description: string;
+  due?: string;
+  priority?: string;
+  brain_name: string;
+  brain_path: string;
+}
+
+/**
  * Status result
  */
 export interface StatusResult {
@@ -168,7 +181,7 @@ export class FlipClient {
    * Create a new note
    */
   async createNote(options: { title: string; tags?: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['note', '--no-edit', '--title', `"${options.title}"`];
+    const args = ['note', '--no-edit', '--no-link', '--title', `"${options.title}"`];
     if (options.tags) {
       args.push('--tags', `"${options.tags}"`);
     }
@@ -181,12 +194,34 @@ export class FlipClient {
   /**
    * Create a quick note
    */
-  async createQuicknote(options?: { brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['quicknote', '--no-edit'];
-    if (options?.brain) {
+  async createQuicknote(options: { title: string; brain?: string }): Promise<FlipResult<NoteResult>> {
+    const args = ['quicknote', '--no-edit', '--title', `"${options.title}"`];
+    if (options.brain) {
       args.push('--brain', options.brain);
     }
     return this.execute<NoteResult>(args);
+  }
+
+  /**
+   * Create a new task
+   */
+  async createTask(options: { 
+    description: string; 
+    brain?: string; 
+    due?: string; 
+    priority?: string;
+  }): Promise<FlipResult<TaskResult>> {
+    const args = ['task', 'new', '--no-edit', '--no-link', '--description', `"${options.description}"`];
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options.due) {
+      args.push('--due', options.due);
+    }
+    if (options.priority) {
+      args.push('--priority', options.priority);
+    }
+    return this.execute<TaskResult>(args);
   }
 
   /**

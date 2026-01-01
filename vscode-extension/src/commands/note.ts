@@ -82,10 +82,26 @@ export async function createNote(): Promise<void> {
 }
 
 /**
- * Create a quick note (minimal prompts)
+ * Create a quick note (minimal prompts - just title)
  */
 export async function createQuicknote(): Promise<void> {
   const client = getFlipClient();
+
+  // Get title
+  const title = await vscode.window.showInputBox({
+    prompt: 'Quick note title',
+    placeHolder: 'Quick thought...',
+    validateInput: (value) => {
+      if (!value || value.trim() === '') {
+        return 'Title is required';
+      }
+      return null;
+    },
+  });
+
+  if (!title) {
+    return; // User cancelled
+  }
 
   await vscode.window.withProgress(
     {
@@ -94,7 +110,7 @@ export async function createQuicknote(): Promise<void> {
       cancellable: false,
     },
     async () => {
-      const result = await client.createQuicknote();
+      const result = await client.createQuicknote({ title: title.trim() });
 
       if (!result.success) {
         vscode.window.showErrorMessage(`Failed to create quick note: ${result.error}`);

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getFlipClient, refreshFlipClient, BrainInfo } from './flip-client';
 import { createJournal } from './commands/journal';
 import { createNote, createQuicknote } from './commands/note';
+import { createTask } from './commands/task';
 import { showStatus, switchBrain } from './commands/status';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
@@ -14,6 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.journal', createJournal),
     vscode.commands.registerCommand('flip.note', createNote),
     vscode.commands.registerCommand('flip.quicknote', createQuicknote),
+    vscode.commands.registerCommand('flip.taskNew', createTask),
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
     
@@ -23,9 +25,6 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('flip.search', () => {
       vscode.window.showInformationMessage('Search: Not yet implemented');
-    }),
-    vscode.commands.registerCommand('flip.taskNew', () => {
-      vscode.window.showInformationMessage('New task: Not yet implemented');
     }),
     vscode.commands.registerCommand('flip.taskDone', () => {
       vscode.window.showInformationMessage('Task done: Not yet implemented');
