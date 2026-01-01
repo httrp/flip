@@ -13,18 +13,142 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// TaskNewOptions holds options for task creation
+type TaskNewOptions struct {
+	File string // Target file for task (for VS Code integration)
+	Line int    // Line number to insert at (for VS Code integration)
+}
+
 // NewTaskNewCommand creates the task new command
 func NewTaskNewCommand() *cobra.Command {
+	var opts TaskNewOptions
+
 	cmd := &cobra.Command{
 		Use:     "new",
 		Aliases: []string{"n"},
 		Short:   "Create a new task",
-		Long:    "Create a new task interactively.",
+		Long: `Create a new task interactively.
+
+For VS Code integration, use --file and --line to insert at cursor position:
+  flip task new --file /path/to/note.md --line 42`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.File != "" {
+				return runCreateTaskAtPosition(opts)
+			}
 			return runCreateTask()
 		},
 	}
+
+	cmd.Flags().StringVar(&opts.File, "file", "", "Target file for task (VS Code integration)")
+	cmd.Flags().IntVar(&opts.Line, "line", 0, "Line number to insert at (VS Code integration)")
+
 	return cmd
+}
+
+// runCreateTaskAtPosition creates a task at a specific file/line (for VS Code integration)
+func runCreateTaskAtPosition(opts TaskNewOptions) error {
+	fmt.Println("\n📝 Create Task at Current Position")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("📄 File: %s\n", opts.File)
+	if opts.Line > 0 {
+		fmt.Printf("📍 Line: %d\n", opts.Line)
+	}
+	fmt.Println()
+
+	// Verify file exists
+	if _, err := os.Stat(opts.File); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", opts.File)
+	}
+
+	// Get task description
+	descPrompt := promptui.Prompt{
+		Label: "Task Description",
+	}
+	description, err := descPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Get due date (simplified for cursor-based insertion)
+	duePrompt := promptui.Prompt{
+		Label:   "Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)",
+		Default: "",
+	}
+	dueStr, _ := duePrompt.Run()
+	dueDate := parseDueDateString(dueStr)
+
+	// Get priority
+	prioritySelect := promptui.Select{
+		Label:     "Priority",
+		Items:     []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
+		CursorPos: 3, // Default to None for quick inline tasks
+	}
+	priorityIdx, _, _ := prioritySelect.Run()
+	priority := indexToPriority(priorityIdx)
+
+	// Create task object
+	task := &tasks.Task{
+		ID:          uuid.New().String(),
+		Description: description,
+		Status:      tasks.StatusOpen,
+		Created:     time.Now(),
+		Due:         dueDate,
+		Priority:    priority,
+	}
+
+	// Insert at position or append
+	if opts.Line > 0 {
+		err = insertTaskAtLine(opts.File, opts.Line, task)
+	} else {
+		err = appendTaskToFile(opts.File, task)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to save task: %w", err)
+	}
+
+	fmt.Printf("\n✅ Task inserted at %s", opts.File)
+	if opts.Line > 0 {
+		fmt.Printf(":%d", opts.Line)
+	}
+	fmt.Println()
+	fmt.Println(tasks.FormatTask(task))
+	fmt.Println()
+
+	return nil
+}
+
+// insertTaskAtLine inserts a task at a specific line in a file
+func insertTaskAtLine(filePath string, lineNum int, task *tasks.Task) error {
+	// Read existing content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+
+	// Format task
+	taskLine := tasks.FormatTask(task)
+
+	// Ensure line number is valid
+	if lineNum < 1 {
+		lineNum = 1
+	}
+	if lineNum > len(lines) {
+		// Append to end
+		lines = append(lines, "", taskLine)
+	} else {
+		// Insert at line (1-indexed)
+		idx := lineNum - 1
+		newLines := make([]string, 0, len(lines)+2)
+		newLines = append(newLines, lines[:idx]...)
+		newLines = append(newLines, taskLine, "")
+		newLines = append(newLines, lines[idx:]...)
+		lines = newLines
+	}
+
+	// Write back
+	return os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 // runCreateTask creates a new task interactively
@@ -700,22 +824,38 @@ func promptForTaskFile(brain *Brain) (string, error) {
 	// 2. Default task file
 	items = append(items, "📋 tasks/tasks.md (recommended)")
 
-	// 3. Recently used files
+	// 3. Recently modified markdown files in brain (last 5)
+	recentMdFiles := getRecentlyModifiedMdFiles(brain.Path, 5)
+	for _, file := range recentMdFiles {
+		// Skip if it's the same as defaults or journals
+		if file != journalPath && file != "tasks/tasks.md" && !strings.HasPrefix(file, "journal/") {
+			items = append(items, fmt.Sprintf("📄 %s (recent)", file))
+		}
+	}
+
+	// 4. Recently used task files from history
 	if len(history.RecentFiles) > 0 {
 		for _, file := range history.RecentFiles {
-			// Skip if it's the same as defaults
-			if file != journalPath && file != "tasks/tasks.md" {
+			// Skip if already shown or same as defaults
+			alreadyShown := false
+			for _, item := range items {
+				if strings.Contains(item, file) {
+					alreadyShown = true
+					break
+				}
+			}
+			if !alreadyShown && file != journalPath && file != "tasks/tasks.md" {
 				items = append(items, fmt.Sprintf("🕒 %s", file))
 			}
 		}
 	}
 
-	// 4. Legacy options (for backward compatibility)
+	// 5. Legacy options (for backward compatibility)
 	items = append(items, "📂 tasks/backlog.md")
 	items = append(items, "📆 tasks/today.md")
 	items = append(items, "📆 tasks/this-week.md")
 
-	// 5. Custom file
+	// 6. Custom file
 	items = append(items, "📁 Specify custom file...")
 
 	selector := promptui.Select{
@@ -756,8 +896,12 @@ func promptForTaskFile(brain *Brain) (string, error) {
 		var relPath string
 
 		if strings.HasPrefix(selected, "🕒 ") {
-			// Recent file
+			// Recent task file from history
 			relPath = strings.TrimPrefix(selected, "🕒 ")
+		} else if strings.HasPrefix(selected, "📄 ") {
+			// Recent markdown file
+			relPath = strings.TrimPrefix(selected, "📄 ")
+			relPath = strings.TrimSuffix(relPath, " (recent)")
 		} else if strings.HasPrefix(selected, "📂 ") {
 			relPath = strings.TrimPrefix(selected, "📂 ")
 		} else if strings.HasPrefix(selected, "📆 ") {
@@ -964,4 +1108,74 @@ func promptForNewContext() (string, error) {
 	}
 
 	return abbr, nil
+}
+
+// getRecentlyModifiedMdFiles returns the most recently modified .md files in a brain
+func getRecentlyModifiedMdFiles(brainPath string, limit int) []string {
+	type fileInfo struct {
+		relPath string
+		modTime time.Time
+	}
+
+	var files []fileInfo
+
+	// Walk the brain directory
+	filepath.Walk(brainPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+
+		// Skip directories and hidden files/folders
+		if info.IsDir() {
+			if strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Only .md files
+		if !strings.HasSuffix(info.Name(), ".md") {
+			return nil
+		}
+
+		// Skip hidden files
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		// Get relative path
+		relPath, err := filepath.Rel(brainPath, path)
+		if err != nil {
+			return nil
+		}
+
+		// Skip .git and node_modules
+		if strings.Contains(relPath, ".git") || strings.Contains(relPath, "node_modules") {
+			return nil
+		}
+
+		files = append(files, fileInfo{
+			relPath: relPath,
+			modTime: info.ModTime(),
+		})
+
+		return nil
+	})
+
+	// Sort by modification time (newest first)
+	for i := 0; i < len(files)-1; i++ {
+		for j := i + 1; j < len(files); j++ {
+			if files[j].modTime.After(files[i].modTime) {
+				files[i], files[j] = files[j], files[i]
+			}
+		}
+	}
+
+	// Return top N
+	result := make([]string, 0, limit)
+	for i := 0; i < len(files) && i < limit; i++ {
+		result = append(result, files[i].relPath)
+	}
+
+	return result
 }
