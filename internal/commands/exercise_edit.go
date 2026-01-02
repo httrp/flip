@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/httrp/flip/internal/brain"
@@ -17,26 +16,23 @@ var ExerciseEditCmd = &cobra.Command{
 	Use:   "edit [exercise-id]",
 	Short: lang.GetText("exercise.edit.short"),
 	Long:  lang.GetText("exercise.edit.long"),
-	Run:   runExerciseEdit,
+	RunE:  runExerciseEdit,
 }
 
-func runExerciseEdit(cmd *cobra.Command, args []string) {
+func runExerciseEdit(cmd *cobra.Command, args []string) error {
 	// Allow user to select the brain before editing
 	activeBrain, err := selectBrainForOperation(lang.GetText("prompts.select_brain_for_edit_exercise"))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("selecting brain: %w", err)
 	}
 
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("detecting brain: %w", err)
 	}
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	scanner := exercises.NewScanner()
@@ -50,13 +46,11 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 		// List exercises and let user choose
 		allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 		if err != nil {
-			fmt.Printf("Error scanning exercises: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("scanning exercises: %w", err)
 		}
 
 		if len(allExercises) == 0 {
-			fmt.Println("No exercises found. Create one with 'flip exercise new'")
-			os.Exit(1)
+			return fmt.Errorf("no exercises found - create one with 'flip exercise new'")
 		}
 
 		exerciseNames := make([]string, len(allExercises))
@@ -76,8 +70,7 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 		}
 		_, selected, err := selectPrompt.Run()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("selecting exercise: %w", err)
 		}
 
 		exerciseID = exerciseMap[selected].ID
@@ -86,8 +79,7 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 	// Load exercise
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("scanning exercises: %w", err)
 	}
 
 	var exercise *exercises.Exercise
@@ -99,8 +91,7 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 	}
 
 	if exercise == nil {
-		fmt.Printf("Exercise not found: %s\n", exerciseID)
-		os.Exit(1)
+		return fmt.Errorf("exercise not found: %s", exerciseID)
 	}
 
 	fmt.Printf("\nEditing: %s\n\n", exercise.Name)
@@ -124,7 +115,7 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 	editIdx, _, err := editPrompt.Run()
 	if err != nil || editIdx == len(editOptions)-1 {
 		fmt.Println("Edit cancelled")
-		return
+		return nil
 	}
 
 	switch editIdx {
@@ -274,9 +265,9 @@ func runExerciseEdit(cmd *cobra.Command, args []string) {
 	// Save changes
 	filePath := parser.GetExerciseFilePath(brainPath, exerciseID, string(detection.Type))
 	if err := parser.WriteExercise(exercise, filePath); err != nil {
-		fmt.Printf("Error saving exercise: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("saving exercise: %w", err)
 	}
 
 	fmt.Printf("✓ Exercise updated: %s\n", filePath)
+	return nil
 }

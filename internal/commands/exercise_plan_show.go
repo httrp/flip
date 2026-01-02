@@ -16,28 +16,25 @@ var ExercisePlanShowCmd = &cobra.Command{
 	Short: "Show exercise plan details",
 	Long:  "Show details for a specific exercise plan including exercises and recent sessions.",
 	Args:  cobra.ExactArgs(1),
-	Run:   runExercisePlanShow,
+	RunE:  runExercisePlanShow,
 }
 
-func runExercisePlanShow(cmd *cobra.Command, args []string) {
+func runExercisePlanShow(cmd *cobra.Command, args []string) error {
 	planID := args[0]
 
 	brainPath, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("getting working directory: %w", err)
 	}
 
 	detector := brain.NewDetector()
 	detection, err := detector.DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("detecting brain: %w", err)
 	}
 
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	scanner := exercises.NewScanner()
@@ -45,8 +42,7 @@ func runExercisePlanShow(cmd *cobra.Command, args []string) {
 	// Load plan
 	plans, err := scanner.ScanPlans(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("scanning plans: %w", err)
 	}
 
 	var plan *exercises.ExercisePlan
@@ -58,8 +54,7 @@ func runExercisePlanShow(cmd *cobra.Command, args []string) {
 	}
 
 	if plan == nil {
-		fmt.Printf("Plan not found: %s\n", planID)
-		os.Exit(1)
+		return fmt.Errorf("plan not found: %s", planID)
 	}
 
 	// Display plan details
@@ -87,8 +82,7 @@ func runExercisePlanShow(cmd *cobra.Command, args []string) {
 	// Display recent sessions
 	planSessions, err := scanner.ScanPlanSessions(brainPath, planID, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error loading sessions: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("loading sessions: %w", err)
 	}
 
 	if len(planSessions) > 0 {
@@ -110,4 +104,5 @@ func runExercisePlanShow(cmd *cobra.Command, args []string) {
 	} else {
 		fmt.Println("No sessions tracked yet")
 	}
+	return nil
 }

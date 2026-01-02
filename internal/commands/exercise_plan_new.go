@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -17,26 +16,23 @@ var ExercisePlanNewCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Create a new exercise plan",
 	Long:  "Create a new exercise plan that groups multiple exercises together for structured training.",
-	Run:   runExercisePlanNew,
+	RunE:  runExercisePlanNew,
 }
 
-func runExercisePlanNew(cmd *cobra.Command, args []string) {
+func runExercisePlanNew(cmd *cobra.Command, args []string) error {
 	activeBrain, err := getActiveBrain()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("getting active brain: %w", err)
 	}
 	
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("detecting brain: %w", err)
 	}
 
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	plan := &exercises.ExercisePlan{
@@ -50,8 +46,7 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) {
 	}
 	plan.Name, err = namePrompt.Run()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("reading plan name: %w", err)
 	}
 
 	// Description
@@ -76,13 +71,11 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) {
 	scanner := exercises.NewScanner()
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error scanning exercises: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("scanning exercises: %w", err)
 	}
 
 	if len(allExercises) == 0 {
-		fmt.Println("No exercises found. Create exercises first with 'flip exercise new'")
-		os.Exit(1)
+		return fmt.Errorf("no exercises found - create exercises first with 'flip exercise new'")
 	}
 
 	fmt.Println("\nAdd exercises to plan (leave empty to finish):")
@@ -128,8 +121,7 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) {
 	}
 
 	if len(plan.Items) == 0 {
-		fmt.Println("No exercises added. Plan not created.")
-		os.Exit(1)
+		return fmt.Errorf("no exercises added - plan not created")
 	}
 
 	// Generate ID
@@ -139,9 +131,9 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) {
 	parser := exercises.NewParser()
 	planPath := parser.GetPlanFilePath(brainPath, plan.ID, string(detection.Type))
 	if err := parser.WritePlan(plan, planPath); err != nil {
-		fmt.Printf("Error creating plan: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("creating plan: %w", err)
 	}
 
 	fmt.Printf("✓ Exercise plan created: %s\n", planPath)
+	return nil
 }

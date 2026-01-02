@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -18,28 +17,23 @@ var ExerciseNewCmd = &cobra.Command{
 	Use:   "new",
 	Short: lang.GetText("exercise.new.short"),
 	Long:  lang.GetText("exercise.new.long"),
-	Run:   runExerciseNew,
+	RunE:  runExerciseNew,
 }
 
-func runExerciseNew(cmd *cobra.Command, args []string) {
+func runExerciseNew(cmd *cobra.Command, args []string) error {
 	// Ask user which brain to use (from active workspace)
 	selectedBrain, err := selectBrainForOperation(lang.GetText("prompts.select_brain_for_new_exercise"))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("selecting brain: %w", err)
 	}
 
 	brainPath := selectedBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
-		if err != nil {
-			fmt.Printf("Error detecting brain: %v\n", err)
-			os.Exit(1)
-		}
-
-		if !detection.Compatible {
-			fmt.Println("Error: Not in a compatible brain directory")
-		fmt.Println("Error: Not in a brain directory")
-		os.Exit(1)
+	if err != nil {
+		return fmt.Errorf("detecting brain: %w", err)
+	}
+	if !detection.Compatible {
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	exercise := &exercises.Exercise{
@@ -78,8 +72,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	
 	_, selectedContext, err := contextSelect.Run()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("selecting context: %w", err)
 	}
 	
 	if selectedContext == "➕ New context" {
@@ -97,8 +90,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	}
 	exercise.Name, err = namePrompt.Run()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("entering name: %w", err)
 	}
 	
 	// Check for duplicates or similar exercises
@@ -125,7 +117,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 		actionIdx, _, err := actionPrompt.Run()
 		if err != nil || actionIdx == 2 {
 			fmt.Println("Cancelled")
-			return
+			return nil
 		}
 		
 		if actionIdx == 0 {
@@ -136,7 +128,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 					if err := promptAndOpenEditor(ex.FilePath); err != nil {
 						fmt.Printf("Error: %v\n", err)
 					}
-					return
+					return nil
 				}
 			}
 		}
@@ -147,7 +139,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 		}
 		exercise.Name, err = newNamePrompt.Run()
 		if err != nil {
-			return
+			return nil
 		}
 	}
 	
@@ -172,7 +164,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 		continueIdx, _, err := continuePrompt.Run()
 		if err != nil || continueIdx == 2 {
 			fmt.Println("Cancelled")
-			return
+			return nil
 		}
 		
 		if continueIdx == 1 {
@@ -198,7 +190,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 					fmt.Printf("Error: %v\n", err)
 				}
 			}
-			return
+			return nil
 		}
 	}
 
@@ -342,8 +334,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	parser := exercises.NewParser()
 	exPath := parser.GetExerciseFilePath(brainPath, exercise.ID, string(detection.Type))
 	if err := parser.WriteExercise(exercise, exPath); err != nil {
-		fmt.Printf("Error creating exercise: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("creating exercise: %w", err)
 	}
 
 	fmt.Printf("✓ Exercise created: %s\n\n", exPath)
@@ -356,7 +347,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	
 	nextIdx, _, err := nextPrompt.Run()
 	if err != nil {
-		return
+		return nil
 	}
 	
 	switch nextIdx {
@@ -367,6 +358,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) {
 	case 1: // Done
 		fmt.Printf("💡 To track a session, run: flip exercise track %s\n", exercise.ID)
 	}
+	return nil
 }
 
 func generateExerciseID(name string) string {

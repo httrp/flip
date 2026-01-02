@@ -2,7 +2,6 @@ package commands
 
 import (
     "fmt"
-    "os"
     "strings"
 
     "github.com/httrp/flip/internal/brain"
@@ -17,26 +16,23 @@ var ExercisePlanEditCmd = &cobra.Command{
     Use:   "edit [plan-id]",
     Short: lang.GetText("exercise.plan.edit.short"),
     Long:  lang.GetText("exercise.plan.edit.long"),
-    Run:   runExercisePlanEdit,
+    RunE:  runExercisePlanEdit,
 }
 
-func runExercisePlanEdit(cmd *cobra.Command, args []string) {
+func runExercisePlanEdit(cmd *cobra.Command, args []string) error {
     // Select brain
     selectedBrain, err := selectBrainForOperation(lang.GetText("prompts.select_brain_for_plan"))
     if err != nil {
-        fmt.Printf("Error: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("selecting brain: %w", err)
     }
     brainPath := selectedBrain.Path
 
     detection, err := brain.NewDetector().DetectBrainType(brainPath)
     if err != nil {
-        fmt.Printf("Error detecting brain: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("detecting brain: %w", err)
     }
     if !detection.Compatible {
-        fmt.Println("Error: Not in a compatible brain directory")
-        os.Exit(1)
+        return fmt.Errorf("not in a compatible brain directory")
     }
 
     scanner := exercises.NewScanner()
@@ -45,12 +41,10 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) {
     // Load all plans
     plans, err := scanner.ScanPlans(brainPath, string(detection.Type))
     if err != nil {
-        fmt.Printf("Error scanning plans: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("scanning plans: %w", err)
     }
     if len(plans) == 0 {
-        fmt.Println("No exercise plans found. Create one with 'flip exercise plan new'")
-        os.Exit(1)
+        return fmt.Errorf("no exercise plans found - create one with 'flip exercise plan new'")
     }
 
     // Pick plan
@@ -64,8 +58,7 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) {
             }
         }
         if plan == nil {
-            fmt.Printf("Plan not found: %s\n", pid)
-            os.Exit(1)
+            return fmt.Errorf("plan not found: %s", pid)
         }
     } else {
         items := make([]string, len(plans))
@@ -78,7 +71,7 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) {
         i, _, err := sel.Run()
         if err != nil {
             fmt.Println("Cancelled")
-            return
+            return nil
         }
         plan = idxMap[i]
     }
@@ -86,12 +79,10 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) {
     // Load exercises to add
     allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
     if err != nil {
-        fmt.Printf("Error scanning exercises: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("scanning exercises: %w", err)
     }
     if len(allExercises) == 0 {
-        fmt.Println("No exercises found. Create exercises first with 'flip exercise new'")
-        os.Exit(1)
+        return fmt.Errorf("no exercises found - create exercises first with 'flip exercise new'")
     }
 
     // Build a set of existing items to avoid duplicate orders
@@ -140,8 +131,8 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) {
     // Save if changed
     planPath := parser.GetPlanFilePath(brainPath, plan.ID, string(detection.Type))
     if err := parser.WritePlan(plan, planPath); err != nil {
-        fmt.Printf("Error saving plan: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("saving plan: %w", err)
     }
     fmt.Printf("✓ Plan updated: %s\n", planPath)
+    return nil
 }

@@ -20,25 +20,22 @@ var ExerciseTrackCmd = &cobra.Command{
 	Use:   "track [exercise-id]",
 	Short: lang.GetText("exercise.track.short"),
 	Long:  lang.GetText("exercise.track.long"),
-	Run:   runExerciseTrack,
+	RunE:  runExerciseTrack,
 }
 
-func runExerciseTrack(cmd *cobra.Command, args []string) {
+func runExerciseTrack(cmd *cobra.Command, args []string) error {
 	activeBrain, err := getActiveBrain()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error: %w", err)
 	}
 	
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error detecting brain: %w", err)
 	}
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	scanner := exercises.NewScanner()
@@ -51,14 +48,13 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		// List exercises and let user choose
 		allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 		if err != nil {
-			fmt.Printf("Error scanning exercises: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error scanning exercises: %w", err)
 		}
 
 		if len(allExercises) == 0 {
 			fmt.Println("\n⚠️  No exercises found")
 			fmt.Println("Create one with: flip exercise new")
-			return
+			return nil
 		}
 
 		exerciseNames := make([]string, len(allExercises))
@@ -78,8 +74,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		}
 		_, selected, err := selectPrompt.Run()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error selecting exercise: %w", err)
 		}
 
 		exerciseID = exerciseMap[selected].ID
@@ -88,8 +83,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 	// Load exercise
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error loading exercises: %w", err)
 	}
 
 	var exercise *exercises.Exercise
@@ -101,8 +95,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 	}
 
 	if exercise == nil {
-		fmt.Printf("Exercise not found: %s\n", exerciseID)
-		os.Exit(1)
+		return fmt.Errorf("exercise not found: %s", exerciseID)
 	}
 
 	// Create session properties
@@ -127,8 +120,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		}
 		variantIdx, _, err := variantPrompt.Run()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error selecting variant: %w", err)
 		}
 		
 		selectedVariant := exercise.Variants[variantIdx]
@@ -192,8 +184,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 	}
 	durationStr, err := durationPrompt.Run()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error reading duration: %w", err)
 	}
 	duration, _ := strconv.Atoi(durationStr)
 
@@ -210,8 +201,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 
 	// Ensure journal directory exists
 	if err := os.MkdirAll(journalDir, 0755); err != nil {
-		fmt.Printf("Error creating journal directory: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error creating journal directory: %w", err)
 	}
 
 	// Build exercise block
@@ -237,8 +227,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 		// File exists, append
 		data, err := os.ReadFile(journalPath)
 		if err != nil {
-			fmt.Printf("Error reading journal: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error reading journal: %w", err)
 		}
 		journalContent = string(data) + block.String()
 	} else {
@@ -247,11 +236,11 @@ func runExerciseTrack(cmd *cobra.Command, args []string) {
 	}
 
 	if err := os.WriteFile(journalPath, []byte(journalContent), 0644); err != nil {
-		fmt.Printf("Error writing journal: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error writing journal: %w", err)
 	}
 
 	fmt.Printf("✓ Exercise tracked in journal: %s\n", journalPath)
+	return nil
 }
 
 // generateMinimalJournalHeader creates a minimal journal header if file doesn't exist

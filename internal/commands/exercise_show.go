@@ -20,14 +20,14 @@ var ExerciseShowCmd = &cobra.Command{
 	Short: lang.GetText("exercise.show.short"),
 	Long:  lang.GetText("exercise.show.long"),
 	Args:  cobra.MaximumNArgs(1),
-	Run:   runExerciseShow,
+	RunE:  runExerciseShow,
 }
 
 func init() {
 	ExerciseShowCmd.Flags().IntP("limit", "n", 10, "Number of recent sessions to show")
 }
 
-func runExerciseShow(cmd *cobra.Command, args []string) {
+func runExerciseShow(cmd *cobra.Command, args []string) error {
 	var exerciseID string
 	if len(args) > 0 {
 		exerciseID = args[0]
@@ -35,19 +35,16 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 
 	activeBrain, err := getActiveBrain()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("getting active brain: %w", err)
 	}
 	
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("detecting brain: %w", err)
 	}
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	scanner := exercises.NewScanner()
@@ -55,13 +52,11 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 	// Load all exercises
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("scanning exercises: %w", err)
 	}
 
 	if len(allExercises) == 0 {
-		fmt.Println("No exercises found. Create one with 'flip exercise new'")
-		os.Exit(1)
+		return fmt.Errorf("no exercises found - create one with 'flip exercise new'")
 	}
 
 	// If no ID provided, let user select
@@ -83,8 +78,7 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 		}
 		_, selected, err := selectPrompt.Run()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("selecting exercise: %w", err)
 		}
 
 		exerciseID = exerciseMap[selected].ID
@@ -100,15 +94,13 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 	}
 
 	if exercise == nil {
-		fmt.Printf("Exercise not found: %s\n", exerciseID)
-		os.Exit(1)
+		return fmt.Errorf("exercise not found: %s", exerciseID)
 	}
 
 	// Load sessions
 	sessions, err := scanner.ScanSessions(brainPath, exerciseID, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error loading sessions: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("loading sessions: %w", err)
 	}
 
 	// Sort sessions by date (newest first)
@@ -203,6 +195,8 @@ func runExerciseShow(cmd *cobra.Command, args []string) {
 	} else {
 		fmt.Println("No sessions tracked yet")
 	}
+
+	return nil
 }
 
 // Use min from new.go; avoid duplicate definition

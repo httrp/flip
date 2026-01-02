@@ -16,38 +16,34 @@ var ExercisePlanListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all exercise plans",
 	Long:  "List all exercise plans in your brain with basic stats.",
-	Run:   runExercisePlanList,
+	RunE:  runExercisePlanList,
 }
 
-func runExercisePlanList(cmd *cobra.Command, args []string) {
+func runExercisePlanList(cmd *cobra.Command, args []string) error {
 	brainPath, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("getting working directory: %w", err)
 	}
 
 	detector := brain.NewDetector()
 	detection, err := detector.DetectBrainType(brainPath)
 	if err != nil {
-		fmt.Printf("Error detecting brain: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("detecting brain: %w", err)
 	}
 
 	if !detection.Compatible {
-		fmt.Println("Error: Not in a compatible brain directory")
-		os.Exit(1)
+		return fmt.Errorf("not in a compatible brain directory")
 	}
 
 	scanner := exercises.NewScanner()
 	plans, err := scanner.ScanPlans(brainPath, string(detection.Type))
 	if err != nil {
-		fmt.Printf("Error scanning plans: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("scanning plans: %w", err)
 	}
 
 	if len(plans) == 0 {
 		fmt.Println("No exercise plans found")
-		return
+		return nil
 	}
 
 	// Sort by name
@@ -81,4 +77,5 @@ func runExercisePlanList(cmd *cobra.Command, args []string) {
 	}
 
 	w.Flush()
+	return nil
 }
