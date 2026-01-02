@@ -22,10 +22,10 @@ All data is stored as **plain Markdown** files. You own your data forever.
 
 ```bash
 # macOS / Linux
-go install github.com/your-org/flip@latest
+go install github.com/httrp/flip/cmd/flip@latest
 
 # Or build from source
-git clone https://github.com/your-org/flip
+git clone https://github.com/httrp/flip
 cd flip
 make build
 ```
