@@ -18,7 +18,7 @@ var ExerciseListCmd = &cobra.Command{
 	Use:   "list",
 	Short: lang.GetText("exercise.list.short"),
 	Long:  lang.GetText("exercise.list.long"),
-	Run:   runExerciseList,
+	RunE:  runExerciseList,
 }
 
 func init() {
@@ -26,7 +26,7 @@ func init() {
 	ExerciseListCmd.Flags().StringSliceP("tags", "g", []string{}, "Filter by tags")
 }
 
-func runExerciseList(cmd *cobra.Command, args []string) {
+func runExerciseList(cmd *cobra.Command, args []string) error {
 	// When invoked from the interactive menu, cmd may be nil.
 	// In that case, default filters are empty.
 	var filterContext string
@@ -36,18 +36,18 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Println("⚠️  No active brain selected.")
 		fmt.Println("Use 'flip brain set-default <name>' or switch workspace.")
-		return
+		return nil
 	}
 	
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
 		fmt.Printf("⚠️  Could not detect brain type: %v\n", err)
-		return
+		return nil
 	}
 	if !detection.Compatible {
 		fmt.Println("⚠️  Active brain is not a compatible directory.")
-		return
+		return nil
 	}
 
 	// Get filters if cmd is available (CLI path); otherwise keep defaults (menu path)
@@ -65,7 +65,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	allExercises, err := scanner.ScanExercises(brainPath, string(detection.Type))
 	if err != nil {
 		fmt.Printf("⚠️  Error scanning exercises: %v\n", err)
-		return
+		return nil
 	}
 
 	// Apply filters
@@ -92,7 +92,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	if len(filteredExercises) == 0 {
 		fmt.Println("ℹ️  No exercises found in the active brain.")
 		fmt.Println("Tip: Create one via 'flip exercise new'.")
-		return
+		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -119,6 +119,7 @@ func runExerciseList(cmd *cobra.Command, args []string) {
 	}
 
 	w.Flush()
+	return nil
 }
 
 func hasAnyTag(exerciseTags []string, filterTags []string) bool {

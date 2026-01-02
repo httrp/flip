@@ -417,7 +417,7 @@ func showTemplateDirectoryFlow() error {
 	}
 
 	if idx == 0 {
-		if err := openInFinder(templateDir); err != nil {
+		if err := openInFileManager(templateDir); err != nil {
 			fmt.Printf("\n❌ Error opening directory: %v\n", err)
 			fmt.Println("\nPress Enter to continue...")
 			fmt.Scanln()
@@ -425,9 +425,4 @@ func showTemplateDirectoryFlow() error {
 	}
 
 	return runTemplateMenu()
-}
-
-// openInFinder opens a directory in macOS Finder
-func openInFinder(dirPath string) error {
-	return trySystemOpen(dirPath)
 }
