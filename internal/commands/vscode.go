@@ -710,7 +710,8 @@ func IsRunningInVSCode() bool {
 // CheckVSCodeTasksUpdate checks if tasks need updating and shows a hint
 // Call this from main.go during startup
 func CheckVSCodeTasksUpdate() {
-	if !IsRunningInVSCode() {
+	// Skip hints in JSON mode
+	if JSONOutput || !IsRunningInVSCode() {
 		return
 	}
 

@@ -65,7 +65,7 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 		return fmt.Errorf("failed to add link to journal: %w", err)
 	}
 
-	fmt.Printf("✓ Link added to journal in brain '%s'\n", opts.Brain.Name)
+	PrintOrJSON("✓ Link added to journal in brain '%s'\n", opts.Brain.Name)
 	return nil
 }
 
