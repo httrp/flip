@@ -245,13 +245,19 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vscode",
 		Short: "VS Code integration",
-		Long:  "Install, update, or remove flip tasks for VS Code",
+		Long:  "Install, update, or remove flip tasks and extension for VS Code",
 	}
 
+	// Tasks commands
 	cmd.AddCommand(newVSCodeInstallCommand())
 	cmd.AddCommand(newVSCodeStatusCommand())
 	cmd.AddCommand(newVSCodeUninstallCommand())
 	cmd.AddCommand(newVSCodeInfoCommand())
+
+	// Extension commands
+	cmd.AddCommand(newVSCodeExtensionInstallCommand())
+	cmd.AddCommand(newVSCodeExtensionStatusCommand())
+	cmd.AddCommand(newVSCodeExtensionUninstallCommand())
 
 	return cmd
 }

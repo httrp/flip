@@ -127,6 +127,30 @@ func runVSCodeMenu() error {
 
 	menuItems := []MenuItem{
 		{
+			Label:       "📦 Install Extension",
+			Description: "Install/update the Flip VS Code extension",
+			Command:     "flip vscode install-extension",
+			Action: func() error {
+				if err := installExtension(); err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				}
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       "📊 Extension Status",
+			Description: "Show extension installation status",
+			Command:     "flip vscode extension-status",
+			Action: func() error {
+				showExtensionStatus()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
 			Label:       lang.GetText("menu.vscode.install_label"),
 			Description: lang.GetText("menu.vscode.install_desc"),
 			Command:     lang.GetText("menu.vscode.install_cmd"),
@@ -158,6 +182,19 @@ func runVSCodeMenu() error {
 			Command:     lang.GetText("menu.vscode.status_cmd"),
 			Action: func() error {
 				showVSCodeStatus()
+				fmt.Println(lang.GetText("prompts.continue"))
+				fmt.Scanln()
+				return runVSCodeMenu()
+			},
+		},
+		{
+			Label:       "🗑️  Uninstall Extension",
+			Description: "Remove the Flip VS Code extension",
+			Command:     "flip vscode uninstall-extension",
+			Action: func() error {
+				if err := uninstallExtension(); err != nil {
+					fmt.Printf("\n%s Error: %v\n", IconError, err)
+				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
 				return runVSCodeMenu()
