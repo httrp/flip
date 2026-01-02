@@ -157,6 +157,10 @@ func installExtension() error {
 	}
 
 	fmt.Println("\n✅ Extension installed successfully!")
+	fmt.Println("\n⚠️  NOTE: If the extension doesn't appear in VS Code immediately:")
+	fmt.Println("   1. Reload VS Code (Cmd+Shift+P → 'Reload Window')")
+	fmt.Println("   2. Or manually install via: Extensions → Install from VSIX...")
+	fmt.Println("      → " + tempFile)
 	fmt.Println("\n💡 Available commands (Cmd+Shift+P):")
 	fmt.Println("   • Flip: Open/Create Journal  (Cmd+Alt+J)")
 	fmt.Println("   • Flip: New Note            (Cmd+Alt+N)")
