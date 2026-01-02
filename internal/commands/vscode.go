@@ -709,9 +709,16 @@ func IsRunningInVSCode() bool {
 
 // CheckVSCodeTasksUpdate checks if tasks need updating and shows a hint
 // Call this from main.go during startup
+// NOTE: Checks if --json flag is present in os.Args to skip in JSON mode
 func CheckVSCodeTasksUpdate() {
-	// Skip hints in JSON mode
-	if JSONOutput || !IsRunningInVSCode() {
+	// Skip hints if --json flag is present
+	for _, arg := range os.Args {
+		if arg == "--json" || arg == "-json" {
+			return
+		}
+	}
+	
+	if !IsRunningInVSCode() {
 		return
 	}
 

@@ -14,6 +14,12 @@ func main() {
 		Use:   "flip",
 		Short: "Steroids for your 2nd brain",
 		Long:  "Flip is an intelligent assistant designed to supercharge personal knowledge management workflows.",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Check for VS Code tasks updates (after flags are parsed)
+			// Only shows hint if in VS Code, outdated, and not in JSON mode
+			commands.CheckVSCodeTasksUpdate()
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Default to mixed theme unless explicitly set
 			if theme == "" {
@@ -59,9 +65,6 @@ func main() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")
-
-	// Check for VS Code tasks updates (only shows hint if in VS Code and outdated)
-	commands.CheckVSCodeTasksUpdate()
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
