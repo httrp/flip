@@ -13,7 +13,7 @@ import (
 
 // TasksVersion is incremented when tasks.json changes
 // This allows flip to detect outdated installations
-const TasksVersion = "1.0.0"
+const TasksVersion = "1.1.0"
 
 // VSCodeTasksJSON contains the embedded tasks configuration
 // This is the single source of truth for flip's VS Code tasks
@@ -179,6 +179,57 @@ var VSCodeTasksJSON = `{
       "type": "shell",
       "command": "flip",
       "args": ["status"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Meeting Note",
+      "type": "shell",
+      "command": "flip",
+      "args": ["meeting-note"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Definitions",
+      "type": "shell",
+      "command": "flip",
+      "args": ["definitions"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Switch Brain",
+      "type": "shell",
+      "command": "flip",
+      "args": ["brain", "switch"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Brain Info",
+      "type": "shell",
+      "command": "flip",
+      "args": ["brain", "info"],
       "presentation": {
         "reveal": "always",
         "panel": "shared",

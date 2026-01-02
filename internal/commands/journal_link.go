@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/httrp/flip/internal/brain"
 	"github.com/manifoldco/promptui"
 )
 
@@ -91,15 +92,34 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 }
 
 // getJournalFilePathForToday gets the journal file path for today in a brain
-func getJournalFilePathForToday(brain *Brain) string {
-	today := time.Now().Format("2006-01-02")
+// Uses brain type detection to determine correct path and filename format
+func getJournalFilePathForToday(b *Brain) string {
+	today := time.Now()
 	
-	// For now, assume logseq-style journals in "journals/" folder
-	// This should match the journal directory logic from journal.go
-	journalDir := filepath.Join(brain.Path, "journals")
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(b.Path)
+	if err != nil {
+		// Fallback to flip default
+		return filepath.Join(b.Path, "journal", today.Format("2006-01-02")+".md")
+	}
 	
-	// File format: YYYY_MM_DD.md (logseq style)
-	filename := strings.ReplaceAll(today, "-", "_") + ".md"
+	// Get journal directory based on brain type
+	journalDir := getJournalDirectory(b.Path, detection.Type)
+	
+	// Get filename format based on brain type
+	var filename string
+	switch detection.Type {
+	case brain.BrainTypeLogseq:
+		// Logseq: YYYY_MM_DD.md (underscores)
+		filename = today.Format("2006_01_02") + ".md"
+	case brain.BrainTypeDendron:
+		// Dendron: daily.journal.YYYY-MM-DD.md (hierarchy notation)
+		filename = "daily.journal." + today.Format("2006-01-02") + ".md"
+	default:
+		// Obsidian, Foam, Flip, others: YYYY-MM-DD.md (dashes)
+		filename = today.Format("2006-01-02") + ".md"
+	}
 	
 	return filepath.Join(journalDir, filename)
 }
