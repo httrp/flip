@@ -76,6 +76,29 @@ export interface TaskResult {
 }
 
 /**
+ * Note info for linking
+ */
+export interface NoteInfo {
+  name: string;
+  path: string;
+  rel_path: string;
+  link_format: string;
+  brain_name: string;
+  brain_type: string;
+}
+
+/**
+ * Notes list result
+ */
+export interface NotesResult {
+  notes: NoteInfo[];
+  brain_name: string;
+  brain_type: string;
+  brain_path: string;
+  link_syntax: string;
+}
+
+/**
  * Status result
  */
 export interface StatusResult {
@@ -154,6 +177,17 @@ export class FlipClient {
    */
   async getInfo(): Promise<FlipResult<FlipInfo>> {
     return this.execute<FlipInfo>(['vscode', 'info']);
+  }
+
+  /**
+   * Get notes list for a brain
+   */
+  async getNotes(brain?: string): Promise<FlipResult<NotesResult>> {
+    const args = ['vscode', 'notes'];
+    if (brain) {
+      args.push('--brain', brain);
+    }
+    return this.execute<NotesResult>(args);
   }
 
   /**

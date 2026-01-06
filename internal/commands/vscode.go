@@ -253,6 +253,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeStatusCommand())
 	cmd.AddCommand(newVSCodeUninstallCommand())
 	cmd.AddCommand(newVSCodeInfoCommand())
+	cmd.AddCommand(newVSCodeNotesCommand())
 
 	// Extension commands
 	cmd.AddCommand(newVSCodeExtensionInstallCommand())
@@ -274,6 +275,156 @@ func newVSCodeInfoCommand() *cobra.Command {
 	// Accept --json flag (for consistency, output is always JSON)
 	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
 	return cmd
+}
+
+// NoteInfo represents a note with its link format
+type NoteInfo struct {
+	Name       string `json:"name"`        // Display name
+	Path       string `json:"path"`        // Full file path
+	RelPath    string `json:"rel_path"`    // Relative path from brain root
+	LinkFormat string `json:"link_format"` // Ready-to-insert link format
+	BrainName  string `json:"brain_name"`  // Which brain this note belongs to
+	BrainType  string `json:"brain_type"`  // Type of brain (logseq, foam, etc.)
+}
+
+// NotesResult is returned by vscode notes command
+type NotesResult struct {
+	Notes      []NoteInfo `json:"notes"`
+	BrainName  string     `json:"brain_name"`
+	BrainType  string     `json:"brain_type"`
+	BrainPath  string     `json:"brain_path"`
+	LinkSyntax string     `json:"link_syntax"` // e.g., "[[name]]" or "[name](path)"
+}
+
+func newVSCodeNotesCommand() *cobra.Command {
+	var brainName string
+
+	cmd := &cobra.Command{
+		Use:   "notes",
+		Short: "List notes with link formats for VS Code extension",
+		Long:  "Returns JSON list of notes with appropriate link format for each brain type",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVSCodeNotes(brainName)
+		},
+	}
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to list notes from (default: active)")
+	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
+	return cmd
+}
+
+func runVSCodeNotes(brainName string) error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("vscode-notes", err)
+		return nil
+	}
+
+	// Find the target brain
+	var targetBrain *Brain
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			for i, b := range ws.Brains {
+				if brainName == "" && b.Name == ws.DefaultBrain {
+					targetBrain = &ws.Brains[i]
+					break
+				} else if b.Name == brainName {
+					targetBrain = &ws.Brains[i]
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if targetBrain == nil {
+		OutputJSONError("vscode-notes", fmt.Errorf("brain not found"))
+		return nil
+	}
+
+	result := NotesResult{
+		Notes:     []NoteInfo{},
+		BrainName: targetBrain.Name,
+		BrainType: targetBrain.Type,
+		BrainPath: targetBrain.Path,
+	}
+
+	// Set link syntax based on brain type
+	switch targetBrain.Type {
+	case "logseq":
+		result.LinkSyntax = "[[Page Name]]"
+	case "dendron":
+		result.LinkSyntax = "[[hierarchy.note]]"
+	case "foam", "obsidian":
+		result.LinkSyntax = "[[note-name]]"
+	default: // flip and others
+		result.LinkSyntax = "[[note-name]]"
+	}
+
+	// Find all markdown files
+	err = filepath.Walk(targetBrain.Path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+
+		// Skip hidden directories and common non-note directories
+		if info.IsDir() {
+			name := info.Name()
+			if strings.HasPrefix(name, ".") || name == "node_modules" || name == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Only include .md files
+		if !strings.HasSuffix(strings.ToLower(path), ".md") {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(targetBrain.Path, path)
+		name := strings.TrimSuffix(filepath.Base(path), ".md")
+
+		// Generate link format based on brain type
+		var linkFormat string
+		switch targetBrain.Type {
+		case "logseq":
+			// Logseq uses page names, journals have special format
+			if strings.Contains(relPath, "journals") {
+				// Convert 2026_01_06 to readable format
+				linkFormat = "[[" + name + "]]"
+			} else {
+				linkFormat = "[[" + name + "]]"
+			}
+		case "dendron":
+			// Dendron uses dot-separated hierarchy
+			hierarchy := strings.ReplaceAll(relPath, string(filepath.Separator), ".")
+			hierarchy = strings.TrimSuffix(hierarchy, ".md")
+			linkFormat = "[[" + hierarchy + "]]"
+		case "foam", "obsidian":
+			// Foam/Obsidian use wiki-style links
+			linkFormat = "[[" + name + "]]"
+		default: // flip
+			linkFormat = "[[" + name + "]]"
+		}
+
+		result.Notes = append(result.Notes, NoteInfo{
+			Name:       name,
+			Path:       path,
+			RelPath:    relPath,
+			LinkFormat: linkFormat,
+			BrainName:  targetBrain.Name,
+			BrainType:  targetBrain.Type,
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		OutputJSONError("vscode-notes", err)
+		return nil
+	}
+
+	OutputJSONSuccess("vscode-notes", result)
+	return nil
 }
 
 func runVSCodeInfo() error {

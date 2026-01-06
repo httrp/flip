@@ -4,6 +4,7 @@ import { createJournal } from './commands/journal';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask } from './commands/task';
 import { showStatus, switchBrain } from './commands/status';
+import { insertLink } from './commands/insert-link';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -18,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.taskNew', createTask),
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
+    vscode.commands.registerCommand('flip.insertLink', insertLink),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', () => {
