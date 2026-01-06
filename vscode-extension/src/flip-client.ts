@@ -166,13 +166,13 @@ export class FlipClient {
   /**
    * Create or open journal for today
    */
-  async createJournal(options?: { date?: string; brain?: string }): Promise<FlipResult<JournalResult>> {
+  async createJournal(brain?: string, date?: string): Promise<FlipResult<JournalResult>> {
     const args = ['journal', '--no-edit'];
-    if (options?.date) {
-      args.push('--date', options.date);
+    if (date) {
+      args.push('--date', date);
     }
-    if (options?.brain) {
-      args.push('--brain', options.brain);
+    if (brain) {
+      args.push('--brain', brain);
     }
     return this.execute<JournalResult>(args);
   }
