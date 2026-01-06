@@ -263,7 +263,7 @@ func NewVSCodeCommand() *cobra.Command {
 }
 
 func newVSCodeInfoCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "info",
 		Short: "Output flip info for VS Code extension (JSON)",
 		Long:  "Returns JSON with all information needed by the VS Code extension",
@@ -271,6 +271,9 @@ func newVSCodeInfoCommand() *cobra.Command {
 			return runVSCodeInfo()
 		},
 	}
+	// Accept --json flag (for consistency, output is always JSON)
+	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
+	return cmd
 }
 
 func runVSCodeInfo() error {
