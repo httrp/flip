@@ -15,7 +15,7 @@ import (
 )
 
 // ExtensionVersion must match the version in vscode-extension/package.json
-const ExtensionVersion = "0.1.0"
+const ExtensionVersion = "0.1.1"
 const ExtensionID = "danorama.flip-vscode"
 
 //go:embed assets/flip-vscode.vsix
@@ -126,7 +126,7 @@ func installExtension() error {
 
 	// Get VS Code extensions directory to check if extension exists in current profile
 	extensionsDir, _ := getVSCodeExtensionsDir()
-	extensionDir := filepath.Join(extensionsDir, "danorama.flip-vscode-0.1.0")
+	extensionDir := filepath.Join(extensionsDir, fmt.Sprintf("danorama.flip-vscode-%s", ExtensionVersion))
 	extensionExistsLocally := false
 	if _, err := os.Stat(extensionDir); err == nil {
 		extensionExistsLocally = true
@@ -205,13 +205,17 @@ func installToVSCodeProfile(vsixPath string) error {
 	}
 
 	// Target extension directory
-	extensionDir := filepath.Join(extensionsDir, "danorama.flip-vscode-0.1.0")
+	extensionDir := filepath.Join(extensionsDir, fmt.Sprintf("danorama.flip-vscode-%s", ExtensionVersion))
 
-	// Remove existing installation if present
-	if _, err := os.Stat(extensionDir); err == nil {
-		fmt.Printf("Removing old installation at %s\n", extensionDir)
-		if err := os.RemoveAll(extensionDir); err != nil {
-			return fmt.Errorf("failed to remove old extension: %w", err)
+	// Remove any old flip-vscode installations (any version)
+	entries, _ := os.ReadDir(extensionsDir)
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "danorama.flip-vscode-") {
+			oldDir := filepath.Join(extensionsDir, entry.Name())
+			fmt.Printf("Removing old installation at %s\n", oldDir)
+			if err := os.RemoveAll(oldDir); err != nil {
+				fmt.Printf("Warning: could not remove %s: %v\n", oldDir, err)
+			}
 		}
 	}
 
