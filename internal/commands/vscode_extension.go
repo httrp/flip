@@ -124,15 +124,26 @@ func installExtension() error {
 		return fmt.Errorf("VS Code 'code' command not found. Install VS Code and ensure 'code' is in your PATH")
 	}
 
-	// Check current installation
+	// Get VS Code extensions directory to check if extension exists in current profile
+	extensionsDir, _ := getVSCodeExtensionsDir()
+	extensionDir := filepath.Join(extensionsDir, "danorama.flip-vscode-0.1.0")
+	extensionExistsLocally := false
+	if _, err := os.Stat(extensionDir); err == nil {
+		extensionExistsLocally = true
+	}
+
+	// Check current installation via CLI
 	installedVersion := getInstalledExtensionVersion()
 	
-	if installedVersion == ExtensionVersion {
-		fmt.Printf("✅ Extension v%s is already installed and up to date.\n", installedVersion)
+	// Only skip if installed AND exists locally in this profile
+	if installedVersion == ExtensionVersion && extensionExistsLocally {
+		fmt.Printf("✅ Extension v%s is already installed and up to date in this profile.\n", installedVersion)
 		return nil
 	}
 
-	if installedVersion != "" {
+	if installedVersion != "" && !extensionExistsLocally {
+		fmt.Printf("📍 Extension found in VS Code but not in this profile, installing locally...\n")
+	} else if installedVersion != "" {
 		fmt.Printf("📤 Updating from v%s to v%s...\n", installedVersion, ExtensionVersion)
 	} else {
 		fmt.Printf("📥 Installing v%s...\n", ExtensionVersion)
@@ -254,7 +265,8 @@ func installToVSCodeProfile(vsixPath string) error {
 }
 
 // getVSCodeExtensionsDir returns the path to VS Code's extensions directory
-// Handles multiple profiles
+// Handles multiple profiles - installs to the standard extensions directory
+// which is shared across all profiles
 func getVSCodeExtensionsDir() (string, error) {
 	var vscodeDir string
 
@@ -282,35 +294,17 @@ func getVSCodeExtensionsDir() (string, error) {
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	// Check if using profiles (Code/User/profiles/{profile-name}/extensions)
-	// or standard extensions (Code/extensions)
-	profilesDir := filepath.Join(vscodeDir, "User", "profiles")
-	if info, err := os.Stat(profilesDir); err == nil && info.IsDir() {
-		// Find the most recently modified profile (likely the active one)
-		entries, err := os.ReadDir(profilesDir)
-		if err == nil && len(entries) > 0 {
-			// Get the first profile's extensions directory
-			// Ideally we'd detect the "active" profile, but this is a reasonable fallback
-			firstProfile := entries[0].Name()
-			extensionsDir := filepath.Join(profilesDir, firstProfile, "extensions")
-			
-			// Verify it exists
-			if _, err := os.Stat(extensionsDir); err == nil {
-				fmt.Printf("📂 Using profile: %s\n", firstProfile)
-				return extensionsDir, nil
-			}
-		}
-	}
-
-	// Fallback: Use standard extensions directory
+	// Use standard extensions directory (shared across all profiles)
+	// This is the most reliable location that works with all VS Code versions
 	extensionsDir := filepath.Join(vscodeDir, "extensions")
-	if _, err := os.Stat(extensionsDir); err == nil {
-		fmt.Println("📂 Using standard extensions directory")
-		return extensionsDir, nil
+	if err := os.MkdirAll(extensionsDir, 0755); err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("could not find VS Code extensions directory at %s", vscodeDir)
+	
+	fmt.Println("📂 Using VS Code extensions directory (shared across all profiles)")
+	return extensionsDir, nil
 }
+
 
 func uninstallExtension() error {
 	fmt.Println("\n🗑️  Uninstalling Flip VS Code Extension...")
