@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"archive/zip"
 	"embed"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -141,13 +144,22 @@ func installExtension() error {
 		return fmt.Errorf("failed to read embedded extension: %w", err)
 	}
 
-	tempFile := filepath.Join(os.TempDir(), "flip-vscode.vsix")
+	tempDir := os.TempDir()
+	tempFile := filepath.Join(tempDir, "flip-vscode.vsix")
 	if err := os.WriteFile(tempFile, vsixData, 0644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 	defer os.Remove(tempFile)
 
-	// Install via code CLI
+	// Try direct profile installation first (works with multiple profiles)
+	if err := installToVSCodeProfile(tempFile); err == nil {
+		fmt.Println("\n✅ Extension installed successfully!")
+		fmt.Println("\n💡 Reload VS Code to activate (Cmd+Shift+P → Reload Window)")
+		return nil
+	}
+
+	// Fallback: Try CLI installation (doesn't work with profiles but is simpler)
+	fmt.Println("⚠️  Direct installation failed, trying CLI method...")
 	cmd := exec.Command("code", "--install-extension", tempFile, "--force")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -170,6 +182,134 @@ func installExtension() error {
 	fmt.Println("   • Flip: Show Status")
 
 	return nil
+}
+
+// installToVSCodeProfile extracts the VSIX directly into VS Code's extensions directory
+// This method works with multiple profiles (unlike the `code` CLI)
+func installToVSCodeProfile(vsixPath string) error {
+	// Get VS Code extensions directory
+	extensionsDir, err := getVSCodeExtensionsDir()
+	if err != nil {
+		return fmt.Errorf("could not find VS Code extensions directory: %w", err)
+	}
+
+	// Target extension directory
+	extensionDir := filepath.Join(extensionsDir, "danorama.flip-vscode-0.1.0")
+
+	// Remove existing installation if present
+	if _, err := os.Stat(extensionDir); err == nil {
+		fmt.Printf("Removing old installation at %s\n", extensionDir)
+		if err := os.RemoveAll(extensionDir); err != nil {
+			return fmt.Errorf("failed to remove old extension: %w", err)
+		}
+	}
+
+	// Create extension directory
+	if err := os.MkdirAll(extensionDir, 0755); err != nil {
+		return fmt.Errorf("failed to create extension directory: %w", err)
+	}
+
+	// Extract VSIX (it's a ZIP file)
+	reader, err := zip.OpenReader(vsixPath)
+	if err != nil {
+		return fmt.Errorf("failed to open VSIX: %w", err)
+	}
+	defer reader.Close()
+
+	for _, file := range reader.File {
+		targetPath := filepath.Join(extensionDir, file.Name)
+
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(targetPath, 0755)
+		} else {
+			// Create parent directories
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+
+			// Extract file
+			source, err := file.Open()
+			if err != nil {
+				return fmt.Errorf("failed to open file in VSIX: %w", err)
+			}
+
+			dest, err := os.Create(targetPath)
+			if err != nil {
+				source.Close()
+				return fmt.Errorf("failed to create file: %w", err)
+			}
+
+			_, err = io.Copy(dest, source)
+			source.Close()
+			dest.Close()
+
+			if err != nil {
+				return fmt.Errorf("failed to extract file: %w", err)
+			}
+		}
+	}
+
+	fmt.Printf("✅ Installed to: %s\n", extensionDir)
+	return nil
+}
+
+// getVSCodeExtensionsDir returns the path to VS Code's extensions directory
+// Handles multiple profiles
+func getVSCodeExtensionsDir() (string, error) {
+	var vscodeDir string
+
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS: ~/Library/Application Support/Code
+		home, _ := os.UserHomeDir()
+		vscodeDir = filepath.Join(home, "Library", "Application Support", "Code")
+
+	case "linux":
+		// Linux: ~/.config/Code
+		home, _ := os.UserHomeDir()
+		vscodeDir = filepath.Join(home, ".config", "Code")
+
+	case "windows":
+		// Windows: %APPDATA%\Code
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			home, _ := os.UserHomeDir()
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		vscodeDir = filepath.Join(appData, "Code")
+
+	default:
+		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	// Check if using profiles (Code/User/profiles/{profile-name}/extensions)
+	// or standard extensions (Code/extensions)
+	profilesDir := filepath.Join(vscodeDir, "User", "profiles")
+	if info, err := os.Stat(profilesDir); err == nil && info.IsDir() {
+		// Find the most recently modified profile (likely the active one)
+		entries, err := os.ReadDir(profilesDir)
+		if err == nil && len(entries) > 0 {
+			// Get the first profile's extensions directory
+			// Ideally we'd detect the "active" profile, but this is a reasonable fallback
+			firstProfile := entries[0].Name()
+			extensionsDir := filepath.Join(profilesDir, firstProfile, "extensions")
+			
+			// Verify it exists
+			if _, err := os.Stat(extensionsDir); err == nil {
+				fmt.Printf("📂 Using profile: %s\n", firstProfile)
+				return extensionsDir, nil
+			}
+		}
+	}
+
+	// Fallback: Use standard extensions directory
+	extensionsDir := filepath.Join(vscodeDir, "extensions")
+	if _, err := os.Stat(extensionsDir); err == nil {
+		fmt.Println("📂 Using standard extensions directory")
+		return extensionsDir, nil
+	}
+
+	return "", fmt.Errorf("could not find VS Code extensions directory at %s", vscodeDir)
 }
 
 func uninstallExtension() error {
