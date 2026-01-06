@@ -71,8 +71,40 @@ export interface TaskResult {
   description: string;
   due?: string;
   priority?: string;
+  frog?: boolean;
   brain_name: string;
   brain_path: string;
+}
+
+/**
+ * Task info from vscode tasks command
+ */
+export interface TaskInfo {
+  description: string;
+  status: 'open' | 'in-progress' | 'done';
+  priority?: string;
+  due?: string;
+  tags?: string[];
+  frog?: boolean;
+  path: string;
+  rel_path: string;
+  line: number;
+  brain_name: string;
+  brain_type: string;
+  organization?: string;
+  project?: string;
+  context?: string;
+}
+
+/**
+ * Tasks list result
+ */
+export interface TasksResult {
+  tasks: TaskInfo[];
+  total_count: number;
+  brain_name?: string;
+  brain_path?: string;
+  query?: string;
 }
 
 /**
@@ -244,6 +276,9 @@ export class FlipClient {
     brain?: string; 
     due?: string; 
     priority?: string;
+    frog?: boolean;
+    file?: string;
+    line?: number;
   }): Promise<FlipResult<TaskResult>> {
     const args = ['task', 'new', '--no-edit', '--no-link', '--description', `"${options.description}"`];
     if (options.brain) {
@@ -255,7 +290,45 @@ export class FlipClient {
     if (options.priority) {
       args.push('--priority', options.priority);
     }
+    if (options.frog) {
+      args.push('--frog');
+    }
+    if (options.file) {
+      args.push('--file', options.file);
+    }
+    if (options.line !== undefined && options.line > 0) {
+      args.push('--line', options.line.toString());
+    }
     return this.execute<TaskResult>(args);
+  }
+
+  /**
+   * Get tasks with optional filters
+   */
+  async getTasks(options?: {
+    brain?: string;
+    status?: string;
+    priority?: string;
+    frog?: boolean;
+    query?: string;
+  }): Promise<FlipResult<TasksResult>> {
+    const args = ['vscode', 'tasks'];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options?.status) {
+      args.push('--status', options.status);
+    }
+    if (options?.priority) {
+      args.push('--priority', options.priority);
+    }
+    if (options?.frog) {
+      args.push('--frog');
+    }
+    if (options?.query) {
+      args.push('--query', options.query);
+    }
+    return this.execute<TasksResult>(args);
   }
 
   /**

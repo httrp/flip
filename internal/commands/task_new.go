@@ -21,6 +21,7 @@ type TaskNewOptions struct {
 	Brain       string // Brain name
 	Due         string // Due date (YYYY-MM-DD, today, tomorrow)
 	Priority    string // Priority (high, medium, low)
+	Frog        bool   // 🐸 Eat-the-frog task
 	NoEdit      bool   // Don't open editor
 	NoLink      bool   // Don't add link to journal
 }
@@ -33,6 +34,7 @@ type TaskResult struct {
 	Description string `json:"description"`
 	Due         string `json:"due,omitempty"`
 	Priority    string `json:"priority,omitempty"`
+	Frog        bool   `json:"frog,omitempty"`
 	BrainName   string `json:"brain_name"`
 	BrainPath   string `json:"brain_path"`
 }
@@ -52,7 +54,8 @@ Examples:
   flip task new                                    # Interactive mode
   flip task new --file /path/to/note.md --line 42 # Insert at cursor position
   flip task new --description "My task" --json    # Non-interactive with JSON output
-  flip task new --description "Do X" --due today --priority high --json`,
+  flip task new --description "Do X" --due today --priority high --json
+  flip task new --description "Important task" --frog --json  # Eat-the-frog task`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			JSONOutput = jsonOutput
 			// Non-interactive mode if description is provided
@@ -73,6 +76,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
 	cmd.Flags().StringVar(&opts.Due, "due", "", "Due date (YYYY-MM-DD, today, tomorrow)")
 	cmd.Flags().StringVar(&opts.Priority, "priority", "", "Priority (high, medium, low)")
+	cmd.Flags().BoolVar(&opts.Frog, "frog", false, "🐸 Mark as eat-the-frog task")
 	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
 	cmd.Flags().BoolVar(&opts.NoLink, "no-link", false, "Don't add link to journal")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
@@ -155,6 +159,7 @@ func runCreateTaskNonInteractive(opts TaskNewOptions) error {
 		Priority:    parsePriorityString(opts.Priority),
 		Due:         dueDate,
 		Created:     time.Now(),
+		Frog:        opts.Frog,
 	}
 
 	// Get task directory

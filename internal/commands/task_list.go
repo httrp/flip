@@ -23,6 +23,7 @@ func NewTaskListCommand() *cobra.Command {
 		dueThisWeek    bool
 		overdue        bool
 		groupByFile    bool
+		frogOnly       bool
 	)
 
 	cmd := &cobra.Command{
@@ -34,6 +35,7 @@ func NewTaskListCommand() *cobra.Command {
 				DueToday:    dueToday,
 				DueThisWeek: dueThisWeek,
 				Overdue:     overdue,
+				FrogOnly:    frogOnly,
 			}
 
 			if statusFilter != "" {
@@ -69,6 +71,7 @@ func NewTaskListCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dueThisWeek, "week", false, "Show tasks due this week")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "Show overdue tasks")
 	cmd.Flags().BoolVarP(&groupByFile, "group", "g", false, "Group tasks by file")
+	cmd.Flags().BoolVar(&frogOnly, "frog", false, "Show only 🐸 eat-the-frog tasks")
 
 	return cmd
 }
@@ -278,11 +281,15 @@ func selectAndActOnTask(taskList []*tasks.Task) error {
 	for i, task := range taskList {
 		statusIcon := tasks.StatusIcon(task.Status)
 		priorityIcon := tasks.PriorityIcon(task.Priority)
+		frogIcon := ""
+		if task.Frog {
+			frogIcon = "🐸 "
+		}
 		dueInfo := ""
 		if task.Due != nil {
 			dueInfo = fmt.Sprintf(" %s", formatTaskDueDate(task.Due))
 		}
-		items[i] = fmt.Sprintf("%s %s %s%s | %s", statusIcon, priorityIcon, task.Description, dueInfo, task.Context.FileName)
+		items[i] = fmt.Sprintf("%s %s %s%s%s | %s", statusIcon, priorityIcon, frogIcon, task.Description, dueInfo, task.Context.FileName)
 	}
 
 	selectPrompt := promptui.Select{

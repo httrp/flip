@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -56,6 +56,18 @@
         "title": "Flip: New Task"
       },
       {
+        "command": "flip.taskSearch",
+        "title": "Flip: Search Tasks"
+      },
+      {
+        "command": "flip.taskFrog",
+        "title": "Flip: 🐸 Eat the Frog (Important Tasks)"
+      },
+      {
+        "command": "flip.taskToday",
+        "title": "Flip: Today's Tasks"
+      },
+      {
         "command": "flip.taskDone",
         "title": "Flip: Mark Task Done"
       },
@@ -84,6 +96,21 @@
         "command": "flip.insertLink",
         "key": "ctrl+alt+l",
         "mac": "cmd+alt+l"
+      },
+      {
+        "command": "flip.taskNew",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
+      },
+      {
+        "command": "flip.taskSearch",
+        "key": "ctrl+shift+alt+t",
+        "mac": "cmd+shift+alt+t"
+      },
+      {
+        "command": "flip.taskFrog",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f"
       }
     ],
     "configuration": {

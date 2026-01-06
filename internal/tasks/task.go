@@ -45,6 +45,7 @@ type Task struct {
 	// Priority & Effort
 	Priority Priority
 	Effort   string // "2h", "1d", "3w"
+	Frog     bool   // 🐸 Eat-the-frog task (most important/challenging)
 
 	// Categorization
 	Tags         []string

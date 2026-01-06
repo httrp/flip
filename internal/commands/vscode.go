@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/httrp/flip/internal/tasks"
 	"github.com/spf13/cobra"
 )
 
@@ -254,6 +255,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeUninstallCommand())
 	cmd.AddCommand(newVSCodeInfoCommand())
 	cmd.AddCommand(newVSCodeNotesCommand())
+	cmd.AddCommand(newVSCodeTasksCommand())
 
 	// Extension commands
 	cmd.AddCommand(newVSCodeExtensionInstallCommand())
@@ -425,6 +427,189 @@ func runVSCodeNotes(brainName string) error {
 
 	OutputJSONSuccess("vscode-notes", result)
 	return nil
+}
+
+// TaskInfo represents a task for VS Code extension
+type TaskInfo struct {
+	Description  string   `json:"description"`
+	Status       string   `json:"status"` // "open", "in-progress", "done"
+	Priority     string   `json:"priority,omitempty"`
+	Due          string   `json:"due,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+	Frog         bool     `json:"frog,omitempty"`
+	Path         string   `json:"path"`
+	RelPath      string   `json:"rel_path"`
+	Line         int      `json:"line"`
+	BrainName    string   `json:"brain_name"`
+	BrainType    string   `json:"brain_type"`
+	Organization string   `json:"organization,omitempty"`
+	Project      string   `json:"project,omitempty"`
+	ContextTag   string   `json:"context,omitempty"`
+}
+
+// TasksResult is returned by vscode tasks command
+type TasksResult struct {
+	Tasks      []TaskInfo `json:"tasks"`
+	TotalCount int        `json:"total_count"`
+	BrainName  string     `json:"brain_name,omitempty"`
+	BrainPath  string     `json:"brain_path,omitempty"`
+	Query      string     `json:"query,omitempty"`
+}
+
+func newVSCodeTasksCommand() *cobra.Command {
+	var brainName string
+	var status string
+	var priority string
+	var frogOnly bool
+	var query string
+
+	cmd := &cobra.Command{
+		Use:   "tasks",
+		Short: "List tasks for VS Code extension (JSON)",
+		Long:  "Returns JSON list of tasks, optionally filtered",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Build query from args if provided
+			if len(args) > 0 && query == "" {
+				query = strings.Join(args, " ")
+			}
+			return runVSCodeTasks(brainName, status, priority, frogOnly, query)
+		},
+	}
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to list tasks from (default: all brains)")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status (open, in-progress, done)")
+	cmd.Flags().StringVar(&priority, "priority", "", "Filter by priority (high, medium, low)")
+	cmd.Flags().BoolVar(&frogOnly, "frog", false, "Show only 🐸 eat-the-frog tasks")
+	cmd.Flags().StringVar(&query, "query", "", "Search query (matches description)")
+	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
+	return cmd
+}
+
+func runVSCodeTasks(brainName, status, priority string, frogOnly bool, query string) error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("vscode-tasks", err)
+		return nil
+	}
+
+	result := TasksResult{
+		Tasks: []TaskInfo{},
+		Query: query,
+	}
+
+	// Find brains to scan
+	var brainsToScan []Brain
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			for _, b := range ws.Brains {
+				if brainName == "" || b.Name == brainName {
+					brainsToScan = append(brainsToScan, b)
+				}
+			}
+			break
+		}
+	}
+
+	if len(brainsToScan) == 0 {
+		OutputJSONError("vscode-tasks", fmt.Errorf("no brains found"))
+		return nil
+	}
+
+	// If single brain specified, include in result
+	if brainName != "" && len(brainsToScan) == 1 {
+		result.BrainName = brainsToScan[0].Name
+		result.BrainPath = brainsToScan[0].Path
+	}
+
+	// Scan each brain
+	for _, brain := range brainsToScan {
+		scanner := tasks.NewScanner(brain.Path)
+		brainTasks, err := scanner.ScanBrain()
+		if err != nil {
+			continue // Skip brain on error
+		}
+
+		for _, t := range brainTasks {
+			// Apply filters
+			if status != "" {
+				taskStatus := statusString(t.Status)
+				if taskStatus != status {
+					continue
+				}
+			}
+
+			if priority != "" {
+				taskPriority := priorityString(t.Priority)
+				if taskPriority != priority {
+					continue
+				}
+			}
+
+			if frogOnly && !t.Frog {
+				continue
+			}
+
+			if query != "" {
+				if !strings.Contains(strings.ToLower(t.Description), strings.ToLower(query)) {
+					continue
+				}
+			}
+
+			relPath, _ := filepath.Rel(brain.Path, t.Context.FilePath)
+			taskInfo := TaskInfo{
+				Description:  t.Description,
+				Status:       statusString(t.Status),
+				Priority:     priorityString(t.Priority),
+				Tags:         t.Tags,
+				Frog:         t.Frog,
+				Path:         t.Context.FilePath,
+				RelPath:      relPath,
+				Line:         t.Context.LineNumber,
+				BrainName:    brain.Name,
+				BrainType:    brain.Type,
+				Organization: t.Organization,
+				Project:      t.Project,
+				ContextTag:   t.ContextTag,
+			}
+
+			if t.Due != nil {
+				taskInfo.Due = t.Due.Format("2006-01-02")
+			}
+
+			result.Tasks = append(result.Tasks, taskInfo)
+		}
+	}
+
+	result.TotalCount = len(result.Tasks)
+	OutputJSONSuccess("vscode-tasks", result)
+	return nil
+}
+
+// statusString converts tasks.Status to string
+func statusString(s tasks.Status) string {
+	switch s {
+	case tasks.StatusOpen:
+		return "open"
+	case tasks.StatusInProgress:
+		return "in-progress"
+	case tasks.StatusDone:
+		return "done"
+	default:
+		return "open"
+	}
+}
+
+// priorityString converts tasks.Priority to string
+func priorityString(p tasks.Priority) string {
+	switch p {
+	case tasks.PriorityHigh:
+		return "high"
+	case tasks.PriorityMedium:
+		return "medium"
+	case tasks.PriorityLow:
+		return "low"
+	default:
+		return ""
+	}
 }
 
 func runVSCodeInfo() error {

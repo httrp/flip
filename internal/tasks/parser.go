@@ -20,6 +20,9 @@ var (
 	// Regex to match inline priority: ⏫ 🔼 🔽
 	inlinePriorityPattern = regexp.MustCompile(`(⏫|🔼|🔽)`)
 
+	// Regex to match frog emoji: 🐸 (eat-the-frog)
+	frogEmojiPattern = regexp.MustCompile(`🐸`)
+
 	// Regex to match tags: #tag
 	tagPattern = regexp.MustCompile(`#([\w\-/]+)`)
 
@@ -125,15 +128,28 @@ func parseInlineMetadata(text string) (cleanDescription string, metadata map[str
 		cleanText = strings.Replace(cleanText, matches[0], "", 1)
 	}
 
-	// Extract tags (#tag)
+	// Extract frog emoji (🐸 eat-the-frog)
+	if frogEmojiPattern.MatchString(text) {
+		metadata["frog"] = "true"
+		cleanText = frogEmojiPattern.ReplaceAllString(cleanText, "")
+	}
+
+	// Extract tags (#tag) - also check for #frog tag
 	tags := tagPattern.FindAllStringSubmatch(text, -1)
 	if len(tags) > 0 {
 		var tagList []string
 		for _, tag := range tags {
-			tagList = append(tagList, tag[1])
+			// Check for #frog tag
+			if strings.ToLower(tag[1]) == "frog" {
+				metadata["frog"] = "true"
+			} else {
+				tagList = append(tagList, tag[1])
+			}
 			cleanText = strings.Replace(cleanText, tag[0], "", 1)
 		}
-		metadata["tags"] = strings.Join(tagList, ",")
+		if len(tagList) > 0 {
+			metadata["tags"] = strings.Join(tagList, ",")
+		}
 	}
 
 	// Extract wiki links ([[Project]])
@@ -180,6 +196,11 @@ func applyInlineMetadata(task *Task, metadata map[string]string) {
 	// Apply priority
 	if priorityIcon, ok := metadata["priority"]; ok {
 		task.Priority = PriorityFromIcon(priorityIcon)
+	}
+
+	// Apply frog (eat-the-frog)
+	if frog, ok := metadata["frog"]; ok && frog == "true" {
+		task.Frog = true
 	}
 
 	// Apply tags
@@ -289,6 +310,9 @@ func FormatTask(task *Task) string {
 	}
 	if task.Priority != PriorityNone {
 		description += " " + PriorityIcon(task.Priority)
+	}
+	if task.Frog {
+		description += " 🐸"
 	}
 	if len(task.Tags) > 0 {
 		for _, tag := range task.Tags {

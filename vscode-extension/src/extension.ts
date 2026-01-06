@@ -3,6 +3,7 @@ import { getFlipClient, refreshFlipClient, BrainInfo } from './flip-client';
 import { createJournal } from './commands/journal';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask } from './commands/task';
+import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
 import { showStatus, switchBrain } from './commands/status';
 import { insertLink } from './commands/insert-link';
 
@@ -17,6 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.note', createNote),
     vscode.commands.registerCommand('flip.quicknote', createQuicknote),
     vscode.commands.registerCommand('flip.taskNew', createTask),
+    vscode.commands.registerCommand('flip.taskSearch', searchTasks),
+    vscode.commands.registerCommand('flip.taskFrog', showFrogTasks),
+    vscode.commands.registerCommand('flip.taskToday', showTodaysTasks),
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
     vscode.commands.registerCommand('flip.insertLink', insertLink),

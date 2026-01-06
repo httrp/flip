@@ -2,10 +2,20 @@ import * as vscode from 'vscode';
 import { getFlipClient, TaskResult } from '../flip-client';
 
 /**
+ * Location options for task creation
+ */
+interface TaskLocation {
+  label: string;
+  description?: string;
+  value: 'default' | 'cursor' | 'custom';
+}
+
+/**
  * Create a new task with VS Code input dialogs
  */
 export async function createTask(): Promise<void> {
   const client = getFlipClient();
+  const editor = vscode.window.activeTextEditor;
 
   // Get description
   const description = await vscode.window.showInputBox({
@@ -23,12 +33,60 @@ export async function createTask(): Promise<void> {
     return; // User cancelled
   }
 
+  // Get location option (where to insert the task)
+  const locationOptions: TaskLocation[] = [
+    { label: '$(file) Default task file', description: 'tasks/todo.md or similar', value: 'default' },
+  ];
+
+  // Add cursor option if we have an active markdown editor
+  if (editor && editor.document.languageId === 'markdown') {
+    const relPath = vscode.workspace.asRelativePath(editor.document.uri);
+    locationOptions.unshift({
+      label: '$(edit) At cursor position',
+      description: relPath,
+      value: 'cursor',
+    });
+  }
+
+  locationOptions.push({
+    label: '$(folder-opened) Choose file...',
+    value: 'custom',
+  });
+
+  const selectedLocation = await vscode.window.showQuickPick(locationOptions, {
+    placeHolder: 'Where to create the task?',
+  });
+
+  if (!selectedLocation) {
+    return; // User cancelled
+  }
+
+  let file: string | undefined;
+  let line: number | undefined;
+
+  if (selectedLocation.value === 'cursor' && editor) {
+    file = editor.document.uri.fsPath;
+    line = editor.selection.active.line + 1; // Convert to 1-based
+  } else if (selectedLocation.value === 'custom') {
+    // Let user pick a markdown file
+    const uris = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: { 'Markdown': ['md'] },
+      title: 'Select file for task',
+    });
+    if (uris && uris.length > 0) {
+      file = uris[0].fsPath;
+    } else {
+      return; // User cancelled
+    }
+  }
+
   // Get due date (optional)
   const dueOptions = [
     { label: 'No due date', value: '' },
-    { label: 'Today', value: 'today' },
-    { label: 'Tomorrow', value: 'tomorrow' },
-    { label: 'Custom date...', value: 'custom' },
+    { label: '$(calendar) Today', value: 'today' },
+    { label: '$(arrow-right) Tomorrow', value: 'tomorrow' },
+    { label: '$(edit) Custom date...', value: 'custom' },
   ];
 
   const selectedDue = await vscode.window.showQuickPick(dueOptions, {
@@ -66,6 +124,18 @@ export async function createTask(): Promise<void> {
 
   const priority = selectedPriority?.value;
 
+  // Ask if this is a frog task
+  const frogOptions = [
+    { label: 'No', value: false },
+    { label: '$(target) 🐸 Yes - Eat the Frog!', description: 'Most important task to tackle first', value: true },
+  ];
+
+  const selectedFrog = await vscode.window.showQuickPick(frogOptions, {
+    placeHolder: 'Is this your "eat the frog" task?',
+  });
+
+  const frog = selectedFrog?.value || false;
+
   // Get brain selection if multiple brains
   const info = await client.getInfo();
   let brain: string | undefined;
@@ -99,6 +169,9 @@ export async function createTask(): Promise<void> {
         brain,
         due,
         priority,
+        frog,
+        file,
+        line,
       });
 
       if (!result.success) {
@@ -112,7 +185,7 @@ export async function createTask(): Promise<void> {
       const doc = await vscode.workspace.openTextDocument(data.path);
       await vscode.window.showTextDocument(doc);
 
-      let msg = `Created task in ${data.brain_name}`;
+      let msg = `${frog ? '🐸 ' : ''}Created task in ${data.brain_name}`;
       if (data.due) {
         msg += ` (due: ${data.due})`;
       }

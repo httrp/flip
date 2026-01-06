@@ -424,6 +424,12 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 		priorityIcon = "  "
 	}
 
+	// Frog indicator (eat-the-frog)
+	frogIcon := ""
+	if task.Frog {
+		frogIcon = "🐸 "
+	}
+
 	// Status
 	statusIcon := fmt.Sprintf("[%s]", tasks.StatusIcon(task.Status))
 
@@ -463,8 +469,9 @@ func (m taskBrowserModel) formatTaskLine(task *tasks.Task, isSelected bool) stri
 	}
 
 	// Build line
-	line := fmt.Sprintf("%s %s %s%s%s%s",
+	line := fmt.Sprintf("%s %s%s %s%s%s%s",
 		priorityIcon,
+		frogIcon,
 		statusIcon,
 		truncate(task.Description, 60),
 		metaStr,

@@ -19,6 +19,7 @@ type TaskFilter struct {
 	Overdue      bool
 	DueToday     bool
 	DueThisWeek  bool
+	FrogOnly     bool   // Only show 🐸 eat-the-frog tasks
 	SearchText   string
 	SortBy       string // "due", "priority", "created"
 }
@@ -114,6 +115,11 @@ func (idx *TaskIndex) applyFilters(tasks []*Task, filter TaskFilter) []*Task {
 	for _, task := range tasks {
 		// Priority filter
 		if filter.Priority != "" && task.Priority != filter.Priority {
+			continue
+		}
+
+		// Frog filter (eat-the-frog)
+		if filter.FrogOnly && !task.Frog {
 			continue
 		}
 
