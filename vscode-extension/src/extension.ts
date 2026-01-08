@@ -5,6 +5,7 @@ import { createNote, createQuicknote } from './commands/note';
 import { createTask } from './commands/task';
 import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
 import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/search';
+import { syncBrains, quickSync, syncAndPush } from './commands/sync';
 import { showStatus, switchBrain } from './commands/status';
 import { insertLink } from './commands/insert-link';
 
@@ -30,6 +31,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.search', searchAllBrains),
     vscode.commands.registerCommand('flip.recentNotes', showRecentNotes),
     vscode.commands.registerCommand('flip.searchFiltered', searchWithFilters),
+    
+    // Sync commands
+    vscode.commands.registerCommand('flip.sync', syncBrains),
+    vscode.commands.registerCommand('flip.quickSync', quickSync),
+    vscode.commands.registerCommand('flip.syncAndPush', syncAndPush),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', () => {

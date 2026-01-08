@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -82,6 +82,18 @@
       {
         "command": "flip.insertLink",
         "title": "Flip: Insert Link to Note"
+      },
+      {
+        "command": "flip.sync",
+        "title": "Flip: Sync Brains (Commit)"
+      },
+      {
+        "command": "flip.quickSync",
+        "title": "Flip: Quick Sync (Commit All)"
+      },
+      {
+        "command": "flip.syncAndPush",
+        "title": "Flip: Sync & Push Brains"
       }
     ],
     "keybindings": [
@@ -129,6 +141,11 @@
         "command": "flip.recentNotes",
         "key": "ctrl+alt+e",
         "mac": "cmd+alt+e"
+      },
+      {
+        "command": "flip.syncAndPush",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
       }
     ],
     "configuration": {

@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 
+	"github.com/httrp/flip/internal/git"
 	"github.com/httrp/flip/internal/tasks"
 	"github.com/spf13/cobra"
 )
@@ -260,6 +262,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeTasksCommand())
 	cmd.AddCommand(newVSCodeSearchCommand())
 	cmd.AddCommand(newVSCodeRecentCommand())
+	cmd.AddCommand(newVSCodeSyncCommand())
 
 	// Extension commands
 	cmd.AddCommand(newVSCodeExtensionInstallCommand())
@@ -688,6 +691,24 @@ func newVSCodeRecentCommand() *cobra.Command {
 	return cmd
 }
 
+func newVSCodeSyncCommand() *cobra.Command {
+	var brainName string
+	var push bool
+
+	cmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Commit and optionally push changes in brains (JSON)",
+		Long:  "Commits all uncommitted changes in brains with auto-generated messages. Optionally pushes to remote.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVSCodeSync(brainName, push)
+		},
+	}
+	cmd.Flags().StringVar(&brainName, "brain", "", "Sync specific brain only")
+	cmd.Flags().BoolVar(&push, "push", false, "Push to remote after commit")
+	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
+	return cmd
+}
+
 func runVSCodeSearch(query, tag, brainName, noteType string, limit int) error {
 	config, err := loadWorkspaceConfig()
 	if err != nil {
@@ -850,6 +871,134 @@ func runVSCodeRecent(brainName, noteType string, limit int) error {
 	result.TotalCount = len(result.Results)
 	OutputJSONSuccess("vscode-recent", result)
 	return nil
+}
+
+// VSCodeSyncResult represents the result of a sync operation
+type VSCodeSyncResult struct {
+	Brains []VSCodeBrainSyncResult `json:"brains"`
+}
+
+// VSCodeBrainSyncResult represents sync result for a single brain
+type VSCodeBrainSyncResult struct {
+	Name          string   `json:"name"`
+	Path          string   `json:"path"`
+	HasChanges    bool     `json:"has_changes"`
+	ChangedFiles  []string `json:"changed_files,omitempty"`
+	Committed     bool     `json:"committed"`
+	CommitMessage string   `json:"commit_message,omitempty"`
+	Pushed        bool     `json:"pushed"`
+	Error         string   `json:"error,omitempty"`
+}
+
+func runVSCodeSync(brainName string, push bool) error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("vscode-sync", err)
+		return nil
+	}
+
+	if config.ActiveWorkspace == "" {
+		OutputJSONError("vscode-sync", fmt.Errorf("no active workspace"))
+		return nil
+	}
+
+	// Find active workspace
+	var activeWs *Workspace
+	for i := range config.Workspaces {
+		if config.Workspaces[i].Name == config.ActiveWorkspace {
+			activeWs = &config.Workspaces[i]
+			break
+		}
+	}
+
+	if activeWs == nil {
+		OutputJSONError("vscode-sync", fmt.Errorf("active workspace not found"))
+		return nil
+	}
+
+	result := VSCodeSyncResult{
+		Brains: []VSCodeBrainSyncResult{},
+	}
+
+	for _, brain := range activeWs.Brains {
+		// Filter by brain name if specified
+		if brainName != "" && brain.Name != brainName {
+			continue
+		}
+
+		brainResult := VSCodeBrainSyncResult{
+			Name: brain.Name,
+			Path: brain.Path,
+		}
+
+		// Check if git repo
+		if !git.IsGitRepo(brain.Path) {
+			brainResult.HasChanges = false
+			brainResult.Error = "not a git repository"
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+
+		// Check for uncommitted changes
+		if !git.HasUncommittedChanges(brain.Path) {
+			brainResult.HasChanges = false
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+
+		brainResult.HasChanges = true
+
+		// Get changed files
+		changes, err := git.GetChangedFiles(brain.Path)
+		if err != nil {
+			brainResult.Error = fmt.Sprintf("failed to get changed files: %v", err)
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+		brainResult.ChangedFiles = changes
+
+		// Generate commit message
+		commitMsg := generateSmartCommitMessage(changes)
+		brainResult.CommitMessage = commitMsg
+
+		// Commit
+		err = git.AddAndCommit(brain.Path, commitMsg)
+		if err != nil {
+			brainResult.Error = fmt.Sprintf("failed to commit: %v", err)
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+		brainResult.Committed = true
+
+		// Push if requested
+		if push {
+			err = git.Pull(brain.Path) // Pull first to avoid conflicts
+			if err != nil {
+				brainResult.Error = fmt.Sprintf("failed to pull before push: %v", err)
+				result.Brains = append(result.Brains, brainResult)
+				continue
+			}
+
+			err = gitPush(brain.Path)
+			if err != nil {
+				brainResult.Error = fmt.Sprintf("failed to push: %v", err)
+				result.Brains = append(result.Brains, brainResult)
+				continue
+			}
+			brainResult.Pushed = true
+		}
+
+		result.Brains = append(result.Brains, brainResult)
+	}
+
+	OutputJSONSuccess("vscode-sync", result)
+	return nil
+}
+
+// gitPush pushes to remote
+func gitPush(repoPath string) error {
+	cmd := exec.Command("git", "-C", repoPath, "push")
+	return cmd.Run()
 }
 
 func searchBrain(brain Brain, query, tag, noteType string, limit int) ([]VSCodeSearchItem, error) {

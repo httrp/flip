@@ -168,6 +168,27 @@ export interface SearchResults {
 }
 
 /**
+ * Brain sync result
+ */
+export interface BrainSyncResult {
+  name: string;
+  path: string;
+  has_changes: boolean;
+  changed_files?: string[];
+  committed: boolean;
+  commit_message?: string;
+  pushed: boolean;
+  error?: string;
+}
+
+/**
+ * Sync result from vscode sync command
+ */
+export interface SyncResult {
+  brains: BrainSyncResult[];
+}
+
+/**
  * FlipClient wraps the flip CLI for VS Code extension
  */
 export class FlipClient {
@@ -402,6 +423,23 @@ export class FlipClient {
       args.push('--limit', options.limit.toString());
     }
     return this.execute<SearchResults>(args);
+  }
+
+  /**
+   * Sync (commit and optionally push) changes in brains
+   */
+  async sync(options?: {
+    brain?: string;
+    push?: boolean;
+  }): Promise<FlipResult<SyncResult>> {
+    const args = ['vscode', 'sync'];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options?.push) {
+      args.push('--push');
+    }
+    return this.execute<SyncResult>(args);
   }
 
   /**
