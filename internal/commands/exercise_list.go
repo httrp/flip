@@ -38,7 +38,7 @@ func runExerciseList(cmd *cobra.Command, args []string) error {
 		fmt.Println("Use 'flip brain set-default <name>' or switch workspace.")
 		return nil
 	}
-	
+
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {

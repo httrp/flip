@@ -843,5 +843,10 @@ Happy note-taking!
 }
 
 func (c *Creator) writeFile(path, content string) error {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
 	return os.WriteFile(path, []byte(content), 0644)
 }

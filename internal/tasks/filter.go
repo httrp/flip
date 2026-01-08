@@ -19,7 +19,7 @@ type TaskFilter struct {
 	Overdue      bool
 	DueToday     bool
 	DueThisWeek  bool
-	FrogOnly     bool   // Only show 🐸 eat-the-frog tasks
+	FrogOnly     bool // Only show 🐸 eat-the-frog tasks
 	SearchText   string
 	SortBy       string // "due", "priority", "created"
 }

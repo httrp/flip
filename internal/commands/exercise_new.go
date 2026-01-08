@@ -49,7 +49,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Warning: Could not scan existing exercises: %v\n", err)
 		allExercises = []*exercises.Exercise{}
 	}
-	
+
 	// Collect unique contexts
 	contextMap := make(map[string]bool)
 	for _, ex := range allExercises {
@@ -57,24 +57,24 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			contextMap[ex.Context] = true
 		}
 	}
-	
+
 	var contexts []string
 	for ctx := range contextMap {
 		contexts = append(contexts, ctx)
 	}
 	contexts = append(contexts, "➕ New context", "⊝ No context")
-	
+
 	contextSelect := promptui.Select{
 		Label: "Select context",
 		Items: contexts,
 		Size:  12,
 	}
-	
+
 	_, selectedContext, err := contextSelect.Run()
 	if err != nil {
 		return fmt.Errorf("selecting context: %w", err)
 	}
-	
+
 	if selectedContext == "➕ New context" {
 		contextPrompt := promptui.Prompt{
 			Label: "New context name (e.g., Sport, Music, Basketball, Drums)",
@@ -92,7 +92,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("entering name: %w", err)
 	}
-	
+
 	// Check for duplicates or similar exercises
 	exactMatch := false
 	for _, ex := range allExercises {
@@ -101,10 +101,10 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			break
 		}
 	}
-	
+
 	if exactMatch {
 		fmt.Printf("\n⚠️  Exercise '%s' already exists!\n\n", exercise.Name)
-		
+
 		actionPrompt := promptui.Select{
 			Label: "What would you like to do?",
 			Items: []string{
@@ -113,13 +113,13 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 				"Cancel",
 			},
 		}
-		
+
 		actionIdx, _, err := actionPrompt.Run()
 		if err != nil || actionIdx == 2 {
 			fmt.Println("Cancelled")
 			return nil
 		}
-		
+
 		if actionIdx == 0 {
 			// Find and open existing
 			for _, ex := range allExercises {
@@ -132,7 +132,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-		
+
 		// Ask for new name
 		newNamePrompt := promptui.Prompt{
 			Label: "New exercise name",
@@ -142,7 +142,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 	}
-	
+
 	// Check for similar exercises (threshold 0.6)
 	similar := exercises.FindSimilarExercises(exercise.Name, allExercises, 0.6)
 	if len(similar) > 0 && !exactMatch {
@@ -155,18 +155,18 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			fmt.Printf("   - %s (%s)\n", ex.Name, contextStr)
 		}
 		fmt.Println()
-		
+
 		continuePrompt := promptui.Select{
 			Label: "Continue creating new exercise?",
 			Items: []string{"Yes, create new", "No, open similar", "Cancel"},
 		}
-		
+
 		continueIdx, _, err := continuePrompt.Run()
 		if err != nil || continueIdx == 2 {
 			fmt.Println("Cancelled")
 			return nil
 		}
-		
+
 		if continueIdx == 1 {
 			// Select which similar to open
 			similarNames := make([]string, len(similar))
@@ -177,12 +177,12 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 				}
 				similarNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
 			}
-			
+
 			selectPrompt := promptui.Select{
 				Label: "Select exercise to open",
 				Items: similarNames,
 			}
-			
+
 			idx, _, err := selectPrompt.Run()
 			if err == nil && idx < len(similar) {
 				fmt.Printf("Opening: %s\n", similar[idx].FilePath)
@@ -223,50 +223,50 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	fmt.Println("Every exercise needs at least one variant.")
 	fmt.Println("Variants define different ways to practice this exercise.")
 	fmt.Println()
-	
+
 	variantNum := 1
 	for {
 		fmt.Printf("━━ Variant %d ━━\n", variantNum)
-		
+
 		variant := exercises.ExerciseVariant{
 			TrackingProperties: make(map[string]string),
 		}
-		
+
 		// Optional variant name
 		varNamePrompt := promptui.Prompt{
 			Label: fmt.Sprintf("Variant Name (optional, e.g., 'Balance & Control')"),
 		}
 		variant.Name, _ = varNamePrompt.Run()
-		
+
 		// Variant description
 		varDescPrompt := promptui.Prompt{
 			Label: "Description (optional, explain what makes this variant unique)",
 		}
 		variant.Description, _ = varDescPrompt.Run()
-		
+
 		// Tracking properties for this variant
 		propMgr, err := exercises.NewPropertyManager(brainPath)
 		if err != nil {
 			fmt.Printf("Warning: Could not load property manager: %v\n", err)
 		}
-		
+
 		fmt.Println("\nTracking properties for this variant:")
 		for {
 			// Get available properties
 			propOptions := propMgr.GetPropertyNames()
 			propOptions = append(propOptions, "➕ Add new property", "✓ Done")
-			
+
 			selectPrompt := promptui.Select{
 				Label: "Select tracking property",
 				Items: propOptions,
 				Size:  15,
 			}
-			
+
 			_, selected, err := selectPrompt.Run()
 			if err != nil || selected == "✓ Done" {
 				break
 			}
-			
+
 			if selected == "➕ Add new property" {
 				// Create new property
 				namePrompt := promptui.Prompt{
@@ -277,7 +277,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				propName = strings.TrimSpace(propName)
-				
+
 				unitPrompt := promptui.Prompt{
 					Label:   "Unit (e.g., bpm, count, kg, text)",
 					Default: "text",
@@ -287,12 +287,12 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				propUnit = strings.TrimSpace(propUnit)
-				
+
 				// Add to manager
 				if err := propMgr.Add(propName, propUnit); err != nil {
 					fmt.Printf("Warning: Could not save property: %v\n", err)
 				}
-				
+
 				variant.TrackingProperties[propName] = propUnit
 				fmt.Printf("✓ Added: %s (%s)\n", propName, propUnit)
 			} else {
@@ -306,14 +306,14 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-		
+
 		exercise.Variants = append(exercise.Variants, variant)
-		
+
 		// Ask if user wants to add another variant
 		if variantNum == 1 {
 			fmt.Println()
 		}
-		
+
 		addMorePrompt := promptui.Select{
 			Label: "Add another variant?",
 			Items: []string{"Yes", "No"},
@@ -322,7 +322,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 		if err != nil || addIdx == 1 {
 			break
 		}
-		
+
 		fmt.Println()
 		variantNum++
 	}
@@ -338,18 +338,18 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("✓ Exercise created: %s\n\n", exPath)
-	
+
 	// Ask what to do next
 	nextPrompt := promptui.Select{
 		Label: "What would you like to do next?",
 		Items: []string{"View/Edit in editor", "Done - Track later with 'flip exercise track'"},
 	}
-	
+
 	nextIdx, _, err := nextPrompt.Run()
 	if err != nil {
 		return nil
 	}
-	
+
 	switch nextIdx {
 	case 0: // View/Edit
 		if err := promptAndOpenEditor(exPath); err != nil {

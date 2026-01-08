@@ -4,6 +4,7 @@ import { createJournal } from './commands/journal';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask } from './commands/task';
 import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
+import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/search';
 import { showStatus, switchBrain } from './commands/status';
 import { insertLink } from './commands/insert-link';
 
@@ -25,12 +26,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
     vscode.commands.registerCommand('flip.insertLink', insertLink),
     
+    // Search commands
+    vscode.commands.registerCommand('flip.search', searchAllBrains),
+    vscode.commands.registerCommand('flip.recentNotes', showRecentNotes),
+    vscode.commands.registerCommand('flip.searchFiltered', searchWithFilters),
+    
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', () => {
       vscode.window.showInformationMessage('Meeting note: Not yet implemented');
-    }),
-    vscode.commands.registerCommand('flip.search', () => {
-      vscode.window.showInformationMessage('Search: Not yet implemented');
     }),
     vscode.commands.registerCommand('flip.taskDone', () => {
       vscode.window.showInformationMessage('Task done: Not yet implemented');

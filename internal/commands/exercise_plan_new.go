@@ -24,7 +24,7 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("getting active brain: %w", err)
 	}
-	
+
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {

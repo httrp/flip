@@ -87,7 +87,7 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 	// Build markdown link [title](path)
 	// Path is relative to brain, so we use it as-is
 	relPath := opts.ItemPath
-	
+
 	return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, relPath)
 }
 
@@ -95,7 +95,7 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 // Uses brain type detection to determine correct path and filename format
 func getJournalFilePathForToday(b *Brain) string {
 	today := time.Now()
-	
+
 	// Detect brain type
 	detector := brain.NewDetector()
 	detection, err := detector.DetectBrainType(b.Path)
@@ -103,10 +103,10 @@ func getJournalFilePathForToday(b *Brain) string {
 		// Fallback to flip default
 		return filepath.Join(b.Path, "journal", today.Format("2006-01-02")+".md")
 	}
-	
+
 	// Get journal directory based on brain type
 	journalDir := getJournalDirectory(b.Path, detection.Type)
-	
+
 	// Get filename format based on brain type
 	var filename string
 	switch detection.Type {
@@ -120,7 +120,7 @@ func getJournalFilePathForToday(b *Brain) string {
 		// Obsidian, Foam, Flip, others: YYYY-MM-DD.md (dashes)
 		filename = today.Format("2006-01-02") + ".md"
 	}
-	
+
 	return filepath.Join(journalDir, filename)
 }
 
@@ -140,7 +140,7 @@ func ensureJournalExists(journalPath string) error {
 
 	// Create empty journal file with header
 	content := createSimpleJournalTemplate()
-	
+
 	return os.WriteFile(journalPath, []byte(content), 0644)
 }
 
@@ -149,7 +149,7 @@ func createSimpleJournalTemplate() string {
 	today := time.Now()
 	dateStr := today.Format("2006-01-02")
 	weekday := today.Format("Monday")
-	
+
 	return fmt.Sprintf(`# %s - %s
 
 ## Activities
@@ -173,7 +173,7 @@ func appendLinkToJournal(journalPath, linkText string) error {
 	if idx := strings.Index(fileContent, activitySection); idx != -1 {
 		// Found Activities section, insert after it
 		insertPos := idx + len(activitySection)
-		
+
 		// Skip to end of line
 		for insertPos < len(fileContent) && fileContent[insertPos] != '\n' {
 			insertPos++
@@ -185,7 +185,7 @@ func appendLinkToJournal(journalPath, linkText string) error {
 
 		// Build new content with link
 		newContent := fileContent[:insertPos] + linkText + "\n" + fileContent[insertPos:]
-		
+
 		return os.WriteFile(journalPath, []byte(newContent), 0644)
 	}
 

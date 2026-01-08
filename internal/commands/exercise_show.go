@@ -37,7 +37,7 @@ func runExerciseShow(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("getting active brain: %w", err)
 	}
-	
+
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
@@ -122,7 +122,7 @@ func runExerciseShow(cmd *cobra.Command, args []string) error {
 	if len(exercise.Tags) > 0 {
 		fmt.Printf("Tags: %s\n", strings.Join(exercise.Tags, ", "))
 	}
-	
+
 	// Display variants
 	if len(exercise.Variants) > 0 {
 		fmt.Printf("\nVariants: %d\n", len(exercise.Variants))
@@ -162,13 +162,13 @@ func runExerciseShow(cmd *cobra.Command, args []string) error {
 
 		for i := 0; i < min(limit, len(sessions)); i++ {
 			s := sessions[i]
-			
+
 			// Variant name
 			variantStr := "-"
 			if s.VariantName != "" {
 				variantStr = s.VariantName
 			}
-			
+
 			// Build properties string
 			propsStr := "-"
 			if len(s.Properties) > 0 {

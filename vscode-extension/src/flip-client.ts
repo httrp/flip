@@ -142,6 +142,32 @@ export interface StatusResult {
 }
 
 /**
+ * Search result item from vscode search/recent
+ */
+export interface SearchItem {
+  title: string;
+  path: string;
+  rel_path: string;
+  brain_name: string;
+  brain_type: string;
+  type: 'note' | 'journal' | 'meeting' | 'task';
+  tags?: string[];
+  modified: string;
+  match_line?: number;
+  match_text?: string;
+}
+
+/**
+ * Search results from vscode search/recent commands
+ */
+export interface SearchResults {
+  results: SearchItem[];
+  total_count: number;
+  query?: string;
+  search_type: 'fulltext' | 'recent';
+}
+
+/**
  * FlipClient wraps the flip CLI for VS Code extension
  */
 export class FlipClient {
@@ -329,6 +355,53 @@ export class FlipClient {
       args.push('--query', options.query);
     }
     return this.execute<TasksResult>(args);
+  }
+
+  /**
+   * Search across all brains
+   */
+  async search(options: {
+    query: string;
+    brain?: string;
+    type?: 'note' | 'journal' | 'meeting';
+    tag?: string;
+    limit?: number;
+  }): Promise<FlipResult<SearchResults>> {
+    const args = ['vscode', 'search', '--query', `"${options.query}"`];
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options.type) {
+      args.push('--type', options.type);
+    }
+    if (options.tag) {
+      args.push('--tag', options.tag);
+    }
+    if (options.limit) {
+      args.push('--limit', options.limit.toString());
+    }
+    return this.execute<SearchResults>(args);
+  }
+
+  /**
+   * Get recent notes across all brains
+   */
+  async getRecent(options?: {
+    brain?: string;
+    type?: 'note' | 'journal' | 'meeting';
+    limit?: number;
+  }): Promise<FlipResult<SearchResults>> {
+    const args = ['vscode', 'recent'];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options?.type) {
+      args.push('--type', options.type);
+    }
+    if (options?.limit) {
+      args.push('--limit', options.limit.toString());
+    }
+    return this.execute<SearchResults>(args);
   }
 
   /**

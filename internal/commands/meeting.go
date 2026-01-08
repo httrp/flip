@@ -277,6 +277,28 @@ func runCreateMeeting() error {
 		tags = strings.TrimSpace(tags)
 	}
 
+	// Prompt for duration
+	promptDuration := promptui.Select{
+		Label: "Meeting duration",
+		Items: []string{"30 min", "45 min", "60 min", "90 min", "120 min", "Custom..."},
+	}
+
+	_, duration, err := promptDuration.Run()
+	if err != nil {
+		duration = "60 min" // Default if cancelled
+	}
+
+	if duration == "Custom..." {
+		promptCustomDuration := promptui.Prompt{
+			Label:   "Duration (e.g., 45 min, 2h)",
+			Default: "60 min",
+		}
+		duration, err = promptCustomDuration.Run()
+		if err != nil {
+			duration = "60 min"
+		}
+	}
+
 	// Generate filename
 	filename := generateMeetingFilename(title, seriesName, detection.Type, activeBrain.Path)
 
@@ -306,7 +328,7 @@ func runCreateMeeting() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content
-	content := generateMeetingContent(title, participants, organization, project, context, tags, seriesName, detection.Type, activeBrain.Path)
+	content := generateMeetingContent(title, participants, organization, project, context, tags, duration, seriesName, detection.Type, activeBrain.Path)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -378,7 +400,7 @@ func generateMeetingFilename(title, seriesName string, brainType brain.BrainType
 }
 
 // generateMeetingContent creates meeting note content
-func generateMeetingContent(title, participants, organization, project, context, tags, seriesName string, brainType brain.BrainType, brainPath string) string {
+func generateMeetingContent(title, participants, organization, project, context, tags, duration, seriesName string, brainType brain.BrainType, brainPath string) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 	timeStr := now.Format("15:04")
@@ -427,7 +449,7 @@ func generateMeetingContent(title, participants, organization, project, context,
 	if err != nil {
 		// Fallback to hardcoded template if file not found
 		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		return generateDefaultMeetingContent(displayTitle, participantList, organization, project, context, tagList, seriesName, meetingType, brainType, now, dateStr, timeStr, author)
+		return generateDefaultMeetingContent(displayTitle, participantList, organization, project, context, tagList, duration, seriesName, meetingType, brainType, now, dateStr, timeStr, author)
 	}
 
 	// Prepare template variables
@@ -435,6 +457,7 @@ func generateMeetingContent(title, participants, organization, project, context,
 		"title":        displayTitle,
 		"date":         dateStr,
 		"time":         timeStr,
+		"duration":     duration,
 		"participants": participantList,
 		"organization": organization,
 		"project":      project,
@@ -452,7 +475,7 @@ func generateMeetingContent(title, participants, organization, project, context,
 }
 
 // generateDefaultMeetingContent provides fallback templates when template files don't exist
-func generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, seriesName, meetingType string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
+func generateDefaultMeetingContent(title, participantList, organization, project, context, tagList, duration, seriesName, meetingType string, brainType brain.BrainType, now time.Time, dateStr, timeStr, author string) string {
 	// Build frontmatter fields
 	frontmatterOrg := ""
 	if organization != "" {
@@ -494,6 +517,7 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 - type:: %s
 - date:: %s
 - time:: %s
+- duration:: %s
 - author:: %s
 - tags:: %s
 %s%s%s%s
@@ -511,7 +535,7 @@ func generateDefaultMeetingContent(title, participantList, organization, project
 ### Related
 - [[related-note]]
 
-`, title, meetingType, dateStr, timeStr, author, tagList, orgField, projField, ctxField, seriesField, title, participantList)
+`, title, meetingType, dateStr, timeStr, duration, author, tagList, orgField, projField, ctxField, seriesField, title, participantList)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
@@ -519,6 +543,7 @@ title: %s
 type: %s
 date: %s
 time: %s
+duration: %s
 author: %s
 tags: [%s]%s%s%s%s
 ---
@@ -537,7 +562,7 @@ tags: [%s]%s%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, meetingType, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
+`, title, meetingType, dateStr, timeStr, duration, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -546,6 +571,7 @@ title: %s
 desc: 'Meeting note'
 type: %s
 date: %s
+duration: %s
 author: %s
 updated: %d
 created: %d
@@ -566,7 +592,7 @@ tags: [%s]%s%s%s%s
 ## Related
 - [[related-note]]
 
-`, uuid.New().String(), title, meetingType, dateStr, author, now.Unix(), now.Unix(), tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
+`, uuid.New().String(), title, meetingType, dateStr, duration, author, now.Unix(), now.Unix(), tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
@@ -576,6 +602,7 @@ updated: %s
 type: %s
 date: %s
 time: %s
+duration: %s
 author: %s
 tags: [%s]%s%s%s%s
 ---
@@ -594,13 +621,15 @@ tags: [%s]%s%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, dateStr, dateStr, meetingType, dateStr, timeStr, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
+`, title, dateStr, dateStr, meetingType, dateStr, timeStr, duration, author, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 
 	default:
 		return fmt.Sprintf(`---
 title: %s
 type: %s
 date: %s
+time: %s
+duration: %s
 tags: [%s]%s%s%s%s
 ---
 
@@ -618,7 +647,7 @@ tags: [%s]%s%s%s%s
 ## Related
 - [[related-note]]
 
-`, title, meetingType, dateStr, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
+`, title, meetingType, dateStr, timeStr, duration, tagList, frontmatterOrg, frontmatterProj, frontmatterCtx, frontmatterSeries, title, participantList)
 	}
 }
 

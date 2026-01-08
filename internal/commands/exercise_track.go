@@ -28,7 +28,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("error: %w", err)
 	}
-	
+
 	brainPath := activeBrain.Path
 	detection, err := brain.NewDetector().DetectBrainType(brainPath)
 	if err != nil {
@@ -113,7 +113,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 				variantLabels[i] = fmt.Sprintf("Variant %d", i+1)
 			}
 		}
-		
+
 		variantPrompt := promptui.Select{
 			Label: "Select variant",
 			Items: variantLabels,
@@ -122,10 +122,10 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("error selecting variant: %w", err)
 		}
-		
+
 		selectedVariant := exercise.Variants[variantIdx]
 		variantName = selectedVariant.Name
-		
+
 		// Prompt for tracking properties from selected variant
 		if len(selectedVariant.TrackingProperties) > 0 {
 			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
@@ -153,7 +153,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		// Only one variant, use it automatically
 		variant := exercise.Variants[0]
 		variantName = variant.Name
-		
+
 		if len(variant.TrackingProperties) > 0 {
 			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
 			for name, unit := range variant.TrackingProperties {
@@ -212,11 +212,11 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		block.WriteString(fmt.Sprintf("- variant:: %s\n", variantName))
 	}
 	block.WriteString(fmt.Sprintf("- duration:: %d min\n", duration))
-	
+
 	for key, value := range properties {
 		block.WriteString(fmt.Sprintf("- %s:: %v\n", key, value))
 	}
-	
+
 	if notes != "" {
 		block.WriteString(fmt.Sprintf("- notes:: %s\n", notes))
 	}

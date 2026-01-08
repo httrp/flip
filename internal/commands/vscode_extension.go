@@ -15,7 +15,7 @@ import (
 )
 
 // ExtensionVersion must match the version in vscode-extension/package.json
-const ExtensionVersion = "0.1.3"
+const ExtensionVersion = "0.1.4"
 const ExtensionID = "danorama.flip-vscode"
 
 //go:embed assets/flip-vscode.vsix
@@ -97,7 +97,7 @@ func showExtensionStatus() error {
 	}
 
 	installedVersion := getInstalledExtensionVersion()
-	
+
 	if installedVersion == "" {
 		fmt.Println("❌ Extension: not installed")
 	} else if installedVersion == ExtensionVersion {
@@ -134,7 +134,7 @@ func installExtension() error {
 
 	// Check current installation via CLI
 	installedVersion := getInstalledExtensionVersion()
-	
+
 	// Only skip if installed AND exists locally in this profile
 	if installedVersion == ExtensionVersion && extensionExistsLocally {
 		fmt.Printf("✅ Extension v%s is already installed and up to date in this profile.\n", installedVersion)
@@ -174,7 +174,7 @@ func installExtension() error {
 	cmd := exec.Command("code", "--install-extension", tempFile, "--force")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to install extension: %w", err)
 	}
@@ -304,11 +304,10 @@ func getVSCodeExtensionsDir() (string, error) {
 	if err := os.MkdirAll(extensionsDir, 0755); err != nil {
 		return "", err
 	}
-	
+
 	fmt.Println("📂 Using VS Code extensions directory (shared across all profiles)")
 	return extensionsDir, nil
 }
-
 
 func uninstallExtension() error {
 	fmt.Println("\n🗑️  Uninstalling Flip VS Code Extension...")
