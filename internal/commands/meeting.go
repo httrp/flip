@@ -16,14 +16,44 @@ import (
 )
 
 func NewMeetingCommand() *cobra.Command {
+	var jsonOutput bool
+	// Non-interactive options
+	var title string
+	var participants string
+	var organization string
+	var project string
+	var context string
+	var tags string
+	var duration string
+	var seriesName string
+	var brainName string
+	var noEdit bool
+	var noLink bool
+
 	cmd := &cobra.Command{
 		Use:     "meeting-note [new]",
 		Aliases: []string{"meeting"}, // Backward compatibility
 		Short:   "Create a meeting note",
 		Long:    "Create a meeting note with date, participants, agenda, and action items.\n\nExamples:\n  flip meeting-note       # Create new meeting note (default action)\n  flip meeting-note new   # Create new meeting note (explicit)\n  flip meeting-note n     # Create new meeting note (shortcut)\n  flip new meeting-note   # Create new meeting note (alternative syntax)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Default action: create new meeting note
-			// Support: flip meeting-note, flip meeting-note new, flip meeting-note n
+			JSONOutput = jsonOutput
+			// Non-interactive mode if any field is provided or JSON requested
+			if JSONOutput || title != "" || participants != "" || organization != "" || project != "" || context != "" || tags != "" || duration != "" || seriesName != "" || brainName != "" || noEdit || noLink {
+				return runCreateMeetingNonInteractive(meetingCreateOptions{
+					Title:        title,
+					Participants: participants,
+					Organization: organization,
+					Project:      project,
+					Context:      context,
+					Tags:         tags,
+					Duration:     duration,
+					Series:       seriesName,
+					Brain:        brainName,
+					NoEdit:       noEdit,
+					NoLink:       noLink,
+				})
+			}
+			// Default action: interactive
 			if len(args) == 0 || args[0] == "new" || args[0] == "n" {
 				return runCreateMeeting()
 			}
@@ -42,8 +72,105 @@ func NewMeetingCommand() *cobra.Command {
 	}
 	cmd.AddCommand(newCmd)
 
+	// Non-interactive flags (for VS Code integration)
+	cmd.Flags().StringVar(&title, "title", "", "Meeting title")
+	cmd.Flags().StringVar(&participants, "participants", "", "Comma-separated participants")
+	cmd.Flags().StringVar(&organization, "organization", "", "Organization")
+	cmd.Flags().StringVar(&project, "project", "", "Project")
+	cmd.Flags().StringVar(&context, "context", "", "Context tag")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
+	cmd.Flags().StringVar(&duration, "duration", "", "Duration (e.g., 60 min)")
+	cmd.Flags().StringVar(&seriesName, "series", "", "Series name (for recurring meetings)")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to use (default: active brain)")
+	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Don't open editor after creation")
+	cmd.Flags().BoolVar(&noLink, "no-link", false, "Don't add link to journal")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+
 	return cmd
 }
+
+// meetingCreateOptions holds non-interactive creation inputs
+type meetingCreateOptions struct {
+	Title        string
+	Participants string
+	Organization string
+	Project      string
+	Context      string
+	Tags         string
+	Duration     string
+	Series       string
+	Brain        string
+	NoEdit       bool
+	NoLink       bool
+}
+
+// runCreateMeetingNonInteractive creates meeting note without prompts (for VS Code integration)
+func runCreateMeetingNonInteractive(opts meetingCreateOptions) error {
+	if strings.TrimSpace(opts.Title) == "" {
+		err := fmt.Errorf("--title is required for non-interactive mode")
+		if JSONOutput { OutputJSONError("meeting-note", err); return nil }
+		return err
+	}
+
+	activeWs, err := getActiveWorkspace()
+	if err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+
+	// Resolve brain
+	var activeBrain *Brain
+	if opts.Brain != "" {
+		for i := range activeWs.Brains { if activeWs.Brains[i].Name == opts.Brain { activeBrain = &activeWs.Brains[i]; break } }
+		if activeBrain == nil { err := fmt.Errorf("brain not found: %s", opts.Brain); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	} else {
+		for i := range activeWs.Brains { if activeWs.Brains[i].Name == activeWs.DefaultBrain { activeBrain = &activeWs.Brains[i]; break } }
+		if activeBrain == nil && len(activeWs.Brains) > 0 { activeBrain = &activeWs.Brains[0] }
+	}
+	if activeBrain == nil { err := fmt.Errorf("no brain available"); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, err := detector.DetectBrainType(activeBrain.Path)
+	if err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+
+	// Filename and directory
+	filename := generateMeetingFilename(opts.Title, opts.Series, detection.Type, activeBrain.Path)
+	baseDir := getMeetingsDirectory(activeBrain.Path, detection.Type)
+	if err := os.MkdirAll(baseDir, 0755); err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	// Use baseDir for non-interactive to keep simple
+	filePath := filepath.Join(baseDir, filename)
+	if _, err := os.Stat(filePath); err == nil { err := fmt.Errorf("file already exists: %s", filePath); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+
+	// Content
+	participantsList := strings.TrimSpace(opts.Participants)
+	content := generateMeetingContent(opts.Title, participantsList, opts.Organization, opts.Project, opts.Context, opts.Tags, coalesce(opts.Duration, "60 min"), opts.Series, detection.Type, activeBrain.Path)
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+
+	// Auto-commit
+	_ = autoCommitFile(activeBrain.Path, filePath, "meeting note")
+
+	// Optional link to journal
+	if !opts.NoLink {
+		rel := relativePathFromBrain(filePath, activeBrain.Path)
+		_ = AddLinkToJournal(JournalLinkOptions{ ItemType: "meeting", ItemName: opts.Title, ItemPath: rel, Brain: activeBrain, Interactive: false })
+	}
+
+	if JSONOutput {
+		OutputJSONSuccess("meeting-note", NoteResult{ // reuse NoteResult layout for path/title
+			Action:    "created",
+			Path:      filePath,
+			Title:     opts.Title,
+			BrainName: activeBrain.Name,
+			BrainPath: activeBrain.Path,
+			BrainType: string(detection.Type),
+		})
+		return nil
+	}
+
+	fmt.Printf("✓ Meeting note created: %s\n", filePath)
+	if !opts.NoEdit { _ = openInEditor(filePath) }
+	return nil
+}
+
+func coalesce(a, b string) string { if strings.TrimSpace(a) != "" { return a } ; return b }
 
 // runCreateMeeting creates a new meeting note
 func runCreateMeeting() error {

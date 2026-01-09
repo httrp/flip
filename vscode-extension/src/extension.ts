@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getFlipClient, refreshFlipClient, BrainInfo } from './flip-client';
 import { createJournal } from './commands/journal';
+import { createMeetingNote } from './commands/meeting';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask } from './commands/task';
 import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
@@ -39,9 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.syncAndPush', syncAndPush),
     
     // Placeholder commands (to be implemented)
-    vscode.commands.registerCommand('flip.meetingNote', () => {
-      vscode.window.showInformationMessage('Meeting note: Not yet implemented');
-    }),
+    vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),
     vscode.commands.registerCommand('flip.taskDone', () => {
       vscode.window.showInformationMessage('Task done: Not yet implemented');
     })

@@ -316,6 +316,32 @@ export class FlipClient {
   }
 
   /**
+   * Create a meeting note (non-interactive)
+   */
+  async createMeeting(options: {
+    title: string;
+    participants?: string;
+    organization?: string;
+    project?: string;
+    context?: string;
+    tags?: string;
+    duration?: string;
+    series?: string;
+    brain?: string;
+  }): Promise<FlipResult<NoteResult>> {
+    const args = ['meeting-note', '--no-edit', '--no-link', '--title', `"${options.title}"`];
+    if (options.participants) args.push('--participants', `"${options.participants}"`);
+    if (options.organization) args.push('--organization', `"${options.organization}"`);
+    if (options.project) args.push('--project', `"${options.project}"`);
+    if (options.context) args.push('--context', options.context);
+    if (options.tags) args.push('--tags', `"${options.tags}"`);
+    if (options.duration) args.push('--duration', `"${options.duration}"`);
+    if (options.series) args.push('--series', `"${options.series}"`);
+    if (options.brain) args.push('--brain', options.brain);
+    return this.execute<NoteResult>(args);
+  }
+
+  /**
    * Create a new task
    */
   async createTask(options: { 
