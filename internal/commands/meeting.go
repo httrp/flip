@@ -204,27 +204,39 @@ func runCreateMeeting() error {
 
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
-	// Step 1: Ask if single meeting or series
-	promptMeetingType := promptui.Select{
-		Label: "Meeting type",
-		Items: []string{"Single meeting", "Part of a series"},
+	// Step 1: Prompt for organization (optional)
+	promptOrg := promptui.Prompt{
+		Label:   "Organization (optional, press Enter to skip)",
+		Default: "",
 	}
 
-	_, meetingType, err := promptMeetingType.Run()
+	var organization string
+	organization, _ = promptOrg.Run()
+	organization = strings.TrimSpace(organization)
+	if organization != "" {
+		fmt.Println()
+	}
+
+	// Step 2: Ask if part of a series
+	promptIsSeries := promptui.Select{
+		Label: "Part of a meeting series?",
+		Items: []string{"No, single meeting", "Yes, add to series"},
+	}
+
+	_, isSeries, err := promptIsSeries.Run()
 	if err != nil {
-		return fmt.Errorf("meeting type selection cancelled: %w", err)
+		return fmt.Errorf("series selection cancelled: %w", err)
 	}
 
 	var seriesName string
 	var title string
 	var participants string
-	var organization string
 	var project string
 	var context string
 	var tags string
 
-	if meetingType == "Part of a series" {
-		// Step 2: New or existing series?
+	if isSeries == "Yes, add to series" {
+		// Step 2a: New or existing series?
 		promptSeriesChoice := promptui.Select{
 			Label: "Series",
 			Items: []string{"Create new series", "Add to existing series"},
@@ -271,16 +283,17 @@ func runCreateMeeting() error {
 				if err != nil {
 					fmt.Printf("⚠️  Could not load series metadata: %v\n", err)
 				} else {
-					// Copy metadata from series (but use series name as title, not the dated title)
-					title = seriesName // Use series name directly, not the dated title from metadata
+					// Copy metadata from series
 					participants = seriesMeta.Participants
-					organization = seriesMeta.Organization
+					// Use organization from series if not already set
+					if organization == "" {
+						organization = seriesMeta.Organization
+					}
 					project = seriesMeta.Project
 					context = seriesMeta.Context
 					tags = seriesMeta.Tags
 
 					fmt.Printf("\n✅ Loaded metadata from series: %s\n", seriesName)
-					fmt.Printf("   Title: %s\n", seriesMeta.Title) // Show the old title for reference
 					if organization != "" {
 						fmt.Printf("   Organization: %s\n", organization)
 					}
@@ -312,16 +325,15 @@ func runCreateMeeting() error {
 				return fmt.Errorf("series name prompt cancelled: %w", err)
 			}
 			seriesName = strings.TrimSpace(seriesName)
-			// For series: series name IS the title
-			title = seriesName
 		}
-	}
 
-	// Prompt for meeting title (only for single meetings, not for series)
-	if seriesName == "" {
+		// Auto-generate title from series name with today's date
+		now := time.Now()
+		title = fmt.Sprintf("%s - %s", seriesName, now.Format("02.01.2006"))
+	} else {
+		// Single meeting: ask for title
 		promptTitle := promptui.Prompt{
-			Label:   "Meeting title",
-			Default: title,
+			Label: "Meeting title",
 			Validate: func(input string) error {
 				if strings.TrimSpace(input) == "" {
 					return fmt.Errorf("title cannot be empty")

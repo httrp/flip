@@ -63,6 +63,23 @@ export interface NoteResult {
 }
 
 /**
+ * Meeting series info
+ */
+export interface MeetingSeriesInfo {
+  name: string;
+  count: number;
+}
+
+/**
+ * Meeting series list result
+ */
+export interface MeetingSeriesResult {
+  series: MeetingSeriesInfo[];
+  brain_name: string;
+  brain_path: string;
+}
+
+/**
  * Task creation result
  */
 export interface TaskResult {
@@ -341,6 +358,13 @@ export class FlipClient {
     if (options.series) args.push('--series', `"${options.series}"`);
     if (options.brain) args.push('--brain', options.brain);
     return this.execute<NoteResult>(args);
+  }
+
+  /**
+   * List meeting series in the active brain
+   */
+  async listMeetingSeries(): Promise<FlipResult<MeetingSeriesResult>> {
+    return this.execute<MeetingSeriesResult>(['vscode', 'meetings', 'list-series']);
   }
 
   /**
