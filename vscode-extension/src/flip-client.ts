@@ -207,7 +207,7 @@ export class FlipClient {
    * Execute a flip command and return parsed JSON result
    */
   private async execute<T>(args: string[]): Promise<FlipResult<T>> {
-    const cmd = `${this.executablePath} ${args.join(' ')} --json`;
+    const cmd = `${this.executablePath} ${args.join(' ')} --json 2>/dev/null`;
     
     try {
       const { stdout, stderr } = await execAsync(cmd, { 
@@ -215,11 +215,11 @@ export class FlipClient {
         env: { ...process.env, TERM_PROGRAM: 'vscode' }
       });
 
-      if (stderr && !stdout) {
+      if (!stdout || stdout.trim() === '') {
         return {
           success: false,
           command: args[0],
-          error: stderr.trim()
+          error: stderr?.trim() || 'No output from command'
         };
       }
 
