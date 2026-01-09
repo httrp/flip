@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -102,6 +102,10 @@
       {
         "command": "flip.syncAndPush",
         "title": "Flip: Sync & Push Brains"
+      },
+      {
+        "command": "flip.addParticipants",
+        "title": "Flip: Add Participants to Meeting"
       }
     ],
     "keybindings": [

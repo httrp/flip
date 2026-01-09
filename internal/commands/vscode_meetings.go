@@ -2,6 +2,8 @@ package commands
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/spf13/cobra"
@@ -42,6 +44,7 @@ func NewVSCodeMeetingsCommand() *cobra.Command {
 
 	cmd.AddCommand(NewMeetingsListSeriesCommand())
 	cmd.AddCommand(NewMeetingsListOrganizationsCommand())
+	cmd.AddCommand(NewMeetingsGetSeriesParticipantsCommand())
 
 	return cmd
 }
@@ -128,6 +131,92 @@ func NewMeetingsListOrganizationsCommand() *cobra.Command {
 			}
 
 			OutputJSONSuccess("meetings-list-organizations", result)
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// ParticipantsResult represents participants for JSON output
+type ParticipantsResult struct {
+	Participants []string `json:"participants"`
+}
+
+// NewMeetingsGetSeriesParticipantsCommand gets all unique participants from a series history
+func NewMeetingsGetSeriesParticipantsCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-series-participants <series-name>",
+		Short: "Get all unique participants from a meeting series history",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			seriesName := args[0]
+
+			activeBrain, err := getActiveBrain()
+			if err != nil {
+				OutputJSONError("meetings-get-series-participants", err)
+				return nil
+			}
+
+			// Detect brain type
+			detector := brain.NewDetector()
+			detection, err := detector.DetectBrainType(activeBrain.Path)
+			if err != nil {
+				OutputJSONError("meetings-get-series-participants", fmt.Errorf("failed to detect brain type: %w", err))
+				return nil
+			}
+
+			// Find series
+			seriesList, err := findMeetingSeries(activeBrain.Path, detection.Type)
+			if err != nil {
+				OutputJSONError("meetings-get-series-participants", fmt.Errorf("failed to find series: %w", err))
+				return nil
+			}
+
+			var selectedSeries *MeetingSeries
+			for _, s := range seriesList {
+				if s.Name == seriesName {
+					selectedSeries = &s
+					break
+				}
+			}
+
+			if selectedSeries == nil {
+				OutputJSONError("meetings-get-series-participants", fmt.Errorf("series not found: %s", seriesName))
+				return nil
+			}
+
+			// Collect all unique participants from all series meetings
+			participantMap := make(map[string]bool)
+			for _, file := range selectedSeries.Files {
+				meta, err := loadSeriesMetadata(file)
+				if err != nil {
+					continue
+				}
+				if meta.Participants != "" {
+					// Split by comma and trim
+					parts := strings.Split(meta.Participants, ",")
+					for _, p := range parts {
+						p = strings.TrimSpace(p)
+						if p != "" {
+							participantMap[p] = true
+						}
+					}
+				}
+			}
+
+			// Convert to sorted list
+			participants := make([]string, 0, len(participantMap))
+			for p := range participantMap {
+				participants = append(participants, p)
+			}
+			sort.Strings(participants)
+
+			result := ParticipantsResult{
+				Participants: participants,
+			}
+
+			OutputJSONSuccess("meetings-get-series-participants", result)
 			return nil
 		},
 	}

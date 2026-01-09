@@ -874,6 +874,7 @@ type MeetingSeries struct {
 	Name       string
 	Count      int
 	LatestFile string
+	Files      []string // All meeting files in this series
 }
 
 // MeetingOrganization represents an organization found in meeting notes
@@ -934,6 +935,7 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 		// Add or update series
 		if series, exists := seriesMap[seriesName]; exists {
 			series.Count++
+			series.Files = append(series.Files, path)
 			// Update latest file if this one is newer
 			if info.ModTime().After(getFileModTime(series.LatestFile)) {
 				series.LatestFile = path
@@ -943,6 +945,7 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 				Name:       seriesName,
 				Count:      1,
 				LatestFile: path,
+				Files:      []string{path},
 			}
 		}
 

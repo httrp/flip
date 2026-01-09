@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,7 @@ func NewVSCodeDefinitionsCommand() *cobra.Command {
 
 	cmd.AddCommand(NewDefinitionsListCommand())
 	cmd.AddCommand(NewDefinitionsAddOrgCommand())
+	cmd.AddCommand(NewDefinitionsAddPersonCommand())
 
 	return cmd
 }
@@ -159,6 +161,75 @@ func NewDefinitionsAddOrgCommand() *cobra.Command {
 	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Organization abbreviation (required)")
 	cmd.Flags().StringVar(&name, "name", "", "Organization full name (optional, defaults to abbreviation)")
 	cmd.Flags().StringVar(&desc, "description", "", "Organization description (optional)")
+
+	return cmd
+}
+
+// AddPersonResult is the response from adding a person
+type AddPersonResult struct {
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+	Organization string `json:"organization,omitempty"`
+	Role         string `json:"role,omitempty"`
+}
+
+// NewDefinitionsAddPersonCommand adds a new person definition
+func NewDefinitionsAddPersonCommand() *cobra.Command {
+	var name, abbr, org, role string
+
+	cmd := &cobra.Command{
+		Use:   "add-person",
+		Short: "Add a new person definition",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if name == "" {
+				OutputJSONError("definitions-add-person", fmt.Errorf("--name is required"))
+				return nil
+			}
+
+			defs, err := loadTaskDefinitions()
+			if err != nil {
+				OutputJSONError("definitions-add-person", err)
+				return nil
+			}
+
+			// Use first name as abbreviation if not provided
+			if abbr == "" {
+				// Simple abbreviation: first letter of first name + first letter of last name
+				parts := strings.Fields(name)
+				if len(parts) > 0 {
+					abbr = strings.ToUpper(parts[0][:1])
+					if len(parts) > 1 {
+						abbr += strings.ToUpper(parts[len(parts)-1][:1])
+					}
+				}
+			}
+
+			if err := defs.addPerson(name, abbr, org, "", role, ""); err != nil {
+				OutputJSONError("definitions-add-person", err)
+				return nil
+			}
+
+			if err := saveTaskDefinitions(defs); err != nil {
+				OutputJSONError("definitions-add-person", err)
+				return nil
+			}
+
+			result := AddPersonResult{
+				Name:         name,
+				Abbreviation: abbr,
+				Organization: org,
+				Role:         role,
+			}
+
+			OutputJSONSuccess("definitions-add-person", result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Person's name (required)")
+	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Person's abbreviation (optional, auto-generated if not provided)")
+	cmd.Flags().StringVar(&org, "organization", "", "Person's organization (optional)")
+	cmd.Flags().StringVar(&role, "role", "", "Person's role (optional)")
 
 	return cmd
 }

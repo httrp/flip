@@ -9,6 +9,7 @@ import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/
 import { syncBrains, quickSync, syncAndPush } from './commands/sync';
 import { showStatus, switchBrain } from './commands/status';
 import { insertLink, addCurrentFileToJournal } from './commands/insert-link';
+import { addParticipantsCommand } from './commands/add-participants';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -39,6 +40,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.sync', syncBrains),
     vscode.commands.registerCommand('flip.quickSync', quickSync),
     vscode.commands.registerCommand('flip.syncAndPush', syncAndPush),
+    
+    // Participant management
+    vscode.commands.registerCommand('flip.addParticipants', addParticipantsCommand),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),

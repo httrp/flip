@@ -439,6 +439,30 @@ export class FlipClient {
   }
 
   /**
+   * Add a new person to definitions
+   */
+  async addPerson(options: { name: string; abbreviation?: string; organization?: string; role?: string }): Promise<FlipResult<DefinitionItem>> {
+    const args = ['vscode', 'definitions', 'add-person', '--name', this.shellEscape(options.name)];
+    if (options.abbreviation) {
+      args.push('--abbreviation', this.shellEscape(options.abbreviation));
+    }
+    if (options.organization) {
+      args.push('--organization', this.shellEscape(options.organization));
+    }
+    if (options.role) {
+      args.push('--role', this.shellEscape(options.role));
+    }
+    return this.execute<DefinitionItem>(args);
+  }
+
+  /**
+   * Get all unique participants from a meeting series history
+   */
+  async getSeriesParticipants(seriesName: string): Promise<FlipResult<{ participants: string[] }>> {
+    return this.execute<{ participants: string[] }>(['vscode', 'meetings', 'get-series-participants', this.shellEscape(seriesName)]);
+  }
+
+  /**
    * Create a new task
    */
   async createTask(options: { 
