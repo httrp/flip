@@ -80,6 +80,41 @@ export interface MeetingSeriesResult {
 }
 
 /**
+ * Meeting organizations list result (from scanned meetings - kept for audit)
+ */
+export interface MeetingOrganizationInfo {
+  name: string;
+  count: number;
+}
+
+export interface MeetingOrganizationsResult {
+  organizations: MeetingOrganizationInfo[];
+  brain_name: string;
+  brain_path: string;
+}
+
+/**
+ * Definition item from definitions system
+ */
+export interface DefinitionItem {
+  name: string;
+  abbreviation: string;
+  description?: string;
+  organization?: string;
+}
+
+/**
+ * Definitions list result
+ */
+export interface DefinitionsResult {
+  organizations: DefinitionItem[];
+  projects: DefinitionItem[];
+  contexts: DefinitionItem[];
+  people: DefinitionItem[];
+  source: string;
+}
+
+/**
  * Task creation result
  */
 export interface TaskResult {
@@ -221,6 +256,14 @@ export class FlipClient {
   }
 
   /**
+   * Escape a string for safe shell usage
+   */
+  private shellEscape(str: string): string {
+    // Use single quotes and escape any single quotes within
+    return `'${str.replace(/'/g, "'\\''")}'`;
+  }
+
+  /**
    * Execute a flip command and return parsed JSON result
    */
   private async execute<T>(args: string[]): Promise<FlipResult<T>> {
@@ -313,9 +356,9 @@ export class FlipClient {
    * Create a new note
    */
   async createNote(options: { title: string; tags?: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['note', '--no-edit', '--no-link', '--title', `"${options.title}"`];
+    const args = ['note', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
     if (options.tags) {
-      args.push('--tags', `"${options.tags}"`);
+      args.push('--tags', this.shellEscape(options.tags));
     }
     if (options.brain) {
       args.push('--brain', options.brain);
@@ -327,7 +370,7 @@ export class FlipClient {
    * Create a quick note
    */
   async createQuicknote(options: { title: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['quicknote', '--no-edit', '--no-link', '--title', `"${options.title}"`];
+    const args = ['quicknote', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -348,14 +391,14 @@ export class FlipClient {
     series?: string;
     brain?: string;
   }): Promise<FlipResult<NoteResult>> {
-    const args = ['meeting-note', '--no-edit', '--no-link', '--title', `"${options.title}"`];
-    if (options.participants) args.push('--participants', `"${options.participants}"`);
-    if (options.organization) args.push('--organization', `"${options.organization}"`);
-    if (options.project) args.push('--project', `"${options.project}"`);
-    if (options.context) args.push('--context', options.context);
-    if (options.tags) args.push('--tags', `"${options.tags}"`);
-    if (options.duration) args.push('--duration', `"${options.duration}"`);
-    if (options.series) args.push('--series', `"${options.series}"`);
+    const args = ['meeting-note', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
+    if (options.participants) args.push('--participants', this.shellEscape(options.participants));
+    if (options.organization) args.push('--organization', this.shellEscape(options.organization));
+    if (options.project) args.push('--project', this.shellEscape(options.project));
+    if (options.context) args.push('--context', this.shellEscape(options.context));
+    if (options.tags) args.push('--tags', this.shellEscape(options.tags));
+    if (options.duration) args.push('--duration', this.shellEscape(options.duration));
+    if (options.series) args.push('--series', this.shellEscape(options.series));
     if (options.brain) args.push('--brain', options.brain);
     return this.execute<NoteResult>(args);
   }
@@ -365,6 +408,34 @@ export class FlipClient {
    */
   async listMeetingSeries(): Promise<FlipResult<MeetingSeriesResult>> {
     return this.execute<MeetingSeriesResult>(['vscode', 'meetings', 'list-series']);
+  }
+
+  /**
+   * List organizations from meeting notes in the active brain (for audit/cleanup)
+   */
+  async listMeetingOrganizations(): Promise<FlipResult<MeetingOrganizationsResult>> {
+    return this.execute<MeetingOrganizationsResult>(['vscode', 'meetings', 'list-organizations']);
+  }
+
+  /**
+   * List all definitions (organizations, projects, contexts, people)
+   */
+  async listDefinitions(): Promise<FlipResult<DefinitionsResult>> {
+    return this.execute<DefinitionsResult>(['vscode', 'definitions', 'list']);
+  }
+
+  /**
+   * Add a new organization to definitions
+   */
+  async addOrganization(options: { abbreviation: string; name?: string; description?: string }): Promise<FlipResult<DefinitionItem>> {
+    const args = ['vscode', 'definitions', 'add-org', '--abbreviation', this.shellEscape(options.abbreviation)];
+    if (options.name) {
+      args.push('--name', this.shellEscape(options.name));
+    }
+    if (options.description) {
+      args.push('--description', this.shellEscape(options.description));
+    }
+    return this.execute<DefinitionItem>(args);
   }
 
   /**
@@ -379,7 +450,7 @@ export class FlipClient {
     file?: string;
     line?: number;
   }): Promise<FlipResult<TaskResult>> {
-    const args = ['task', 'new', '--no-edit', '--no-link', '--description', `"${options.description}"`];
+    const args = ['task', 'new', '--no-edit', '--no-link', '--description', this.shellEscape(options.description)];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -417,9 +488,9 @@ export class FlipClient {
    * Add a file to today's journal
    */
   async addToJournal(options: { file: string; title?: string; type?: string; brain?: string }): Promise<FlipResult<any>> {
-    const args = ['journal', 'link', '--file', `"${options.file}"`];
+    const args = ['journal', 'link', '--file', this.shellEscape(options.file)];
     if (options.title) {
-      args.push('--title', `"${options.title}"`);
+      args.push('--title', this.shellEscape(options.title));
     }
     if (options.type) {
       args.push('--type', options.type);
@@ -469,7 +540,7 @@ export class FlipClient {
     tag?: string;
     limit?: number;
   }): Promise<FlipResult<SearchResults>> {
-    const args = ['vscode', 'search', '--query', `"${options.query}"`];
+    const args = ['vscode', 'search', '--query', this.shellEscape(options.query)];
     if (options.brain) {
       args.push('--brain', options.brain);
     }

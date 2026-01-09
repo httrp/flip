@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -108,41 +109,101 @@ type meetingCreateOptions struct {
 func runCreateMeetingNonInteractive(opts meetingCreateOptions) error {
 	if strings.TrimSpace(opts.Title) == "" {
 		err := fmt.Errorf("--title is required for non-interactive mode")
-		if JSONOutput { OutputJSONError("meeting-note", err); return nil }
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
 		return err
 	}
 
 	activeWs, err := getActiveWorkspace()
-	if err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 
 	// Resolve brain
 	var activeBrain *Brain
 	if opts.Brain != "" {
-		for i := range activeWs.Brains { if activeWs.Brains[i].Name == opts.Brain { activeBrain = &activeWs.Brains[i]; break } }
-		if activeBrain == nil { err := fmt.Errorf("brain not found: %s", opts.Brain); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == opts.Brain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil {
+			err := fmt.Errorf("brain not found: %s", opts.Brain)
+			if JSONOutput {
+				OutputJSONError("meeting-note", err)
+				return nil
+			}
+			return err
+		}
 	} else {
-		for i := range activeWs.Brains { if activeWs.Brains[i].Name == activeWs.DefaultBrain { activeBrain = &activeWs.Brains[i]; break } }
-		if activeBrain == nil && len(activeWs.Brains) > 0 { activeBrain = &activeWs.Brains[0] }
+		for i := range activeWs.Brains {
+			if activeWs.Brains[i].Name == activeWs.DefaultBrain {
+				activeBrain = &activeWs.Brains[i]
+				break
+			}
+		}
+		if activeBrain == nil && len(activeWs.Brains) > 0 {
+			activeBrain = &activeWs.Brains[0]
+		}
 	}
-	if activeBrain == nil { err := fmt.Errorf("no brain available"); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if activeBrain == nil {
+		err := fmt.Errorf("no brain available")
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 
 	// Detect brain type
 	detector := brain.NewDetector()
 	detection, err := detector.DetectBrainType(activeBrain.Path)
-	if err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if err != nil {
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 
 	// Filename and directory
 	filename := generateMeetingFilename(opts.Title, opts.Series, detection.Type, activeBrain.Path)
 	baseDir := getMeetingsDirectory(activeBrain.Path, detection.Type)
-	if err := os.MkdirAll(baseDir, 0755); err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 	// Use baseDir for non-interactive to keep simple
 	filePath := filepath.Join(baseDir, filename)
-	if _, err := os.Stat(filePath); err == nil { err := fmt.Errorf("file already exists: %s", filePath); if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if _, err := os.Stat(filePath); err == nil {
+		err := fmt.Errorf("file already exists: %s", filePath)
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 
 	// Content
 	participantsList := strings.TrimSpace(opts.Participants)
 	content := generateMeetingContent(opts.Title, participantsList, opts.Organization, opts.Project, opts.Context, opts.Tags, coalesce(opts.Duration, "60 min"), opts.Series, detection.Type, activeBrain.Path)
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil { if JSONOutput { OutputJSONError("meeting-note", err); return nil }; return err }
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		if JSONOutput {
+			OutputJSONError("meeting-note", err)
+			return nil
+		}
+		return err
+	}
 
 	// Auto-commit
 	_ = autoCommitFile(activeBrain.Path, filePath, "meeting note")
@@ -150,7 +211,7 @@ func runCreateMeetingNonInteractive(opts meetingCreateOptions) error {
 	// Optional link to journal
 	if !opts.NoLink {
 		rel := relativePathFromBrain(filePath, activeBrain.Path)
-		_ = AddLinkToJournal(JournalLinkOptions{ ItemType: "meeting", ItemName: opts.Title, ItemPath: rel, Brain: activeBrain, Interactive: false })
+		_ = AddLinkToJournal(JournalLinkOptions{ItemType: "meeting", ItemName: opts.Title, ItemPath: rel, Brain: activeBrain, Interactive: false})
 	}
 
 	if JSONOutput {
@@ -166,11 +227,18 @@ func runCreateMeetingNonInteractive(opts meetingCreateOptions) error {
 	}
 
 	fmt.Printf("✓ Meeting note created: %s\n", filePath)
-	if !opts.NoEdit { _ = openInEditor(filePath) }
+	if !opts.NoEdit {
+		_ = openInEditor(filePath)
+	}
 	return nil
 }
 
-func coalesce(a, b string) string { if strings.TrimSpace(a) != "" { return a } ; return b }
+func coalesce(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
 
 // runCreateMeeting creates a new meeting note
 func runCreateMeeting() error {
@@ -562,11 +630,8 @@ func generateMeetingContent(title, participants, organization, project, context,
 		author = "Unknown"
 	}
 
-	// For series meetings, append date to title for uniqueness
+	// Use title as-is (for series meetings, date is already included from VS Code)
 	displayTitle := title
-	if seriesName != "" {
-		displayTitle = fmt.Sprintf("%s - %s", title, dateStr)
-	}
 
 	// Determine meeting type
 	meetingType := "meeting"
@@ -599,7 +664,9 @@ func generateMeetingContent(title, participants, organization, project, context,
 	tmpl, err := templates.Load(brainType, templates.TemplateTypeMeeting)
 	if err != nil {
 		// Fallback to hardcoded template if file not found
-		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		if !JSONOutput {
+			fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		}
 		return generateDefaultMeetingContent(displayTitle, participantList, organization, project, context, tagList, duration, seriesName, meetingType, brainType, now, dateStr, timeStr, author)
 	}
 
@@ -809,6 +876,12 @@ type MeetingSeries struct {
 	LatestFile string
 }
 
+// MeetingOrganization represents an organization found in meeting notes
+type MeetingOrganization struct {
+	Name  string
+	Count int
+}
+
 // SeriesMetadata holds metadata from a series meeting
 type SeriesMetadata struct {
 	Title        string
@@ -889,6 +962,53 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 	return result, nil
 }
 
+// findMeetingOrganizations scans meeting notes and returns distinct organizations with counts
+func findMeetingOrganizations(brainPath string, brainType brain.BrainType) ([]MeetingOrganization, error) {
+	orgMap := make(map[string]int)
+
+	meetingsDir := getMeetingsDirectory(brainPath, brainType)
+	if _, err := os.Stat(meetingsDir); os.IsNotExist(err) {
+		return []MeetingOrganization{}, nil
+	}
+
+	err := filepath.WalkDir(meetingsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(strings.ToLower(path), ".md") {
+			return nil
+		}
+
+		org, err := extractOrganizationFromFile(path)
+		if err != nil || org == "" {
+			return nil
+		}
+
+		orgMap[org]++
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]MeetingOrganization, 0, len(orgMap))
+	for name, count := range orgMap {
+		result = append(result, MeetingOrganization{Name: name, Count: count})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
+	})
+
+	return result, nil
+}
+
 // extractSeriesNameFromFile reads the series field from frontmatter
 func extractSeriesNameFromFile(filePath string) (string, error) {
 	content, err := os.ReadFile(filePath)
@@ -918,6 +1038,52 @@ func extractSeriesNameFromFile(filePath string) (string, error) {
 		// Look for series: field
 		if strings.HasPrefix(trimmed, "series:") {
 			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "series:"))
+			return strings.Trim(value, "\"'"), nil
+		}
+	}
+
+	return "", nil
+}
+
+// extractOrganizationFromFile tries to read organization from frontmatter or Logseq properties
+func extractOrganizationFromFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	inFrontmatter := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+
+		if trimmed == "---" {
+			if !inFrontmatter {
+				inFrontmatter = true
+				continue
+			} else {
+				inFrontmatter = false
+				continue
+			}
+		}
+
+		if inFrontmatter {
+			if strings.HasPrefix(lower, "organization:") {
+				value := strings.TrimSpace(strings.TrimPrefix(trimmed, "organization:"))
+				return strings.Trim(value, "\"'"), nil
+			}
+			continue
+		}
+
+		if strings.HasPrefix(lower, "organization::") {
+			value := strings.TrimSpace(trimmed[len("organization::"):])
+			return strings.Trim(value, "\"'"), nil
+		}
+
+		if strings.HasPrefix(lower, "- organization::") {
+			value := strings.TrimSpace(trimmed[len("- organization::"):])
 			return strings.Trim(value, "\"'"), nil
 		}
 	}

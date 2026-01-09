@@ -567,7 +567,9 @@ func generateNoteContent(title string, brainType brain.BrainType, brainPath stri
 	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
 	if err != nil {
 		// Fallback to hardcoded template if file not found
-		fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		if !JSONOutput {
+			fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
+		}
 		return generateDefaultNoteContent(title, brainType, author)
 	}
 

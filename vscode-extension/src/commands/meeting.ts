@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { getFlipClient, NoteResult, MeetingSeriesInfo } from '../flip-client';
+import { getFlipClient, NoteResult, MeetingSeriesInfo, DefinitionItem } from '../flip-client';
 
 /**
  * Create a meeting note with streamlined flow:
  * 1. Select brain
- * 2. Enter organization (optional)
+ * 2. Select organization from definitions (optional)
  * 3. Part of series? → select existing or create new
  * 4. Auto-generate title for series, or prompt for single meeting
  */
@@ -35,12 +35,63 @@ export async function createMeetingNote(): Promise<void> {
     brain = info.data.brains[0].name;
   }
 
-  // Step 2: Organization (optional)
-  const organization = await vscode.window.showInputBox({
-    prompt: 'Organization (optional, press Enter to skip)',
-    placeHolder: 'e.g., P1174, DANORAMA',
+  // Step 2: Organization from definitions (optional)
+  let organization: string | undefined;
+  const defsResult = await client.listDefinitions();
+  const orgItems: { label: string; description?: string; value: string }[] = [
+    { label: '$(circle-slash) Ohne Organisation', description: 'überspringen', value: '__none__' },
+    { label: '$(add) Neue Organisation', description: 'manuell eingeben', value: '__new__' },
+  ];
+
+  if (defsResult.success && defsResult.data?.organizations?.length) {
+    (defsResult.data.organizations as DefinitionItem[]).forEach((org) => {
+      const desc = org.description || org.name;
+      orgItems.push({ 
+        label: `[${org.abbreviation}] ${org.name}`, 
+        description: desc !== org.name ? desc : undefined, 
+        value: org.abbreviation 
+      });
+    });
+  }
+
+  const orgPick = await vscode.window.showQuickPick(orgItems, {
+    placeHolder: 'Organisation wählen oder neu anlegen',
+    ignoreFocusOut: true,
   });
-  if (organization === undefined) return; // cancelled
+  if (!orgPick) return; // cancelled
+
+  if (orgPick.value === '__new__') {
+    const newOrgAbbr = await vscode.window.showInputBox({
+      prompt: 'Organisation Kürzel',
+      placeHolder: 'z.B. P1174, DANO',
+      validateInput: (v) => (!v || v.trim() === '' ? 'Kürzel darf nicht leer sein' : null),
+    });
+    if (newOrgAbbr === undefined) return; // cancelled
+    
+    const newOrgName = await vscode.window.showInputBox({
+      prompt: 'Organisation Name (optional)',
+      placeHolder: 'z.B. Projekt 1174, DANORAMA GmbH',
+    });
+    if (newOrgName === undefined) return; // cancelled
+    
+    organization = newOrgAbbr.trim().toUpperCase();
+    
+    // Save new org to definitions
+    const addResult = await client.addOrganization({
+      abbreviation: organization,
+      name: newOrgName?.trim() || undefined,
+    });
+    if (addResult.success) {
+      vscode.window.showInformationMessage(`Organisation [${organization}] angelegt`);
+    } else {
+      // Don't block if org already exists, just continue
+      if (!addResult.error?.includes('already exists')) {
+        vscode.window.showWarningMessage(`Organisation konnte nicht gespeichert werden: ${addResult.error}`);
+      }
+    }
+  } else if (orgPick.value !== '__none__') {
+    organization = orgPick.value;
+  }
 
   // Step 3: Part of a series?
   const seriesChoice = await vscode.window.showQuickPick(
@@ -113,43 +164,43 @@ export async function createMeetingNote(): Promise<void> {
   }
 
   // Create the meeting note
-  await vscode.window.withProgress(
+  const res = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'Creating meeting note...', cancellable: false },
     async () => {
-      const res = await client.createMeeting({ 
+      return await client.createMeeting({ 
         title, 
         organization: organization || undefined,
         series,
         brain 
       });
-      
-      if (!res.success) {
-        vscode.window.showErrorMessage(`Failed to create meeting note: ${res.error}`);
-        return;
-      }
-      
-      const data = res.data as NoteResult;
-      const doc = await vscode.workspace.openTextDocument(data.path);
-      await vscode.window.showTextDocument(doc);
-
-      const choice = await vscode.window.showInformationMessage(
-        `Created meeting note in ${data.brain_name}. Link in today's journal?`,
-        'Yes',
-        'No'
-      );
-      if (choice === 'Yes') {
-        const linkRes = await client.addToJournal({ 
-          file: data.path, 
-          title: data.title, 
-          type: 'meeting', 
-          brain: data.brain_name 
-        });
-        if (!linkRes.success) {
-          vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
-        } else {
-          vscode.window.showInformationMessage("✓ Linked in today's journal");
-        }
-      }
     }
   );
+  
+  if (!res.success) {
+    vscode.window.showErrorMessage(`Failed to create meeting note: ${res.error}`);
+    return;
+  }
+  
+  const data = res.data as NoteResult;
+  const doc = await vscode.workspace.openTextDocument(data.path);
+  await vscode.window.showTextDocument(doc);
+
+  const choice = await vscode.window.showInformationMessage(
+    `Created meeting note in ${data.brain_name}. Link in today's journal?`,
+    'Yes',
+    'No'
+  );
+  if (choice === 'Yes') {
+    const linkRes = await client.addToJournal({ 
+      file: data.path, 
+      title: data.title, 
+      type: 'meeting', 
+      brain: data.brain_name 
+    });
+    if (!linkRes.success) {
+      vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
+    } else {
+      vscode.window.showInformationMessage("✓ Linked in today's journal");
+    }
+  }
 }
