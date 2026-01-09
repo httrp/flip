@@ -68,10 +68,12 @@ export interface NoteResult {
 export interface TaskResult {
   action: string;
   path: string;
+  line?: number;
   description: string;
   due?: string;
   priority?: string;
   frog?: boolean;
+  status?: string;
   brain_name: string;
   brain_path: string;
 }
@@ -372,6 +374,18 @@ export class FlipClient {
     if (options.line !== undefined && options.line > 0) {
       args.push('--line', options.line.toString());
     }
+    return this.execute<TaskResult>(args);
+  }
+
+  /**
+   * Update an existing task status
+   */
+  async updateTaskStatus(options: {
+    file: string;
+    line: number;
+    status: 'open' | 'in-progress' | 'done' | 'deferred' | 'cancelled';
+  }): Promise<FlipResult<TaskResult>> {
+    const args = ['task', 'status', '--file', options.file, '--line', options.line.toString(), '--status', options.status];
     return this.execute<TaskResult>(args);
   }
 

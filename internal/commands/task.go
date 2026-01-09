@@ -32,6 +32,7 @@ func NewTaskCommand() *cobra.Command {
 	cmd.AddCommand(NewTaskUpdateCommand())
 	cmd.AddCommand(NewTaskSearchCommand())
 	cmd.AddCommand(NewTaskStatsCommand())
+	cmd.AddCommand(NewTaskStatusCommand())
 
 	return cmd
 }

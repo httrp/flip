@@ -35,6 +35,7 @@ type TaskResult struct {
 	Due         string `json:"due,omitempty"`
 	Priority    string `json:"priority,omitempty"`
 	Frog        bool   `json:"frog,omitempty"`
+	Status      string `json:"status,omitempty"`
 	BrainName   string `json:"brain_name"`
 	BrainPath   string `json:"brain_path"`
 }

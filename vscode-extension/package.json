@@ -64,6 +64,10 @@
         "title": "Flip: New Task"
       },
       {
+        "command": "flip.taskStatus",
+        "title": "Flip: Update Task Status"
+      },
+      {
         "command": "flip.taskSearch",
         "title": "Flip: Search Tasks"
       },
