@@ -7,7 +7,7 @@ import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-sea
 import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/search';
 import { syncBrains, quickSync, syncAndPush } from './commands/sync';
 import { showStatus, switchBrain } from './commands/status';
-import { insertLink } from './commands/insert-link';
+import { insertLink, addCurrentFileToJournal } from './commands/insert-link';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -26,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
     vscode.commands.registerCommand('flip.insertLink', insertLink),
+    vscode.commands.registerCommand('flip.addToJournal', addCurrentFileToJournal),
     
     // Search commands
     vscode.commands.registerCommand('flip.search', searchAllBrains),

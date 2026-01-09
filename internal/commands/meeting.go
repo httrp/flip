@@ -344,6 +344,18 @@ func runCreateMeeting() error {
 		fmt.Printf("⚠️  Git commit failed: %v\n", err)
 	}
 
+	// Ask if user wants to add link to journal
+	relPath := relativePathFromBrain(filePath, activeBrain.Path)
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType:    "meeting",
+		ItemName:    title,
+		ItemPath:    relPath,
+		Brain:       activeBrain,
+		Interactive: true,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
+
 	// Ask if user wants to edit
 	if err := promptAndOpenEditor(filePath); err != nil {
 		fmt.Printf("⚠️  Could not open editor: %v\n", err)

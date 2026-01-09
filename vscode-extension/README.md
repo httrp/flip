@@ -47,9 +47,17 @@ Press `F5` to launch Extension Development Host.
 ## Building VSIX
 
 ```bash
+# Package with vsce (cross-platform)
 npm run package
+
+# Or from project root (Makefile)
+make package-extension
+
+# Install to VS Code or VSCodium (detects code/codium)
+make install-extension
 ```
 
 This creates `flip-vscode-x.x.x.vsix` which can be installed via:
 - `code --install-extension flip-vscode-x.x.x.vsix`
+- `codium --install-extension flip-vscode-x.x.x.vsix`
 - Or through flip: `flip vscode install` (when VSIX is embedded)

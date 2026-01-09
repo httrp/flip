@@ -19,6 +19,7 @@ type QuicknoteOptions struct {
 	Title  string // Note title (required for non-interactive)
 	Brain  string // Brain name (empty = active brain)
 	NoEdit bool   // Don't open editor after creation
+	NoLink bool   // Don't add link to journal
 }
 
 func NewQuicknoteCommand() *cobra.Command {
@@ -53,6 +54,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Brain, "brain", "", "Brain to use (default: active brain)")
 	cmd.Flags().BoolVar(&opts.NoEdit, "no-edit", false, "Don't open editor after creation")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	cmd.Flags().BoolVar(&opts.NoLink, "no-link", false, "Don't add link to journal")
 
 	// Add explicit 'new' subcommand for clarity
 	newCmd := &cobra.Command{
@@ -182,6 +184,18 @@ func runCreateQuicknoteNonInteractive(opts QuicknoteOptions) error {
 		return err
 	}
 
+	// Add link to journal (unless disabled)
+	if !opts.NoLink {
+		relPath := relativePathFromBrain(filePath, activeBrain.Path)
+		_ = AddLinkToJournal(JournalLinkOptions{
+			ItemType:    "note",
+			ItemName:    opts.Title,
+			ItemPath:    relPath,
+			Brain:       activeBrain,
+			Interactive: false,
+		})
+	}
+
 	// Output result
 	if JSONOutput {
 		OutputJSONSuccess("quicknote", QuicknoteResult{
@@ -302,6 +316,18 @@ func runCreateQuicknote() error {
 
 	fmt.Printf("✅ Quick note created: %s\n\n", filePath)
 	fmt.Println("💡 Tip: Fill in organization, project, and context in the frontmatter later")
+
+	// Ask if user wants to add link to journal
+	relPath := relativePathFromBrain(filePath, activeBrain.Path)
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType:    "note",
+		ItemName:    title,
+		ItemPath:    relPath,
+		Brain:       activeBrain,
+		Interactive: true,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
 
 	// Prompt to open in editor
 	editor := os.Getenv("EDITOR")

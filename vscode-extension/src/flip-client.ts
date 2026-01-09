@@ -308,7 +308,7 @@ export class FlipClient {
    * Create a quick note
    */
   async createQuicknote(options: { title: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['quicknote', '--no-edit', '--title', `"${options.title}"`];
+    const args = ['quicknote', '--no-edit', '--no-link', '--title', `"${options.title}"`];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -347,6 +347,23 @@ export class FlipClient {
       args.push('--line', options.line.toString());
     }
     return this.execute<TaskResult>(args);
+  }
+
+  /**
+   * Add a file to today's journal
+   */
+  async addToJournal(options: { file: string; title?: string; type?: string; brain?: string }): Promise<FlipResult<any>> {
+    const args = ['journal', 'link', '--file', `"${options.file}"`];
+    if (options.title) {
+      args.push('--title', `"${options.title}"`);
+    }
+    if (options.type) {
+      args.push('--type', options.type);
+    }
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<any>(args);
   }
 
   /**

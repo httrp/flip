@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -82,6 +82,10 @@
       {
         "command": "flip.insertLink",
         "title": "Flip: Insert Link to Note"
+      },
+      {
+        "command": "flip.addToJournal",
+        "title": "Flip: Add Current File to Journal"
       },
       {
         "command": "flip.sync",

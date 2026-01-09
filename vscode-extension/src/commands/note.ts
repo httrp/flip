@@ -74,9 +74,20 @@ export async function createNote(): Promise<void> {
       const doc = await vscode.workspace.openTextDocument(data.path);
       await vscode.window.showTextDocument(doc);
 
-      vscode.window.showInformationMessage(
-        `Created note "${data.title}" in ${data.brain_name}`
+      // Prompt to link in today's journal
+      const choice = await vscode.window.showInformationMessage(
+        `Created note "${data.title}" in ${data.brain_name}. Link in today's journal?`,
+        'Yes',
+        'No'
       );
+      if (choice === 'Yes') {
+        const linkRes = await client.addToJournal({ file: data.path, title: data.title, type: 'note', brain: data.brain_name });
+        if (!linkRes.success) {
+          vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
+        } else {
+          vscode.window.showInformationMessage('✓ Linked in today\'s journal');
+        }
+      }
     }
   );
 }
@@ -123,7 +134,19 @@ export async function createQuicknote(): Promise<void> {
       const doc = await vscode.workspace.openTextDocument(data.path);
       await vscode.window.showTextDocument(doc);
 
-      vscode.window.showInformationMessage(`Created quick note in ${data.brain_name}`);
+      const choice = await vscode.window.showInformationMessage(
+        `Created quick note in ${data.brain_name}. Link in today's journal?`,
+        'Yes',
+        'No'
+      );
+      if (choice === 'Yes') {
+        const linkRes = await client.addToJournal({ file: data.path, type: 'note', brain: data.brain_name });
+        if (!linkRes.success) {
+          vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
+        } else {
+          vscode.window.showInformationMessage('✓ Linked in today\'s journal');
+        }
+      }
     }
   );
 }

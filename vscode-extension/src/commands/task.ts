@@ -189,7 +189,19 @@ export async function createTask(): Promise<void> {
       if (data.due) {
         msg += ` (due: ${data.due})`;
       }
-      vscode.window.showInformationMessage(msg);
+      const choice = await vscode.window.showInformationMessage(
+        `${msg}. Link in today's journal?`,
+        'Yes',
+        'No'
+      );
+      if (choice === 'Yes') {
+        const linkRes = await client.addToJournal({ file: data.path, title: data.description, type: 'task', brain: data.brain_name });
+        if (!linkRes.success) {
+          vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
+        } else {
+          vscode.window.showInformationMessage('✓ Linked in today\'s journal');
+        }
+      }
     }
   );
 }

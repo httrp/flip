@@ -7,7 +7,7 @@ INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension help
+.PHONY: build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help
 
 # Default: show help
 help:
@@ -17,6 +17,8 @@ help:
 	@echo "  make build-cli           Build flip CLI only"
 	@echo "  make build-extension     Build VS Code Extension only"
 	@echo "  make package-extension   Package Extension as .vsix"
+	@echo "  make install-extension   Install VS Code Extension (detects code/codium)"
+	@echo "  make uninstall-extension Uninstall VS Code Extension"
 	@echo "  make install             Install flip CLI to GOPATH/bin"
 	@echo "  make dev-link            Create /usr/local/bin symlink (macOS/Linux)"
 	@echo "  make test                Run Go tests"
@@ -43,8 +45,47 @@ build-extension:
 
 # Package Extension as .vsix file
 package-extension: build-extension
-	cd $(VSIX_DIR) && npm run package
+	cd $(VSIX_DIR) && yes | npm run package
 	@echo "✓ Extension packaged as .vsix"
+
+# Install VS Code Extension (works with VS Code or VSCodium)
+install-extension: package-extension
+	@echo "Detecting VS Code CLI (code/codium/code-insiders)..."
+	@CLI=$$(command -v code || true); \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v codium || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v code-insiders || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		echo "❌ VS Code CLI not found. Please ensure 'code' or 'codium' is in PATH."; \
+		exit 1; \
+	fi; \
+	VSIX=$$(ls -t $(VSIX_DIR)/flip-vscode-*.vsix 2>/dev/null | head -n 1); \
+	if [ -z "$$VSIX" ]; then \
+		echo "❌ No VSIX found. Run 'make package-extension' first."; \
+		exit 1; \
+	fi; \
+	echo "Installing extension: $$VSIX via $$CLI"; \
+	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed"
+
+# Uninstall the extension by identifier
+uninstall-extension:
+	@ID=danorama.flip-vscode; \
+	CLI=$$(command -v code || true); \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v codium || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v code-insiders || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		echo "❌ VS Code CLI not found. Please ensure 'code' or 'codium' is in PATH."; \
+		exit 1; \
+	fi; \
+	echo "Uninstalling extension: $$ID via $$CLI"; \
+	"$$CLI" --uninstall-extension "$$ID" && echo "✓ Extension uninstalled"
 
 # Install to GOPATH/bin (requires GOPATH/bin in PATH)
 install: build-cli

@@ -58,6 +58,10 @@ cd /path/to/flip/vscode-extension
 npm install
 npm run compile
 # Then use VS Code's "Install from VSIX" or run in dev mode
+
+# Alternatively, from project root:
+make package-extension
+make install-extension   # detects code/codium/code-insiders
 ```
 
 ---

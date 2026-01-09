@@ -82,3 +82,41 @@ export async function insertLink(): Promise<void> {
     }
   });
 }
+
+/**
+ * Add the currently open file to today's journal
+ */
+export async function addCurrentFileToJournal(): Promise<void> {
+  const client = getFlipClient();
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('No active editor');
+    return;
+  }
+  const filePath = editor.document.uri.fsPath;
+
+  const choice = await vscode.window.showInformationMessage(
+    'Add current file to today\'s journal?',
+    'Yes',
+    'No'
+  );
+  if (choice !== 'Yes') {
+    return;
+  }
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Linking in journal...',
+      cancellable: false,
+    },
+    async () => {
+      const res = await client.addToJournal({ file: filePath });
+      if (!res.success) {
+        vscode.window.showWarningMessage(`Failed to add to journal: ${res.error}`);
+      } else {
+        vscode.window.showInformationMessage('✓ Linked in today\'s journal');
+      }
+    }
+  );
+}

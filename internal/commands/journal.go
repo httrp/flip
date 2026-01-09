@@ -68,6 +68,96 @@ Examples:
 	}
 	cmd.AddCommand(newCmd)
 
+	// Add 'link' subcommand: add a link to today's journal for a given file
+	linkCmd := &cobra.Command{
+		Use:   "link",
+		Short: "Add a link to today's journal for a file",
+		Long:  "Add a markdown link to today's journal entry, pointing to the specified file. Automatically detects brain and file type.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			filePath, _ := cmd.Flags().GetString("file")
+			itemTitle, _ := cmd.Flags().GetString("title")
+			itemType, _ := cmd.Flags().GetString("type")
+			brainName, _ := cmd.Flags().GetString("brain")
+			if strings.TrimSpace(filePath) == "" {
+				err := fmt.Errorf("--file is required")
+				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				return err
+			}
+
+			// Resolve brain and type via file-info if not provided
+			info := getFileInfo(filePath)
+			if info.Error != "" && info.Error != "file does not exist" {
+				// Continue, but note type unknown
+			}
+
+			// Determine brain to use
+			var activeBrain *Brain
+			if brainName != "" {
+				ws, err := getActiveWorkspace()
+				if err == nil {
+					for i := range ws.Brains { if ws.Brains[i].Name == brainName { activeBrain = &ws.Brains[i]; break } }
+				}
+			}
+			if activeBrain == nil && info.BrainPath != "" {
+				// Use detected brain from file
+				ws, err := getActiveWorkspace()
+				if err == nil {
+					for i := range ws.Brains { if ws.Brains[i].Path == info.BrainPath { activeBrain = &ws.Brains[i]; break } }
+				}
+				if activeBrain == nil {
+					// Fallback construct Brain with minimal fields
+					activeBrain = &Brain{ Name: filepath.Base(info.BrainPath), Path: info.BrainPath, Type: "" }
+				}
+			}
+			if activeBrain == nil {
+				err := fmt.Errorf("could not determine brain for file")
+				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				return err
+			}
+
+			// Determine item type and title
+			typ := itemType
+			if strings.TrimSpace(typ) == "" { typ = info.Type }
+			if strings.TrimSpace(typ) == "" { typ = "note" }
+			name := itemTitle
+			if strings.TrimSpace(name) == "" { name = info.Name }
+			if strings.TrimSpace(name) == "" { name = info.FileName }
+
+			rel := relativePathFromBrain(filePath, activeBrain.Path)
+			if err := AddLinkToJournal(JournalLinkOptions{
+				ItemType:    typ,
+				ItemName:    name,
+				ItemPath:    rel,
+				Brain:       activeBrain,
+				Interactive: false,
+			}); err != nil {
+				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				return err
+			}
+
+			if JSONOutput {
+				OutputJSONSuccess("journal link", map[string]string{
+					"path": filePath,
+					"rel_path": rel,
+					"brain_name": activeBrain.Name,
+					"item_type": typ,
+					"item_name": name,
+				})
+				return nil
+			}
+
+			fmt.Printf("✓ Added link to journal for '%s' (%s)\n", name, typ)
+			return nil
+		},
+	}
+	linkCmd.Flags().String("file", "", "File to link in today's journal")
+	linkCmd.Flags().String("title", "", "Override display title for the link")
+	linkCmd.Flags().String("type", "", "Override item type (note, task, exercise, meeting)")
+	linkCmd.Flags().String("brain", "", "Brain name (defaults to detected brain from file)")
+	linkCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	cmd.AddCommand(linkCmd)
+
 	return cmd
 }
 
