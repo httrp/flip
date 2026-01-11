@@ -181,9 +181,29 @@ export async function createTask(): Promise<void> {
 
       const data = result.data as TaskResult;
 
-      // Open the file
-      const doc = await vscode.workspace.openTextDocument(data.path);
-      await vscode.window.showTextDocument(doc);
+      // If we created the task at cursor position in the currently open editor,
+      // we need to refresh the editor since the CLI modified the file directly
+      if (editor && editor.document.uri.fsPath === data.path && selectedLocation.value === 'cursor') {
+        // Reload the document from disk to show CLI changes
+        const fileUri = editor.document.uri;
+        const savedVersion = editor.document.version;
+        
+        // Force reload by closing and reopening
+        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+        const doc = await vscode.workspace.openTextDocument(fileUri);
+        const newEditor = await vscode.window.showTextDocument(doc);
+        
+        // Navigate to the line with the new task
+        if (data.line) {
+          const position = new vscode.Position(data.line - 1, 0);
+          newEditor.selection = new vscode.Selection(position, position);
+          newEditor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+        }
+      } else {
+        // Open the file normally
+        const doc = await vscode.workspace.openTextDocument(data.path);
+        await vscode.window.showTextDocument(doc);
+      }
 
       let msg = `${frog ? '🐸 ' : ''}Created task in ${data.brain_name}`;
       if (data.due) {
