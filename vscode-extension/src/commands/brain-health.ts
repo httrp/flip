@@ -71,7 +71,8 @@ export async function brainHealthCheck(): Promise<void> {
   );
 
   if (!result.success || !result.data) {
-    vscode.window.showErrorMessage(`Health Check fehlgeschlagen: ${result.error}`);
+    const errorMsg = result.error ? (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) : 'Unbekannter Fehler';
+    vscode.window.showErrorMessage(`Health Check fehlgeschlagen: ${errorMsg}`);
     return;
   }
 

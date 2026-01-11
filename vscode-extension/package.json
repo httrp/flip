@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"

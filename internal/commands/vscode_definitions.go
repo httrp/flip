@@ -122,11 +122,13 @@ type AddOrgResult struct {
 // NewDefinitionsAddOrgCommand adds a new organization (non-interactive)
 func NewDefinitionsAddOrgCommand() *cobra.Command {
 	var name, abbr, desc string
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "add-org",
 		Short: "Add a new organization definition",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
 			if abbr == "" {
 				OutputJSONError("definitions-add-org", fmt.Errorf("--abbreviation is required"))
 				return nil
@@ -167,6 +169,7 @@ func NewDefinitionsAddOrgCommand() *cobra.Command {
 	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Organization abbreviation (required)")
 	cmd.Flags().StringVar(&name, "name", "", "Organization full name (optional, defaults to abbreviation)")
 	cmd.Flags().StringVar(&desc, "description", "", "Organization description (optional)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
 }
@@ -182,11 +185,13 @@ type AddPersonResult struct {
 // NewDefinitionsAddPersonCommand adds a new person definition
 func NewDefinitionsAddPersonCommand() *cobra.Command {
 	var name, abbr, org, role string
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "add-person",
 		Short: "Add a new person definition",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
 			if name == "" {
 				OutputJSONError("definitions-add-person", fmt.Errorf("--name is required"))
 				return nil
@@ -236,6 +241,7 @@ func NewDefinitionsAddPersonCommand() *cobra.Command {
 	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Person's abbreviation (optional, auto-generated if not provided)")
 	cmd.Flags().StringVar(&org, "organization", "", "Person's organization (optional)")
 	cmd.Flags().StringVar(&role, "role", "", "Person's role (optional)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
 }
