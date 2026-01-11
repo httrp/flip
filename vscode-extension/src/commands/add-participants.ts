@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FlipClient } from '../flip-client';
+import { getFlipClient, FlipResult, DefinitionItem } from '../flip-client';
 
 /**
  * Participant item for quick pick
@@ -12,7 +12,8 @@ interface ParticipantItem extends vscode.QuickPickItem {
 /**
  * Add or update participants in a meeting note
  */
-export async function addParticipantsCommand(client: FlipClient) {
+export async function addParticipantsCommand() {
+  const client = getFlipClient();
   // Get active editor
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -149,7 +150,7 @@ export async function addParticipantsCommand(client: FlipClient) {
  * Handle adding a new person
  */
 async function addNewPerson(
-  client: FlipClient,
+  client: ReturnType<typeof getFlipClient>,
   currentSelection: vscode.QuickPickItem[]
 ) {
   // Prompt for name

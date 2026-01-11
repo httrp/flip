@@ -1,6 +1,7 @@
 package health
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -169,6 +170,11 @@ func (r *Reporter) printSummary() {
 
 // PrintJSON outputs the result as JSON (for programmatic use)
 func (r *Reporter) PrintJSON() error {
-	// TODO: Implement JSON output
-	return fmt.Errorf("JSON output not yet implemented")
+	data, err := json.MarshalIndent(r.result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal health report: %w", err)
+	}
+
+	fmt.Println(string(data))
+	return nil
 }

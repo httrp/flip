@@ -115,6 +115,44 @@ export interface DefinitionsResult {
 }
 
 /**
+ * Missing journal entry
+ */
+export interface MissingJournalEntry {
+  path: string;
+  rel_path: string;
+  title: string;
+  type: string;
+  modified: string;
+  date: string;
+}
+
+/**
+ * Day result for journal sync
+ */
+export interface DayResult {
+  date: string;
+  journal_path: string;
+  journal_exists: boolean;
+  missing_entries: MissingJournalEntry[];
+  already_linked: number;
+  ignored: number;
+}
+
+/**
+ * Journal sync check result
+ */
+export interface JournalSyncResult {
+  days: DayResult[];
+  total_missing: number;
+  total_checked: number;
+  total_linked: number;
+  total_ignored: number;
+  days_checked: number;
+  brain_name: string;
+  brain_path: string;
+}
+
+/**
  * Task creation result
  */
 export interface TaskResult {
@@ -221,6 +259,65 @@ export interface SearchResults {
   search_type: 'fulltext' | 'recent';
 }
 
+// Brain health results (JSON output from `flip brain check health --json`)
+export interface HealthBrainInfo {
+  Path: string;
+  Type: string;
+  Name: string;
+  NoteCount: number;
+  AssetCount: number;
+}
+
+export interface HealthStats {
+  FilesScanned: number;
+  LinksChecked: number;
+  AssetsChecked: number;
+  ErrorCount: number;
+  WarningCount: number;
+  InfoCount: number;
+}
+
+export interface HealthIssue {
+  Type: string;
+  Severity: string;
+  File: string;
+  Line: number;
+  Message: string;
+  Details: string;
+}
+
+export interface HealthResult {
+  BrainInfo: HealthBrainInfo;
+  Issues: HealthIssue[];
+  Stats: HealthStats;
+}
+
+export interface HealthRepairStats {
+  TotalIssues: number;
+  Repaired: number;
+  Failed: number;
+  Skipped: number;
+  NotRepairable: number;
+}
+
+export interface HealthRepairResult {
+  Issue: HealthIssue;
+  Success: boolean;
+  Message: string;
+  SkipReason: string;
+}
+
+export interface HealthRepairPayload {
+  Results: HealthRepairResult[];
+  Stats: HealthRepairStats;
+  NotRepairableCount: number;
+}
+
+export interface HealthReport {
+  result: HealthResult;
+  repairs?: HealthRepairPayload;
+}
+
 /**
  * Brain sync result
  */
@@ -318,6 +415,17 @@ export class FlipClient {
    */
   async getInfo(): Promise<FlipResult<FlipInfo>> {
     return this.execute<FlipInfo>(['vscode', 'info']);
+  }
+
+  /**
+   * Get list of brains in the workspace
+   */
+  async getBrains(): Promise<FlipResult<BrainInfo[]>> {
+    const result = await this.getInfo();
+    if (result.success && result.data) {
+      return { success: true, data: result.data.brains, command: 'get-brains' };
+    }
+    return { success: false, error: result.error, command: 'get-brains' };
   }
 
   /**
@@ -463,6 +571,22 @@ export class FlipClient {
   }
 
   /**
+   * Check for files missing from the journal
+   * @param days Number of days to check (default: 3)
+   * @param brain Brain name to check (default: active brain)
+   */
+  async journalSyncCheck(days?: number, brain?: string): Promise<FlipResult<JournalSyncResult>> {
+    const args = ['vscode', 'journal', 'sync-check'];
+    if (days !== undefined) {
+      args.push('--days', days.toString());
+    }
+    if (brain) {
+      args.push('--brain', brain);
+    }
+    return this.execute<JournalSyncResult>(args);
+  }
+
+  /**
    * Create a new task
    */
   async createTask(options: { 
@@ -509,9 +633,9 @@ export class FlipClient {
   }
 
   /**
-   * Add a file to today's journal
+   * Add a file to the journal
    */
-  async addToJournal(options: { file: string; title?: string; type?: string; brain?: string }): Promise<FlipResult<any>> {
+  async addToJournal(options: { file: string; title?: string; type?: string; brain?: string; date?: string }): Promise<FlipResult<any>> {
     const args = ['journal', 'link', '--file', this.shellEscape(options.file)];
     if (options.title) {
       args.push('--title', this.shellEscape(options.title));
@@ -521,6 +645,9 @@ export class FlipClient {
     }
     if (options.brain) {
       args.push('--brain', options.brain);
+    }
+    if (options.date) {
+      args.push('--date', options.date);
     }
     return this.execute<any>(args);
   }
@@ -599,6 +726,48 @@ export class FlipClient {
       args.push('--limit', options.limit.toString());
     }
     return this.execute<SearchResults>(args);
+  }
+
+  /**
+   * Check brain health (JSON output)
+   */
+  async checkBrainHealth(options?: {
+    brainPath?: string;
+    fix?: boolean;
+    dryRun?: boolean;
+  }): Promise<FlipResult<HealthReport>> {
+    const args = ['brain', 'check', 'health'];
+    if (options?.brainPath) {
+      args.push(this.shellEscape(options.brainPath));
+    }
+    if (options?.fix) {
+      args.push('--fix');
+    }
+    if (options?.dryRun) {
+      args.push('--dry-run');
+    }
+    return this.execute<HealthReport>(args);
+  }
+
+  /**
+   * Normalize media (rename/move assets, update references)
+   */
+  async normalizeMedia(options?: {
+    brainPath?: string;
+    fix?: boolean;
+    dryRun?: boolean;
+  }): Promise<FlipResult<HealthReport>> {
+    const args = ['media', 'normalize'];
+    if (options?.brainPath) {
+      args.push(this.shellEscape(options.brainPath));
+    }
+    if (options?.fix) {
+      args.push('--fix');
+    }
+    if (options?.dryRun) {
+      args.push('--dry-run');
+    }
+    return this.execute<HealthReport>(args);
   }
 
   /**

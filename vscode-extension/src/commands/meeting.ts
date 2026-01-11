@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getFlipClient, NoteResult, MeetingSeriesInfo, DefinitionItem } from '../flip-client';
+import { promptAutoAddToJournal } from './journal-helper';
 
 /**
  * Create a meeting note with streamlined flow:
@@ -185,22 +186,6 @@ export async function createMeetingNote(): Promise<void> {
   const doc = await vscode.workspace.openTextDocument(data.path);
   await vscode.window.showTextDocument(doc);
 
-  const choice = await vscode.window.showInformationMessage(
-    `Created meeting note in ${data.brain_name}. Link in today's journal?`,
-    'Yes',
-    'No'
-  );
-  if (choice === 'Yes') {
-    const linkRes = await client.addToJournal({ 
-      file: data.path, 
-      title: data.title, 
-      type: 'meeting', 
-      brain: data.brain_name 
-    });
-    if (!linkRes.success) {
-      vscode.window.showWarningMessage(`Failed to add to journal: ${linkRes.error}`);
-    } else {
-      vscode.window.showInformationMessage("✓ Linked in today's journal");
-    }
-  }
+  // Auto-add to journal with countdown (default = add)
+  await promptAutoAddToJournal(data, 'meeting');
 }

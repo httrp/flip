@@ -40,10 +40,14 @@ func NewVSCodeDefinitionsCommand() *cobra.Command {
 
 // NewDefinitionsListCommand lists all definitions for VS Code
 func NewDefinitionsListCommand() *cobra.Command {
+	var jsonOutput bool
+
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all definitions (organizations, projects, contexts, people)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+
 			defs, err := loadTaskDefinitions()
 			if err != nil {
 				OutputJSONError("definitions-list", err)
@@ -102,6 +106,8 @@ func NewDefinitionsListCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
 }

@@ -79,10 +79,23 @@ Examples:
 			itemTitle, _ := cmd.Flags().GetString("title")
 			itemType, _ := cmd.Flags().GetString("type")
 			brainName, _ := cmd.Flags().GetString("brain")
+			dateStr, _ := cmd.Flags().GetString("date")
 			if strings.TrimSpace(filePath) == "" {
 				err := fmt.Errorf("--file is required")
 				if JSONOutput { OutputJSONError("journal link", err); return nil }
 				return err
+			}
+
+			// Parse date if provided
+			var targetDate *time.Time
+			if dateStr != "" {
+				parsed, err := time.Parse("2006-01-02", dateStr)
+				if err != nil {
+					err := fmt.Errorf("invalid date format, use YYYY-MM-DD: %w", err)
+					if JSONOutput { OutputJSONError("journal link", err); return nil }
+					return err
+				}
+				targetDate = &parsed
 			}
 
 			// Resolve brain and type via file-info if not provided
@@ -131,6 +144,7 @@ Examples:
 				ItemPath:    rel,
 				Brain:       activeBrain,
 				Interactive: false,
+				Date:        targetDate,
 			}); err != nil {
 				if JSONOutput { OutputJSONError("journal link", err); return nil }
 				return err
@@ -151,10 +165,11 @@ Examples:
 			return nil
 		},
 	}
-	linkCmd.Flags().String("file", "", "File to link in today's journal")
+	linkCmd.Flags().String("file", "", "File to link in the journal")
 	linkCmd.Flags().String("title", "", "Override display title for the link")
 	linkCmd.Flags().String("type", "", "Override item type (note, task, exercise, meeting)")
 	linkCmd.Flags().String("brain", "", "Brain name (defaults to detected brain from file)")
+	linkCmd.Flags().String("date", "", "Target journal date (YYYY-MM-DD, default: today)")
 	linkCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 	cmd.AddCommand(linkCmd)
 

@@ -13,11 +13,13 @@ import (
 
 // JournalLinkOptions holds options for adding a link to journal
 type JournalLinkOptions struct {
-	ItemType    string // "note", "task", "exercise", etc.
-	ItemName    string // display name of the item
-	ItemPath    string // relative path to the item from brain root
-	Brain       *Brain // brain where the item was created (required)
-	Interactive bool   // true = ask user, false = always add link
+	ItemType    string     // "note", "task", "exercise", etc.
+	ItemName    string     // display name of the item
+	ItemPath    string     // relative path to the item from brain root
+	Brain       *Brain     // brain where the item was created (required)
+	Interactive bool       // true = ask user, false = always add link
+	Date        *time.Time // optional: target date (nil = today)
+	BrainType   brain.BrainType // brain type for correct link format
 }
 
 // AddLinkToJournal asks user if they want to add a link to today's journal entry.
@@ -45,18 +47,30 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 		}
 	}
 
-	// Get today's date
-	today := time.Now()
-	dateStr := today.Format("2006-01-02")
+	// Detect brain type if not provided
+	if opts.BrainType == "" {
+		detector := brain.NewDetector()
+		detection, err := detector.DetectBrainType(opts.Brain.Path)
+		if err == nil {
+			opts.BrainType = detection.Type
+		}
+	}
+
+	// Get target date (default to today)
+	targetDate := time.Now()
+	if opts.Date != nil {
+		targetDate = *opts.Date
+	}
+	dateStr := targetDate.Format("2006-01-02")
 
 	// Build link format based on brain type
 	linkText := buildJournalLink(opts, dateStr)
 
-	// Get journal path for this brain
-	journalPath := getJournalFilePathForToday(opts.Brain)
+	// Get journal path for this brain and date
+	journalPath := getJournalFilePathForDate(opts.Brain, targetDate)
 
 	// Ensure journal exists
-	if err := ensureJournalExists(journalPath); err != nil {
+	if err := ensureJournalExistsForDate(journalPath, targetDate); err != nil {
 		return fmt.Errorf("failed to ensure journal exists: %w", err)
 	}
 
@@ -84,24 +98,41 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 		emoji = "🤝"
 	}
 
-	// Build markdown link [title](path)
-	// Path is relative to brain, so we use it as-is
-	relPath := opts.ItemPath
-
-	return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, relPath)
+	// Build link based on brain type
+	switch opts.BrainType {
+	case brain.BrainTypeLogseq:
+		// Logseq uses [[wiki-links]] with page name (filename without extension)
+		// Extract just the filename without path and extension
+		filename := filepath.Base(opts.ItemPath)
+		pageName := strings.TrimSuffix(filename, ".md")
+		return fmt.Sprintf("%s [[%s]]", emoji, pageName)
+	
+	case brain.BrainTypeObsidian:
+		// Obsidian also uses [[wiki-links]] but can include path
+		filename := filepath.Base(opts.ItemPath)
+		pageName := strings.TrimSuffix(filename, ".md")
+		return fmt.Sprintf("%s [[%s]]", emoji, pageName)
+	
+	default:
+		// Flip and others: use markdown links with relative path
+		return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, opts.ItemPath)
+	}
 }
 
 // getJournalFilePathForToday gets the journal file path for today in a brain
 // Uses brain type detection to determine correct path and filename format
 func getJournalFilePathForToday(b *Brain) string {
-	today := time.Now()
+	return getJournalFilePathForDate(b, time.Now())
+}
 
+// getJournalFilePathForDate gets the journal file path for a specific date in a brain
+func getJournalFilePathForDate(b *Brain, date time.Time) string {
 	// Detect brain type
 	detector := brain.NewDetector()
 	detection, err := detector.DetectBrainType(b.Path)
 	if err != nil {
 		// Fallback to flip default
-		return filepath.Join(b.Path, "journal", today.Format("2006-01-02")+".md")
+		return filepath.Join(b.Path, "journal", date.Format("2006-01-02")+".md")
 	}
 
 	// Get journal directory based on brain type
@@ -112,20 +143,25 @@ func getJournalFilePathForToday(b *Brain) string {
 	switch detection.Type {
 	case brain.BrainTypeLogseq:
 		// Logseq: YYYY_MM_DD.md (underscores)
-		filename = today.Format("2006_01_02") + ".md"
+		filename = date.Format("2006_01_02") + ".md"
 	case brain.BrainTypeDendron:
 		// Dendron: daily.journal.YYYY-MM-DD.md (hierarchy notation)
-		filename = "daily.journal." + today.Format("2006-01-02") + ".md"
+		filename = "daily.journal." + date.Format("2006-01-02") + ".md"
 	default:
 		// Obsidian, Foam, Flip, others: YYYY-MM-DD.md (dashes)
-		filename = today.Format("2006-01-02") + ".md"
+		filename = date.Format("2006-01-02") + ".md"
 	}
 
 	return filepath.Join(journalDir, filename)
 }
 
-// ensureJournalExists creates journal entry if it doesn't exist
+// ensureJournalExists creates journal entry if it doesn't exist (for today)
 func ensureJournalExists(journalPath string) error {
+	return ensureJournalExistsForDate(journalPath, time.Now())
+}
+
+// ensureJournalExistsForDate creates journal entry if it doesn't exist for a specific date
+func ensureJournalExistsForDate(journalPath string, date time.Time) error {
 	// Check if file exists
 	if _, err := os.Stat(journalPath); err == nil {
 		// File exists
@@ -139,16 +175,20 @@ func ensureJournalExists(journalPath string) error {
 	}
 
 	// Create empty journal file with header
-	content := createSimpleJournalTemplate()
+	content := createJournalTemplateForDate(date)
 
 	return os.WriteFile(journalPath, []byte(content), 0644)
 }
 
-// createSimpleJournalTemplate creates a simple journal template
+// createSimpleJournalTemplate creates a simple journal template for today
 func createSimpleJournalTemplate() string {
-	today := time.Now()
-	dateStr := today.Format("2006-01-02")
-	weekday := today.Format("Monday")
+	return createJournalTemplateForDate(time.Now())
+}
+
+// createJournalTemplateForDate creates a simple journal template for a specific date
+func createJournalTemplateForDate(date time.Time) string {
+	dateStr := date.Format("2006-01-02")
+	weekday := date.Format("Monday")
 
 	return fmt.Sprintf(`# %s - %s
 

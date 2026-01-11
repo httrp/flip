@@ -445,8 +445,92 @@ func loadBrainPeople(path string) ([]PersonDef, error) {
 	return people, nil
 }
 
+// saveBrainDefinitions saves definitions to brain's individual yaml files
+func saveBrainDefinitions(defs *TaskDefinitions) error {
+	brain, err := getActiveBrain()
+	if err != nil {
+		return fmt.Errorf("no active brain: %w", err)
+	}
+
+	defsDir := filepath.Join(brain.Path, "definitions")
+	if err := os.MkdirAll(defsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create definitions directory: %w", err)
+	}
+
+	// Save people.yaml in brain format
+	if len(defs.People) > 0 {
+		if err := saveBrainPeople(filepath.Join(defsDir, "people.yaml"), defs.People); err != nil {
+			return fmt.Errorf("failed to save people: %w", err)
+		}
+	}
+
+	// Save organizations.yaml in brain format
+	if len(defs.Organizations) > 0 {
+		if err := saveBrainOrganizations(filepath.Join(defsDir, "organizations.yaml"), defs.Organizations); err != nil {
+			return fmt.Errorf("failed to save organizations: %w", err)
+		}
+	}
+
+	// Invalidate cache after successful save
+	invalidateDefinitionsCache()
+
+	return nil
+}
+
+// saveBrainPeople saves people to brain format (map structure)
+func saveBrainPeople(path string, people []PersonDef) error {
+	// Convert array to map format
+	peopleMap := make(map[string]BrainPersonDef)
+	for _, p := range people {
+		peopleMap[p.Abbreviation] = BrainPersonDef{
+			Name:         p.Name,
+			Organization: p.Organization,
+			OrgCode:      p.OrgCode,
+			Role:         p.Role,
+			Email:        p.Email,
+		}
+	}
+
+	brainPeople := BrainPeople{People: peopleMap}
+	data, err := yaml.Marshal(brainPeople)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+// saveBrainOrganizations saves organizations to brain format (map structure)
+func saveBrainOrganizations(path string, orgs []OrganizationDef) error {
+	// Convert array to map format
+	orgsMap := make(map[string]BrainOrganizationDef)
+	for _, o := range orgs {
+		orgsMap[o.Abbreviation] = BrainOrganizationDef{
+			Name:        o.Name,
+			Type:        o.Type,
+			Description: o.Description,
+			Color:       o.Color,
+			Status:      o.Status,
+		}
+	}
+
+	brainOrgs := BrainOrganizations{Organizations: orgsMap}
+	data, err := yaml.Marshal(brainOrgs)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
 // saveTaskDefinitions saves the task definitions to disk
 func saveTaskDefinitions(defs *TaskDefinitions) error {
+	// If source is "brain", save to brain's individual yaml files
+	if defs.Source == "brain" {
+		return saveBrainDefinitions(defs)
+	}
+
+	// Otherwise save to unified task-definitions.yaml
 	path, err := getTaskDefinitionsPath()
 	if err != nil {
 		return err

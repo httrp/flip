@@ -18,7 +18,7 @@ import (
 
 // TasksVersion is incremented when tasks.json changes
 // This allows flip to detect outdated installations
-const TasksVersion = "1.1.0"
+const TasksVersion = "1.1.1"
 
 // VSCodeTasksJSON contains the embedded tasks configuration
 // This is the single source of truth for flip's VS Code tasks
@@ -265,6 +265,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeSyncCommand())
 	cmd.AddCommand(NewVSCodeMeetingsCommand())
 	cmd.AddCommand(NewVSCodeDefinitionsCommand())
+	cmd.AddCommand(NewVSCodeJournalCommand())
 
 	// Extension commands
 	cmd.AddCommand(newVSCodeExtensionInstallCommand())
@@ -1677,9 +1678,21 @@ func IsRunningInVSCode() bool {
 // Call this from main.go during startup
 // NOTE: Checks if --json flag is present in os.Args to skip in JSON mode
 func CheckVSCodeTasksUpdate() {
-	// Skip hints if --json flag is present
+	// Skip hints if JSONOutput is true
+	if JSONOutput {
+		return
+	}
+
+	// Skip hints if --json flag is present in args (before flag parsing)
 	for _, arg := range os.Args {
 		if arg == "--json" || arg == "-json" {
+			return
+		}
+	}
+
+	// Skip hints for vscode subcommand (always outputs JSON)
+	for _, arg := range os.Args {
+		if arg == "vscode" {
 			return
 		}
 	}

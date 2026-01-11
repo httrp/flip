@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,6 +88,19 @@ type BrainIssue struct {
 	Message   string
 	Fixable   bool
 	FixAction func() error
+}
+
+// healthJSONResponse is used when --json is requested
+type healthJSONResponse struct {
+	Result  *health.CheckResult      `json:"result"`
+	Repairs *healthJSONRepairPayload `json:"repairs,omitempty"`
+	Notes   map[string]any           `json:"notes,omitempty"`
+}
+
+type healthJSONRepairPayload struct {
+	Results            []health.RepairResult `json:"results"`
+	Stats              health.RepairStats    `json:"stats"`
+	NotRepairableCount int                   `json:"not_repairable_count"`
 }
 
 func runBrainCheck(fix, verbose bool) error {
@@ -413,7 +427,9 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 	}
 
 	// Create checker
-	fmt.Println("🔍 Analyzing brain content...")
+	if !jsonOutput {
+		fmt.Println("🔍 Analyzing brain content...")
+	}
 	checker, err := health.NewChecker(absPath)
 	if err != nil {
 		return fmt.Errorf("failed to create checker: %w", err)
@@ -425,10 +441,25 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 		return fmt.Errorf("health check failed: %w", err)
 	}
 
-	// Display results
+	// JSON mode (with optional repairs)
 	if jsonOutput {
-		reporter := health.NewReporter(result)
-		return reporter.PrintJSON()
+		resp := &healthJSONResponse{Result: result}
+
+		if fix && len(result.Issues) > 0 {
+			repairPayload, err := performRepairs(absPath, result.Issues, dryRun)
+			if err != nil {
+				return err
+			}
+			resp.Repairs = repairPayload
+		}
+
+		data, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal health report: %w", err)
+		}
+
+		fmt.Println(string(data))
+		return nil
 	}
 
 	reporter := health.NewReporter(result)
@@ -438,7 +469,7 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 	if fix && len(result.Issues) > 0 {
 		fmt.Println()
 		fmt.Println(strings.Repeat("━", 60))
-		
+
 		if dryRun {
 			fmt.Println("🔍 DRY RUN - Previewing repairs (no changes will be made)")
 		} else {
@@ -477,21 +508,21 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 			}
 		} else {
 			fmt.Printf("🔧 Repairing %d issues...\n\n", len(repairableIssues))
-			
+
 			repairResults := repairer.RepairIssues(repairableIssues)
-			
+
 			// Show results
 			for _, res := range repairResults {
 				icon := IconCheck
 				if !res.Success {
 					icon = IconError
 				}
-				
+
 				shortFile := res.Issue.File
 				if len(shortFile) > 40 {
 					shortFile = "..." + shortFile[len(shortFile)-37:]
 				}
-				
+
 				fmt.Printf("   %s %s\n", icon, shortFile)
 				if res.Message != "" && res.Message != "Repaired successfully" {
 					fmt.Printf("      └─ %s\n", res.Message)
@@ -531,6 +562,33 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 	}
 
 	return nil
+}
+
+// performRepairs runs repair actions without printing, returning structured data for JSON mode
+func performRepairs(brainPath string, issues []health.Issue, dryRun bool) (*healthJSONRepairPayload, error) {
+	repairer, err := health.NewRepairer(brainPath, dryRun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create repairer: %w", err)
+	}
+
+	repairableIssues := make([]health.Issue, 0)
+	notRepairableCount := 0
+	for _, issue := range issues {
+		if repairer.CanRepair(issue.Type) {
+			repairableIssues = append(repairableIssues, issue)
+		} else {
+			notRepairableCount++
+		}
+	}
+
+	repairResults := repairer.RepairIssues(repairableIssues)
+	stats := health.CalculateStats(repairResults)
+
+	return &healthJSONRepairPayload{
+		Results:            repairResults,
+		Stats:              stats,
+		NotRepairableCount: notRepairableCount,
+	}, nil
 }
 
 func newBrainSchemaCommand() *cobra.Command {
@@ -709,7 +767,7 @@ func runBrainSchemaCheck(brainPath string, verbose bool) error {
 	if len(issues) > 0 {
 		fmt.Println("❌ Issues Found:")
 		fmt.Println()
-		
+
 		currentFile := ""
 		for _, issue := range issues {
 			if issue.File != currentFile {
@@ -789,7 +847,7 @@ func validateFileAgainstSchema(path string, schema *schemaDefinition) []schemaIs
 	}
 
 	content := string(data)
-	
+
 	// Check if file has frontmatter
 	if !strings.HasPrefix(content, "---") {
 		return []schemaIssue{{Field: "frontmatter", Message: "missing YAML frontmatter"}}

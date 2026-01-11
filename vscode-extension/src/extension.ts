@@ -10,6 +10,9 @@ import { syncBrains, quickSync, syncAndPush } from './commands/sync';
 import { showStatus, switchBrain } from './commands/status';
 import { insertLink, addCurrentFileToJournal } from './commands/insert-link';
 import { addParticipantsCommand } from './commands/add-participants';
+import { journalSyncCheck } from './commands/journal-sync';
+import { brainHealthCheck } from './commands/brain-health';
+import { mediaNormalize } from './commands/media-normalize';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -43,6 +46,15 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Participant management
     vscode.commands.registerCommand('flip.addParticipants', addParticipantsCommand),
+    
+    // Journal sync
+    vscode.commands.registerCommand('flip.journalSync', journalSyncCheck),
+
+    // Brain health
+    vscode.commands.registerCommand('flip.brainHealth', brainHealthCheck),
+    
+    // Media normalize
+    vscode.commands.registerCommand('flip.mediaNormalize', mediaNormalize),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),

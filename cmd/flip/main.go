@@ -38,6 +38,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewQuickstartCommand())
 	rootCmd.AddCommand(commands.NewIntroCommand())
 	rootCmd.AddCommand(commands.NewWorkspaceCommand())
+	rootCmd.AddCommand(commands.NewMediaCommand())
 	// Brain command with subcommands (init/scan moved here)
 	brainCmd := commands.NewBrainCommand()
 	brainCmd.AddCommand(commands.NewInitCommand())

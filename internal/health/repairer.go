@@ -2,10 +2,12 @@ package health
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // RepairAction represents an action that can fix an issue
@@ -72,6 +74,34 @@ func (r *Repairer) registerActions() {
 		IssueType:   IssueTypeFormat,
 		Description: "Normalize file formatting",
 		Apply:       r.repairFormatIssue,
+	}
+
+	// Wrong link format - convert to brain-specific format
+	r.actions[IssueTypeWrongLinkFormat] = RepairAction{
+		IssueType:   IssueTypeWrongLinkFormat,
+		Description: "Convert links to brain-specific format",
+		Apply:       r.repairWrongLinkFormat,
+	}
+
+	// Wrong filename - rename to brain-specific convention and update all links
+	r.actions[IssueTypeWrongFilename] = RepairAction{
+		IssueType:   IssueTypeWrongFilename,
+		Description: "Rename files to match brain conventions and update all links",
+		Apply:       r.repairWrongFilename,
+	}
+
+	// Wrong media filename - rename asset and update all references
+	r.actions[IssueTypeWrongMediaFilename] = RepairAction{
+		IssueType:   IssueTypeWrongMediaFilename,
+		Description: "Rename media to contextual name and update references",
+		Apply:       r.repairWrongMediaFilename,
+	}
+
+	// Wrong media location - move asset to standard location and update references
+	r.actions[IssueTypeWrongMediaLocation] = RepairAction{
+		IssueType:   IssueTypeWrongMediaLocation,
+		Description: "Move media to standard assets location and update references",
+		Apply:       r.repairWrongMediaLocation,
 	}
 }
 
@@ -339,4 +369,379 @@ func CalculateStats(results []RepairResult) RepairStats {
 	}
 
 	return stats
+}
+
+// repairWrongLinkFormat converts links to the correct format for the brain type
+func (r *Repairer) repairWrongLinkFormat(brainPath string, issue Issue) error {
+	if issue.File == "" {
+		return fmt.Errorf("issue missing file information")
+	}
+
+	fullPath := filepath.Join(brainPath, issue.File)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	text := string(content)
+	var newText string
+
+	if r.brainType == BrainTypeLogseq || r.brainType == BrainTypeObsidian {
+		// Convert markdown links [text](path.md) to wiki-links [[pagename]]
+		markdownLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+\.md)\)`)
+		newText = markdownLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+			submatches := markdownLinkPattern.FindStringSubmatch(match)
+			if len(submatches) < 3 {
+				return match
+			}
+			// Extract page name from path (remove .md extension and path components)
+			path := submatches[2]
+			pageName := filepath.Base(path)
+			pageName = strings.TrimSuffix(pageName, ".md")
+			return "[[" + pageName + "]]"
+		})
+	} else {
+		// Convert wiki-links [[pagename]] to markdown links [pagename](pagename.md)
+		wikiLinkPattern := regexp.MustCompile(`\[\[([^\]|]+)(?:\|[^\]]+)?\]\]`)
+		newText = wikiLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+			submatches := wikiLinkPattern.FindStringSubmatch(match)
+			if len(submatches) < 2 {
+				return match
+			}
+			pageName := submatches[1]
+			// Create markdown link with .md extension
+			return "[" + pageName + "](" + pageName + ".md)"
+		})
+	}
+
+	if newText == text {
+		return nil // No changes needed
+	}
+
+	return os.WriteFile(fullPath, []byte(newText), 0644)
+}
+
+// repairWrongFilename renames a file to match brain conventions and updates all links
+func (r *Repairer) repairWrongFilename(brainPath string, issue Issue) error {
+	if issue.File == "" {
+		return fmt.Errorf("issue missing file information")
+	}
+
+	// Extract expected filename from issue details
+	// Details format: "Current: old.md → Expected: new.md"
+	parts := strings.Split(issue.Details, "→")
+	if len(parts) != 2 {
+		return fmt.Errorf("cannot parse expected filename from details")
+	}
+
+	expectedPart := strings.TrimSpace(parts[1])
+	expectedFilename := strings.TrimPrefix(expectedPart, "Expected: ")
+
+	oldPath := filepath.Join(brainPath, issue.File)
+	newPath := filepath.Join(brainPath, filepath.Dir(issue.File), expectedFilename)
+
+	// Check if target already exists
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("target file already exists: %s", expectedFilename)
+	}
+
+	// Find all files that might link to this file
+	var filesToUpdate []string
+	err := filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+
+		if filepath.Ext(path) == ".md" {
+			// Skip the file being renamed
+			if path != oldPath {
+				filesToUpdate = append(filesToUpdate, path)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to scan for links: %w", err)
+	}
+
+	oldFilename := filepath.Base(oldPath)
+	oldBasename := strings.TrimSuffix(oldFilename, ".md")
+	newBasename := strings.TrimSuffix(expectedFilename, ".md")
+
+	// Update all links in other files
+	for _, file := range filesToUpdate {
+		if err := r.updateLinksInFile(file, oldBasename, newBasename, oldFilename, expectedFilename); err != nil {
+			// Log but continue
+			fmt.Fprintf(os.Stderr, "Warning: failed to update links in %s: %v\n", file, err)
+		}
+	}
+
+	// Rename the file
+	return os.Rename(oldPath, newPath)
+}
+
+// updateLinksInFile updates all links to a renamed file
+func (r *Repairer) updateLinksInFile(filePath, oldBasename, newBasename, oldFilename, newFilename string) error {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	text := string(content)
+	updated := false
+
+	// Update wiki-links: [[old-name]] -> [[new-name]]
+	wikiLinkPattern := regexp.MustCompile(`\[\[` + regexp.QuoteMeta(oldBasename) + `(?:\|[^\]]+)?\]\]`)
+	if wikiLinkPattern.MatchString(text) {
+		text = wikiLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+			// Preserve alias if present: [[old|alias]] -> [[new|alias]]
+			if strings.Contains(match, "|") {
+				parts := strings.SplitN(match, "|", 2)
+				return "[[" + newBasename + "|" + parts[1]
+			}
+			return "[[" + newBasename + "]]"
+		})
+		updated = true
+	}
+
+	// Update markdown links: [text](old-name.md) -> [text](new-name.md)
+	mdLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]*` + regexp.QuoteMeta(oldFilename) + `)\)`)
+	if mdLinkPattern.MatchString(text) {
+		text = mdLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
+			submatches := mdLinkPattern.FindStringSubmatch(match)
+			if len(submatches) >= 3 {
+				linkText := submatches[1]
+				linkPath := submatches[2]
+				// Replace filename in path
+				newLinkPath := strings.Replace(linkPath, oldFilename, newFilename, 1)
+				return "[" + linkText + "](" + newLinkPath + ")"
+			}
+			return match
+		})
+		updated = true
+	}
+
+	// Also update relative paths like ../notes/old-name.md
+	relPathPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]*/)` + regexp.QuoteMeta(oldFilename) + `\)`)
+	if relPathPattern.MatchString(text) {
+		text = relPathPattern.ReplaceAllString(text, "[$1]($2"+newFilename+")")
+		updated = true
+	}
+
+	// Update markdown image references: ![alt](path/oldFilename) -> ![alt](path/newFilename)
+	mdImgPattern := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]*` + regexp.QuoteMeta(oldFilename) + `)\)`)
+	if mdImgPattern.MatchString(text) {
+		text = mdImgPattern.ReplaceAllStringFunc(text, func(match string) string {
+			re := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]*)\)`)
+			parts := re.FindStringSubmatch(match)
+			if len(parts) >= 3 {
+				alt := parts[1]
+				linkPath := parts[2]
+				newLinkPath := strings.Replace(linkPath, oldFilename, newFilename, 1)
+				return fmt.Sprintf("![%s](%s)", alt, newLinkPath)
+			}
+			return match
+		})
+		updated = true
+	}
+
+	// Update wikilink embeds with filenames: ![[oldFilename]] -> ![[newFilename]]
+	wikiEmbedPattern := regexp.MustCompile(`!\[\[` + regexp.QuoteMeta(oldFilename) + `\]\]`)
+	if wikiEmbedPattern.MatchString(text) {
+		text = wikiEmbedPattern.ReplaceAllString(text, "![["+newFilename+"]]" )
+		updated = true
+	}
+
+	if updated {
+		return os.WriteFile(filePath, []byte(text), 0644)
+	}
+
+	return nil
+}
+
+// repairWrongMediaFilename renames an asset to a better contextual name and updates references
+func (r *Repairer) repairWrongMediaFilename(brainPath string, issue Issue) error {
+	if issue.File == "" {
+		return fmt.Errorf("issue missing file information")
+	}
+
+	oldRel := issue.File
+	oldAbs := filepath.Join(brainPath, oldRel)
+	oldFilename := filepath.Base(oldRel)
+	ext := strings.ToLower(filepath.Ext(oldRel))
+
+	// Find a referencing note to derive a contextual name
+	noteBase := ""
+	err := filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".md" {
+			content, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return nil
+			}
+			if strings.Contains(string(content), oldFilename) {
+				nb := strings.TrimSuffix(filepath.Base(path), ".md")
+				noteBase = sanitizeTitle(nb)
+				return fmt.Errorf("found") // break walk
+			}
+		}
+		return nil
+	})
+	if err == nil {
+		// No early termination; ignore
+	}
+
+	ts := time.Now().Format("20060102-150405")
+	var newFilename string
+	if noteBase != "" {
+		newFilename = fmt.Sprintf("%s-%s%s", noteBase, ts, ext)
+	} else {
+		newFilename = fmt.Sprintf("asset-%s%s", ts, ext)
+	}
+
+	newAbs := filepath.Join(filepath.Dir(oldAbs), newFilename)
+
+	if _, statErr := os.Stat(newAbs); statErr == nil {
+		return fmt.Errorf("target file already exists: %s", newFilename)
+	}
+
+	// Update all references in markdown files
+	var filesToUpdate []string
+	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".md" {
+			filesToUpdate = append(filesToUpdate, path)
+		}
+		return nil
+	})
+
+	for _, file := range filesToUpdate {
+		if uerr := r.updateLinksInFile(file, "", "", oldFilename, newFilename); uerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to update references in %s: %v\n", file, uerr)
+		}
+	}
+
+	// Rename the asset
+	return os.Rename(oldAbs, newAbs)
+}
+
+// repairWrongMediaLocation moves an asset to a standard location and updates references
+func (r *Repairer) repairWrongMediaLocation(brainPath string, issue Issue) error {
+	if issue.File == "" {
+		return fmt.Errorf("issue missing file information")
+	}
+
+	oldRel := issue.File
+	oldAbs := filepath.Join(brainPath, oldRel)
+	oldFilename := filepath.Base(oldRel)
+
+	// Decide target location based on standard conventions
+
+	// Try to derive source note path for near-note strategies
+	sourceNoteRel := ""
+	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".md" {
+			content, rerr := os.ReadFile(path)
+			if rerr == nil && strings.Contains(string(content), oldFilename) {
+				rel, _ := filepath.Rel(brainPath, path)
+				sourceNoteRel = rel
+				return fmt.Errorf("found")
+			}
+		}
+		return nil
+	})
+
+	targetRelPath := getAssetTargetPath(r.brainType, oldFilename, sourceNoteRel)
+	targetAbsPath := filepath.Join(brainPath, targetRelPath)
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(targetAbsPath), 0755); err != nil {
+		return fmt.Errorf("failed to create target dir: %w", err)
+	}
+
+	// Move file
+	if err := os.Rename(oldAbs, targetAbsPath); err != nil {
+		return fmt.Errorf("failed to move asset: %w", err)
+	}
+
+	// Update references in markdown files to point to newRel path
+	var filesToUpdate []string
+	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".md" {
+			filesToUpdate = append(filesToUpdate, path)
+		}
+		return nil
+	})
+
+	// For updates, replace any link path ending in oldFilename with targetRelPath
+	for _, file := range filesToUpdate {
+		content, rerr := os.ReadFile(file)
+		if rerr != nil {
+			continue
+		}
+		text := string(content)
+		updated := false
+
+		// Markdown links and images
+		re := regexp.MustCompile(`(\!?)\[([^\]]*)\]\(([^)]*` + regexp.QuoteMeta(oldFilename) + `)\)`)
+		if re.MatchString(text) {
+			text = re.ReplaceAllStringFunc(text, func(match string) string {
+				re2 := regexp.MustCompile(`(\!?)\[([^\]]*)\]\(([^)]*)\)`)
+				parts := re2.FindStringSubmatch(match)
+				if len(parts) >= 4 {
+					bang := parts[1]
+					alt := parts[2]
+					// Replace full path with targetRelPath
+					return fmt.Sprintf("%s[%s](%s)", bang, alt, targetRelPath)
+				}
+				return match
+			})
+			updated = true
+		}
+
+		// Wikilink embeds with filename
+		we := regexp.MustCompile(`!\[\[([^\]]*` + regexp.QuoteMeta(oldFilename) + `)\]\]`)
+		if we.MatchString(text) {
+			// Use only basename for wikilinks (common convention)
+			text = we.ReplaceAllString(text, "![["+filepath.Base(targetRelPath)+"]]")
+			updated = true
+		}
+
+		if updated {
+			_ = os.WriteFile(file, []byte(text), 0644)
+		}
+	}
+
+	return nil
+}
+
+// getAssetTargetPath returns a standard target path for assets per brain type
+func getAssetTargetPath(brainType BrainType, assetFilename, sourceNotePath string) string {
+	switch brainType {
+	case BrainTypeFlip, BrainTypeLogseq, BrainTypeDendron:
+		// Place in main assets directory
+		return filepath.Join("assets", assetFilename)
+	case BrainTypeFoam:
+		return filepath.Join("attachments", assetFilename)
+	case BrainTypeObsidian:
+		// Place near note when available
+		if sourceNotePath != "" {
+			noteDir := filepath.Dir(sourceNotePath)
+			return filepath.Join(noteDir, assetFilename)
+		}
+		return filepath.Join("attachments", assetFilename)
+	default:
+		return filepath.Join("assets", assetFilename)
+	}
 }
