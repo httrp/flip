@@ -364,7 +364,7 @@ export class FlipClient {
    * Execute a flip command and return parsed JSON result
    */
   private async execute<T>(args: string[]): Promise<FlipResult<T>> {
-    const cmd = `${this.executablePath} ${args.join(' ')} --json 2>/dev/null`;
+    const cmd = `${this.executablePath} ${args.join(' ')} --json`;
     
     try {
       const { stdout, stderr } = await execAsync(cmd, { 
@@ -372,16 +372,36 @@ export class FlipClient {
         env: { ...process.env, TERM_PROGRAM: 'vscode' }
       });
 
-      if (!stdout || stdout.trim() === '') {
+      // Try to parse stdout if it exists
+      if (stdout && stdout.trim() !== '') {
+        try {
+          const result = JSON.parse(stdout);
+          return result as FlipResult<T>;
+        } catch (parseError) {
+          // If stdout isn't valid JSON, return it as error
+          return {
+            success: false,
+            command: args[0],
+            error: stdout.trim() || stderr?.trim() || 'Invalid JSON response'
+          };
+        }
+      }
+
+      // No stdout - check stderr for error message
+      if (stderr && stderr.trim() !== '') {
         return {
           success: false,
           command: args[0],
-          error: stderr?.trim() || 'No output from command'
+          error: stderr.trim()
         };
       }
 
-      const result = JSON.parse(stdout);
-      return result as FlipResult<T>;
+      // Both empty
+      return {
+        success: false,
+        command: args[0],
+        error: 'No output from command'
+      };
 
     } catch (error: any) {
       // Check if flip is not installed
