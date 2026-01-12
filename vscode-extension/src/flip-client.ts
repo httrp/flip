@@ -367,12 +367,23 @@ export class FlipClient {
     const cmd = `${this.executablePath} ${args.join(' ')} --json`;
     
     try {
-      const { stdout, stderr } = await execAsync(cmd, { 
-        timeout: this.timeout,
-        env: { ...process.env, TERM_PROGRAM: 'vscode' }
-      });
+      let stdout = '';
+      let stderr = '';
+      
+      try {
+        const result = await execAsync(cmd, { 
+          timeout: this.timeout,
+          env: { ...process.env, TERM_PROGRAM: 'vscode' }
+        });
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } catch (execError: any) {
+        // Even if command fails, it might have written JSON to stdout
+        stdout = execError.stdout || '';
+        stderr = execError.stderr || '';
+      }
 
-      // Try to parse stdout if it exists
+      // Try to parse stdout if it exists (even if command failed)
       if (stdout && stdout.trim() !== '') {
         try {
           const result = JSON.parse(stdout);
