@@ -308,9 +308,9 @@ export interface HealthRepairResult {
 }
 
 export interface HealthRepairPayload {
-  Results: HealthRepairResult[];
-  Stats: HealthRepairStats;
-  NotRepairableCount: number;
+  results: HealthRepairResult[];
+  stats: HealthRepairStats;
+  not_repairable_count: number;
 }
 
 export interface HealthReport {

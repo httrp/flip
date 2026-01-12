@@ -92,9 +92,9 @@ export async function brainHealthCheck(): Promise<void> {
   const summaryParts: string[] = [];
   summaryParts.push(`${errors} Fehler`, `${warnings} Warnungen`);
   if (repairs) {
-    summaryParts.push(`${repairs.Stats.Repaired} repariert`);
-    if (repairs.Stats.Failed > 0) summaryParts.push(`${repairs.Stats.Failed} fehlgeschlagen`);
-    if (repairs.NotRepairableCount > 0) summaryParts.push(`${repairs.NotRepairableCount} nicht reparierbar`);
+    summaryParts.push(`${repairs.stats.Repaired} repariert`);
+    if (repairs.stats.Failed > 0) summaryParts.push(`${repairs.stats.Failed} fehlgeschlagen`);
+    if (repairs.not_repairable_count > 0) summaryParts.push(`${repairs.not_repairable_count} nicht reparierbar`);
   }
 
   const title = `Brain Health: ${check.BrainInfo.Name}`;
@@ -117,7 +117,7 @@ export async function brainHealthCheck(): Promise<void> {
   if (repairs) {
     output.appendLine('');
     output.appendLine('Repairs:');
-    for (const res of repairs.Results) {
+    for (const res of repairs.results) {
       const icon = res.Success ? '✓' : '✗';
       output.appendLine(` ${icon} ${res.Issue.File}`);
       if (res.Message && res.Message !== 'Repaired successfully') {
@@ -135,7 +135,7 @@ export async function brainHealthCheck(): Promise<void> {
     ? `${title} – ${summaryParts.join(', ')}${dryRun ? ' (Dry-Run)' : ''}`
     : `${title} – ${errors} Fehler, ${warnings} Warnungen`;
 
-  if (errors === 0 && (!repairs || repairs.Stats.Failed === 0)) {
+  if (errors === 0 && (!repairs || repairs.stats.Failed === 0)) {
     vscode.window.showInformationMessage(message, 'Output öffnen').then((choice) => {
       if (choice === 'Output öffnen') output.show(true);
     });

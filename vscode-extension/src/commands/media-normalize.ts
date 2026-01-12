@@ -92,9 +92,9 @@ export async function mediaNormalize(): Promise<void> {
   const summaryParts: string[] = [];
   summaryParts.push(`${errors} Fehler`, `${warnings} Warnungen`, `${infos} Hinweise`);
   if (repairs) {
-    summaryParts.push(`${repairs.Stats.Repaired} repariert`);
-    if (repairs.Stats.Failed > 0) summaryParts.push(`${repairs.Stats.Failed} fehlgeschlagen`);
-    if (repairs.NotRepairableCount > 0) summaryParts.push(`${repairs.NotRepairableCount} nicht reparierbar`);
+    summaryParts.push(`${repairs.stats.Repaired} repariert`);
+    if (repairs.stats.Failed > 0) summaryParts.push(`${repairs.stats.Failed} fehlgeschlagen`);
+    if (repairs.not_repairable_count > 0) summaryParts.push(`${repairs.not_repairable_count} nicht reparierbar`);
   }
 
   const title = `Media Normalize: ${check.BrainInfo.Name}`;
@@ -117,13 +117,13 @@ export async function mediaNormalize(): Promise<void> {
   if (repairs) {
     output.appendLine('');
     output.appendLine('Repairs:');
-    for (const res of repairs.Results) {
+    for (const res of repairs.results) {
       const icon = res.Success ? '✓' : '✗';
       const line = res.Issue.Line > 0 ? `:${res.Issue.Line}` : '';
       output.appendLine(`${icon} ${res.Issue.File}${line} → ${res.Message || res.SkipReason}`);
     }
     output.appendLine('');
-    output.appendLine(`Stats: ${repairs.Stats.Repaired} repaired, ${repairs.Stats.Failed} failed, ${repairs.Stats.Skipped} skipped`);
+    output.appendLine(`Stats: ${repairs.stats.Repaired} repaired, ${repairs.stats.Failed} failed, ${repairs.stats.Skipped} skipped`);
   }
 
   output.show();
