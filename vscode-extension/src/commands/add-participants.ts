@@ -128,7 +128,12 @@ export async function addParticipantsCommand() {
   if (hasNewPerson) {
     // Remove __new__ from selection
     const withoutNew = selected.filter(item => item.person !== '__new__');
-    await addNewPerson(client, withoutNew);
+    // Add new person and reopen picker with new person selected
+    const newPersonName = await addNewPerson(client, withoutNew);
+    if (newPersonName) {
+      // Recursively call addParticipantsCommand to let user continue selecting
+      vscode.commands.executeCommand('flip.add-participants');
+    }
     return;
   }
 
@@ -147,12 +152,12 @@ export async function addParticipantsCommand() {
 }
 
 /**
- * Handle adding a new person
+ * Handle adding a new person and return the name
  */
 async function addNewPerson(
   client: ReturnType<typeof getFlipClient>,
   currentSelection: vscode.QuickPickItem[]
-) {
+): Promise<string | undefined> {
   // Prompt for name
   const name = await vscode.window.showInputBox({
     prompt: 'Name der neuen Person',
@@ -160,7 +165,7 @@ async function addNewPerson(
   });
 
   if (!name) {
-    return;
+    return undefined;
   }
 
   // Prompt for organization
@@ -184,12 +189,12 @@ async function addNewPerson(
 
   if (!result.success) {
     vscode.window.showErrorMessage(`Fehler: ${result.error}`);
-    return;
+    return undefined;
   }
 
   vscode.window.showInformationMessage(`Person [${name}] angelegt`);
 
-  // Add to current selection
+  // Add to current selection (if there were any)
   const participants = (currentSelection as ParticipantItem[])
     .map(item => item.person)
     .filter(p => p.length > 0);
@@ -200,6 +205,8 @@ async function addNewPerson(
   if (editor) {
     updateParticipants(editor, participants);
   }
+
+  return name;
 }
 
 /**
