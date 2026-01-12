@@ -718,58 +718,9 @@ func (c *Checker) isEntryPoint(relPath string) bool {
 
 // checkFilenameConvention checks if a file follows brain-specific naming conventions
 func (c *Checker) checkFilenameConvention(relPath string) *Issue {
-	// Skip special directories
-	if strings.Contains(relPath, "template") || 
-	   strings.Contains(relPath, "journal") || 
-	   strings.Contains(relPath, "tasks/") ||
-	   strings.Contains(relPath, ".git") ||
-	   strings.Contains(relPath, "logseq/") {
-		return nil
-	}
-
-	// Only check files in notes/, meetings/, or at root level
-	isNote := strings.HasPrefix(relPath, "notes/") || 
-	          strings.HasPrefix(relPath, "meetings/") ||
-	          (!strings.Contains(relPath, "/") && filepath.Ext(relPath) == ".md")
-
-	if !isNote {
-		return nil
-	}
-
-	filename := filepath.Base(relPath)
-	basename := strings.TrimSuffix(filename, ".md")
-
-	// Extract title (strip date prefix if present)
-	title := extractTitleFromFilename(basename, c.brainType)
-	if title == "" {
-		return nil // Can't determine title
-	}
-
-	// Skip common documentation files that don't follow brain conventions
-	// Check both the full basename and extracted title
-	skipFiles := []string{"readme", "welcome", "index", "home", "changelog", "license", "contributing"}
-	basenameLower := strings.ToLower(basename)
-	titleLower := strings.ToLower(title)
-	for _, skip := range skipFiles {
-		if strings.Contains(basenameLower, skip) || strings.Contains(titleLower, skip) {
-			return nil
-		}
-	}
-
-	// Generate expected filename
-	expectedFilename := generateExpectedFilename(title, c.brainType, relPath)
-	
-	if filename != expectedFilename {
-		return &Issue{
-			Type:     IssueTypeWrongFilename,
-			Severity: SeverityWarning,
-			File:     relPath,
-			Line:     0,
-			Message:  fmt.Sprintf("Filename doesn't match %s convention", c.brainType),
-			Details:  fmt.Sprintf("Current: %s → Expected: %s", filename, expectedFilename),
-		}
-	}
-
+	// DISABLED: Filename convention checking is too complex and brain-specific
+	// Focus on more important checks: broken links, missing assets, orphaned files
+	// TODO: Re-enable with simpler, brain-specific rules if needed
 	return nil
 }
 
