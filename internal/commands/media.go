@@ -75,9 +75,17 @@ func runMediaNormalize(brainPath string, jsonOutput, fix, dryRun bool) error {
             repairs, stats := repairMediaIssues(brainPath, mediaIssues, dryRun)
             resp.Repairs = &healthJSONRepairPayload{Results: repairs, Stats: stats, NotRepairableCount: stats.NotRepairable}
         }
+        
+        // Wrap in standard FlipResult format for consistency
+        output := map[string]interface{}{
+            "success": true,
+            "command": "media-normalize",
+            "data":    resp,
+        }
+        
         enc := json.NewEncoder(os.Stdout)
         enc.SetIndent("", "  ")
-        return enc.Encode(resp)
+        return enc.Encode(output)
     }
 
     // Human-readable output

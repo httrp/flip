@@ -453,7 +453,14 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 			resp.Repairs = repairPayload
 		}
 
-		data, err := json.MarshalIndent(resp, "", "  ")
+		// Wrap in standard FlipResult format for consistency with other commands
+		output := map[string]interface{}{
+			"success": true,
+			"command": "brain-check-health",
+			"data":    resp,
+		}
+
+		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal health report: %w", err)
 		}
