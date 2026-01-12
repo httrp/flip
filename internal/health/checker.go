@@ -745,6 +745,17 @@ func (c *Checker) checkFilenameConvention(relPath string) *Issue {
 		return nil // Can't determine title
 	}
 
+	// Skip common documentation files that don't follow brain conventions
+	// Check both the full basename and extracted title
+	skipFiles := []string{"readme", "welcome", "index", "home", "changelog", "license", "contributing"}
+	basenameLower := strings.ToLower(basename)
+	titleLower := strings.ToLower(title)
+	for _, skip := range skipFiles {
+		if strings.Contains(basenameLower, skip) || strings.Contains(titleLower, skip) {
+			return nil
+		}
+	}
+
 	// Generate expected filename
 	expectedFilename := generateExpectedFilename(title, c.brainType, relPath)
 	
