@@ -70,17 +70,6 @@ export async function brainHealthCheck(): Promise<void> {
     }
   );
 
-  // Debug logging
-  output.clear();
-  output.appendLine('=== DEBUG INFO ===');
-  output.appendLine(`Result success: ${result.success}`);
-  output.appendLine(`Result command: ${result.command}`);
-  output.appendLine(`Result data exists: ${!!result.data}`);
-  output.appendLine(`Result error: ${result.error || 'none'}`);
-  output.appendLine(`Raw result: ${JSON.stringify(result, null, 2)}`);
-  output.appendLine('==================');
-  output.show(true);
-
   if (!result.success || !result.data) {
     const errorMsg = result.error ? (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) : 'Unbekannter Fehler';
     vscode.window.showErrorMessage(`Health Check fehlgeschlagen: ${errorMsg}`);
