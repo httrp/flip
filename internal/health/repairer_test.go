@@ -321,3 +321,148 @@ func TestNormalizeContent(t *testing.T) {
 		})
 	}
 }
+
+func TestRepairMissingMetadataLogseq(t *testing.T) {
+	// Create temp Logseq brain
+	tempDir := t.TempDir()
+
+	// Create logseq directory structure (makes it a Logseq brain)
+	pagesDir := filepath.Join(tempDir, "pages")
+	journalsDir := filepath.Join(tempDir, "journals")
+	logseqDir := filepath.Join(tempDir, "logseq")
+	if err := os.MkdirAll(pagesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(journalsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(logseqDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a test page without metadata (Logseq outline format)
+	testFile := "pages/my-test-page.md"
+	content := "- This is a test page\n  - With some content\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create repairer
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	// Verify brain type
+	if repairer.brainType != BrainTypeLogseq {
+		t.Fatalf("Expected Logseq brain type, got %s", repairer.brainType)
+	}
+
+	// Create issue for missing metadata
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityInfo,
+		File:     testFile,
+		Message:  "Missing Logseq properties: title::, created-at::",
+	}
+
+	// Repair the issue
+	results := repairer.RepairIssues([]Issue{issue})
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	if !results[0].Success {
+		t.Errorf("Repair failed: %s", results[0].Message)
+	}
+
+	// Read the repaired file
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify metadata was added
+	repairedStr := string(repairedContent)
+	if !strings.Contains(repairedStr, "title:: My Test Page") {
+		t.Errorf("Expected title property, got: %s", repairedStr)
+	}
+	if !strings.Contains(repairedStr, "created-at::") {
+		t.Errorf("Expected created-at property, got: %s", repairedStr)
+	}
+	// Original content should still be present
+	if !strings.Contains(repairedStr, "This is a test page") {
+		t.Errorf("Original content should be preserved, got: %s", repairedStr)
+	}
+}
+
+func TestRepairMissingMetadataYAML(t *testing.T) {
+	// Create temp Flip brain
+	tempDir := t.TempDir()
+
+	// Create .flip.yaml to make it a Flip brain
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create notes directory
+	notesDir := filepath.Join(tempDir, "notes")
+	if err := os.MkdirAll(notesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a test note without frontmatter
+	testFile := "notes/my-test-note.md"
+	content := "# My Test Note\n\nThis is some content.\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create repairer
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	// Create issue for missing metadata
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityInfo,
+		File:     testFile,
+		Message:  "Missing YAML frontmatter",
+	}
+
+	// Repair the issue
+	results := repairer.RepairIssues([]Issue{issue})
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	if !results[0].Success {
+		t.Errorf("Repair failed: %s", results[0].Message)
+	}
+
+	// Read the repaired file
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify frontmatter was added
+	repairedStr := string(repairedContent)
+	if !strings.HasPrefix(repairedStr, "---") {
+		t.Errorf("Expected YAML frontmatter, got: %s", repairedStr)
+	}
+	if !strings.Contains(repairedStr, "title: My Test Note") {
+		t.Errorf("Expected title in frontmatter, got: %s", repairedStr)
+	}
+	if !strings.Contains(repairedStr, "created:") {
+		t.Errorf("Expected created in frontmatter, got: %s", repairedStr)
+	}
+	// Original content should still be present
+	if !strings.Contains(repairedStr, "This is some content.") {
+		t.Errorf("Original content should be preserved, got: %s", repairedStr)
+	}
+}

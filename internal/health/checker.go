@@ -33,6 +33,7 @@ const (
 	IssueTypeWrongFilename      IssueType = "wrong-filename"
 	IssueTypeWrongMediaFilename IssueType = "wrong-media-filename"
 	IssueTypeWrongMediaLocation IssueType = "wrong-media-location"
+	IssueTypeMissingMetadata    IssueType = "missing-metadata"
 )
 
 // Severity indicates how critical an issue is
@@ -126,6 +127,12 @@ func (c *Checker) Check() (*CheckResult, error) {
 		if issue := c.checkFilenameConvention(mdFile); issue != nil {
 			result.Issues = append(result.Issues, *issue)
 		}
+	}
+
+	// Step 2.6: Check for missing metadata (title, created-at)
+	for _, mdFile := range c.markdownFiles {
+		metadataIssues := c.checkMissingMetadata(mdFile)
+		result.Issues = append(result.Issues, metadataIssues...)
 	}
 
 	// Step 3: Check for orphaned files
@@ -995,6 +1002,131 @@ func (c *Checker) checkFilenameConvention(relPath string) *Issue {
 	}
 
 	return nil
+}
+
+// checkMissingMetadata checks if a file has required metadata (title, created-at, etc.)
+func (c *Checker) checkMissingMetadata(relPath string) []Issue {
+	var issues []Issue
+
+	// Skip journal files - they usually don't need metadata
+	if strings.Contains(relPath, "journal") || strings.Contains(relPath, "journals") {
+		return issues
+	}
+
+	// Skip template files
+	if strings.Contains(relPath, "template") {
+		return issues
+	}
+
+	fullPath := filepath.Join(c.brainPath, relPath)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return issues
+	}
+
+	contentStr := string(content)
+	basename := filepath.Base(relPath)
+
+	// Check for metadata based on brain type
+	switch c.brainType {
+	case BrainTypeLogseq:
+		// Logseq uses property format: property:: value
+		hasTitle := strings.Contains(contentStr, "title::") || strings.Contains(contentStr, "title:: ")
+		hasCreatedAt := strings.Contains(contentStr, "created-at::")
+
+		// Check if file has any content (not just empty)
+		trimmed := strings.TrimSpace(contentStr)
+		if len(trimmed) == 0 {
+			return issues // Empty files don't need metadata warnings
+		}
+
+		var missing []string
+		if !hasTitle {
+			missing = append(missing, "title::")
+		}
+		if !hasCreatedAt {
+			missing = append(missing, "created-at::")
+		}
+
+		if len(missing) > 0 {
+			// Generate suggested title from filename
+			titleSuggestion := fileNameToTitle(strings.TrimSuffix(basename, ".md"))
+
+			issues = append(issues, Issue{
+				Type:     IssueTypeMissingMetadata,
+				Severity: SeverityInfo,
+				File:     relPath,
+				Message:  fmt.Sprintf("Missing Logseq properties: %s", strings.Join(missing, ", ")),
+				Details:  fmt.Sprintf("Add to first block: title:: %s, created-at:: <unix-ms-timestamp>", titleSuggestion),
+			})
+		}
+
+	case BrainTypeFlip, BrainTypeFoam, BrainTypeObsidian:
+		// These use YAML frontmatter
+		hasFrontmatter := strings.HasPrefix(contentStr, "---")
+		if !hasFrontmatter {
+			// Check if file has any content
+			trimmed := strings.TrimSpace(contentStr)
+			if len(trimmed) == 0 {
+				return issues // Empty files don't need metadata warnings
+			}
+
+			titleSuggestion := fileNameToTitle(strings.TrimSuffix(basename, ".md"))
+			issues = append(issues, Issue{
+				Type:     IssueTypeMissingMetadata,
+				Severity: SeverityInfo,
+				File:     relPath,
+				Message:  "Missing YAML frontmatter",
+				Details:  fmt.Sprintf("Add frontmatter: ---\ntitle: %s\ncreated: <date>\n---", titleSuggestion),
+			})
+		} else {
+			// Check if frontmatter has required fields
+			// Find end of frontmatter
+			endIdx := strings.Index(contentStr[3:], "---")
+			if endIdx > 0 {
+				frontmatter := contentStr[3 : endIdx+3]
+				hasTitle := strings.Contains(frontmatter, "title:")
+				hasCreated := strings.Contains(frontmatter, "created:") || strings.Contains(frontmatter, "date:")
+
+				var missing []string
+				if !hasTitle {
+					missing = append(missing, "title")
+				}
+				if !hasCreated {
+					missing = append(missing, "created")
+				}
+
+				if len(missing) > 0 {
+					issues = append(issues, Issue{
+						Type:     IssueTypeMissingMetadata,
+						Severity: SeverityInfo,
+						File:     relPath,
+						Message:  fmt.Sprintf("Frontmatter missing fields: %s", strings.Join(missing, ", ")),
+						Details:  "Add missing metadata fields to frontmatter",
+					})
+				}
+			}
+		}
+	}
+
+	return issues
+}
+
+// fileNameToTitle converts a kebab-case filename to a readable title
+func fileNameToTitle(filename string) string {
+	// Replace hyphens and underscores with spaces
+	title := strings.ReplaceAll(filename, "-", " ")
+	title = strings.ReplaceAll(title, "_", " ")
+
+	// Capitalize each word
+	words := strings.Fields(title)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+		}
+	}
+
+	return strings.Join(words, " ")
 }
 
 // toKebabCase converts a string to lowercase kebab-case
