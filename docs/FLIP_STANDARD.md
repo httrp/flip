@@ -129,6 +129,48 @@ brain-root/
 - Hyphen separators = standard web convention
 - No redundancy = avoid duplicating metadata
 
+### Note Creation & Journal Linking
+
+When creating a new note with `flip note`, you will be prompted:
+```
+Add link to today's journal?
+├─ Add link (default)
+└─ Skip
+```
+
+**Default behavior:** Link is added automatically unless you select "Skip"
+
+#### What happens:
+1. Note is created in `notes/{title}.md`
+2. System checks if `journal/YYYY-MM-DD.md` exists for today
+3. If journal doesn't exist, it's created with template
+4. Note link is added to journal's "## Activities" section with emoji prefix
+5. Link format depends on brain type:
+   - **Flip/Foam:** Markdown link `[title](notes/title.md)`
+   - **Logseq:** Wikilink `[[title]]`
+   - **Obsidian:** Wikilink `[[title]]`
+
+#### When to skip journal links:
+- Bulk imports or template notes
+- Reference material without temporal context
+- Notes created for organizational purposes (not daily work)
+
+#### Example journal entry:
+```markdown
+# 2026-01-13 - Monday
+
+## Activities
+
+📝 [Business Development Strategy](notes/business-development-strategy.md)
+📝 [Q1 Planning Session](notes/q1-planning.md)
+```
+
+#### Health check:
+The health check (`flip brain check`) will:
+- ℹ️ Inform about recently created notes not mentioned in any journal
+- Not flag as error (journal links are optional)
+- Only check Flip-native brains (not Logseq/Obsidian)
+
 #### Task Files
 
 **Pattern:** `todo.{category}.md`  
