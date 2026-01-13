@@ -94,7 +94,7 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			AssetsDir:          "assets",
 			TemplatesDir:       "templates",
 			JournalFormat:      "2006_01_02",                    // YYYY_MM_DD (UNDERSCORES not dashes!)
-			NoteFormat:         "title-case",                    // "Title Case.md" with spaces
+			NoteFormat:         "kebab-case",                    // lowercase-kebab-case.md (standardized)
 			AssetStrategy:      AssetStrategyRootFolder,         // Always assets/ folder
 			AssetLocations:     []string{"assets", "../assets"}, // Logseq sometimes uses ../assets
 			PreferredLinkStyle: LinkStyleWikilink,               // Strongly prefers wikilinks

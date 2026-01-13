@@ -60,7 +60,7 @@ func TestTransformFilename_JournalDates(t *testing.T) {
 			sourceType: health.BrainTypeFlip,
 			targetType: health.BrainTypeLogseq,
 			input:      "my-cool-note.md",
-			expected:   "My Cool Note.md",
+			expected:   "my-cool-note.md", // Logseq now uses kebab-case (standardized)
 		},
 		// Logseq title to Flip slug
 		{

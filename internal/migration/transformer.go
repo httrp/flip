@@ -115,8 +115,8 @@ func (t *Transformer) getDateFormat(brainType health.BrainType) string {
 func (t *Transformer) transformNoteName(base string) string {
 	switch t.targetType {
 	case health.BrainTypeLogseq:
-		// Logseq prefers "Title Case" with spaces
-		return t.toTitleCase(base)
+		// Logseq uses lowercase kebab-case (standardized)
+		return t.toSlug(base)
 
 	case health.BrainTypeDendron:
 		// Dendron uses dot.notation.hierarchy
