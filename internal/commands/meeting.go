@@ -604,7 +604,9 @@ func generateMeetingFilename(title, seriesName string, brainType brain.BrainType
 
 	switch brainType {
 	case brain.BrainTypeLogseq:
-		return fmt.Sprintf("%s___meeting-%s.md", now.Format("2006_01_02"), safeName)
+		// Logseq: meeting-title.md (NO date prefix, goes in pages/)
+		// Date is in frontmatter already
+		return fmt.Sprintf("meeting-%s.md", safeName)
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf("meeting-%s-%s.md", now.Format("2006-01-02"), safeName)
 	case brain.BrainTypeDendron:
