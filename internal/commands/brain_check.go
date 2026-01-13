@@ -36,6 +36,55 @@ func newBrainCheckCommand() *cobra.Command {
 	return cmd
 }
 
+// newBrainHealthTopLevelCommand creates 'flip brain health' as a direct command
+// (alias for 'flip brain check health')
+func newBrainHealthTopLevelCommand() *cobra.Command {
+	var brainPath string
+	var jsonOutput bool
+	var fix bool
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "health [path]",
+		Short: "Check brain content health (broken links, orphaned files, naming conventions)",
+		Long: `Performs comprehensive health checks on brain content:
+
+- Detects broken links (wikilinks and markdown links) with "Did you mean?" suggestions
+- Finds missing assets (images, PDFs, etc.)
+- Identifies orphaned files (not linked from anywhere)
+- Validates naming conventions (lowercase kebab-case)
+- Checks for missing journal links
+- Supports Flip, Logseq, Obsidian, Dendron, and Foam brains
+
+Use --fix to automatically repair issues where possible:
+- Broken links: Marked with strikethrough and <!-- BROKEN --> comment
+- Orphaned files: Moved to .orphaned/ folder
+- Format issues: Normalized (trailing whitespace, line endings)
+
+Examples:
+  flip brain health                    # Check current brain
+  flip brain health ~/my-vault         # Check specific brain
+  flip brain health --json             # Output JSON for scripting
+  flip brain health --fix              # Check and repair issues
+  flip brain health --fix --dry-run    # Preview repairs without applying`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				brainPath = args[0]
+			} else {
+				brainPath = "."
+			}
+			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repairs without applying them (use with --fix)")
+
+	return cmd
+}
+
 func newBrainHealthCommand() *cobra.Command {
 	var brainPath string
 	var jsonOutput bool

@@ -34,14 +34,14 @@ type DayResult struct {
 
 // JournalSyncResult is the response from journal sync check
 type JournalSyncResult struct {
-	Days          []DayResult `json:"days"`
-	TotalMissing  int         `json:"total_missing"`
-	TotalChecked  int         `json:"total_checked"`
-	TotalLinked   int         `json:"total_linked"`
-	TotalIgnored  int         `json:"total_ignored"`
-	DaysChecked   int         `json:"days_checked"`
-	BrainName     string      `json:"brain_name"`
-	BrainPath     string      `json:"brain_path"`
+	Days         []DayResult `json:"days"`
+	TotalMissing int         `json:"total_missing"`
+	TotalChecked int         `json:"total_checked"`
+	TotalLinked  int         `json:"total_linked"`
+	TotalIgnored int         `json:"total_ignored"`
+	DaysChecked  int         `json:"days_checked"`
+	BrainName    string      `json:"brain_name"`
+	BrainPath    string      `json:"brain_path"`
 }
 
 // NewVSCodeJournalCommand creates the vscode journal subcommand
@@ -236,7 +236,7 @@ func NewJournalSyncCheckCommand() *cobra.Command {
 // getJournalPathForDate returns the journal file path for a specific date
 func getJournalPathForDate(brainPath string, brainType brain.BrainType, date time.Time) string {
 	dateStr := date.Format("2006-01-02")
-	
+
 	switch brainType {
 	case brain.BrainTypeLogseq:
 		// Logseq: journals/2025_01_10.md

@@ -13,12 +13,12 @@ import (
 
 // JournalLinkOptions holds options for adding a link to journal
 type JournalLinkOptions struct {
-	ItemType    string     // "note", "task", "exercise", etc.
-	ItemName    string     // display name of the item
-	ItemPath    string     // relative path to the item from brain root
-	Brain       *Brain     // brain where the item was created (required)
-	Interactive bool       // true = ask user, false = always add link
-	Date        *time.Time // optional: target date (nil = today)
+	ItemType    string          // "note", "task", "exercise", etc.
+	ItemName    string          // display name of the item
+	ItemPath    string          // relative path to the item from brain root
+	Brain       *Brain          // brain where the item was created (required)
+	Interactive bool            // true = ask user, false = always add link
+	Date        *time.Time      // optional: target date (nil = today)
 	BrainType   brain.BrainType // brain type for correct link format
 }
 
@@ -107,13 +107,13 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 		filename := filepath.Base(opts.ItemPath)
 		pageName := strings.TrimSuffix(filename, ".md")
 		return fmt.Sprintf("%s [[%s]]", emoji, pageName)
-	
+
 	case brain.BrainTypeObsidian:
 		// Obsidian also uses [[wiki-links]] but can include path
 		filename := filepath.Base(opts.ItemPath)
 		pageName := strings.TrimSuffix(filename, ".md")
 		return fmt.Sprintf("%s [[%s]]", emoji, pageName)
-	
+
 	default:
 		// Flip and others: use markdown links with relative path
 		return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, opts.ItemPath)

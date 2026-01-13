@@ -82,7 +82,10 @@ Examples:
 			dateStr, _ := cmd.Flags().GetString("date")
 			if strings.TrimSpace(filePath) == "" {
 				err := fmt.Errorf("--file is required")
-				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				if JSONOutput {
+					OutputJSONError("journal link", err)
+					return nil
+				}
 				return err
 			}
 
@@ -92,7 +95,10 @@ Examples:
 				parsed, err := time.Parse("2006-01-02", dateStr)
 				if err != nil {
 					err := fmt.Errorf("invalid date format, use YYYY-MM-DD: %w", err)
-					if JSONOutput { OutputJSONError("journal link", err); return nil }
+					if JSONOutput {
+						OutputJSONError("journal link", err)
+						return nil
+					}
 					return err
 				}
 				targetDate = &parsed
@@ -109,33 +115,54 @@ Examples:
 			if brainName != "" {
 				ws, err := getActiveWorkspace()
 				if err == nil {
-					for i := range ws.Brains { if ws.Brains[i].Name == brainName { activeBrain = &ws.Brains[i]; break } }
+					for i := range ws.Brains {
+						if ws.Brains[i].Name == brainName {
+							activeBrain = &ws.Brains[i]
+							break
+						}
+					}
 				}
 			}
 			if activeBrain == nil && info.BrainPath != "" {
 				// Use detected brain from file
 				ws, err := getActiveWorkspace()
 				if err == nil {
-					for i := range ws.Brains { if ws.Brains[i].Path == info.BrainPath { activeBrain = &ws.Brains[i]; break } }
+					for i := range ws.Brains {
+						if ws.Brains[i].Path == info.BrainPath {
+							activeBrain = &ws.Brains[i]
+							break
+						}
+					}
 				}
 				if activeBrain == nil {
 					// Fallback construct Brain with minimal fields
-					activeBrain = &Brain{ Name: filepath.Base(info.BrainPath), Path: info.BrainPath, Type: "" }
+					activeBrain = &Brain{Name: filepath.Base(info.BrainPath), Path: info.BrainPath, Type: ""}
 				}
 			}
 			if activeBrain == nil {
 				err := fmt.Errorf("could not determine brain for file")
-				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				if JSONOutput {
+					OutputJSONError("journal link", err)
+					return nil
+				}
 				return err
 			}
 
 			// Determine item type and title
 			typ := itemType
-			if strings.TrimSpace(typ) == "" { typ = info.Type }
-			if strings.TrimSpace(typ) == "" { typ = "note" }
+			if strings.TrimSpace(typ) == "" {
+				typ = info.Type
+			}
+			if strings.TrimSpace(typ) == "" {
+				typ = "note"
+			}
 			name := itemTitle
-			if strings.TrimSpace(name) == "" { name = info.Name }
-			if strings.TrimSpace(name) == "" { name = info.FileName }
+			if strings.TrimSpace(name) == "" {
+				name = info.Name
+			}
+			if strings.TrimSpace(name) == "" {
+				name = info.FileName
+			}
 
 			rel := relativePathFromBrain(filePath, activeBrain.Path)
 			if err := AddLinkToJournal(JournalLinkOptions{
@@ -146,17 +173,20 @@ Examples:
 				Interactive: false,
 				Date:        targetDate,
 			}); err != nil {
-				if JSONOutput { OutputJSONError("journal link", err); return nil }
+				if JSONOutput {
+					OutputJSONError("journal link", err)
+					return nil
+				}
 				return err
 			}
 
 			if JSONOutput {
 				OutputJSONSuccess("journal link", map[string]string{
-					"path": filePath,
-					"rel_path": rel,
+					"path":       filePath,
+					"rel_path":   rel,
 					"brain_name": activeBrain.Name,
-					"item_type": typ,
-					"item_name": name,
+					"item_type":  typ,
+					"item_name":  name,
 				})
 				return nil
 			}

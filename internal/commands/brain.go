@@ -35,6 +35,8 @@ func NewBrainCommand() *cobra.Command {
 	cmd.AddCommand(newBrainRenameCommand())
 	cmd.AddCommand(newBrainRepairCommand())
 	cmd.AddCommand(newBrainCheckCommand())
+	// Health check as top-level command (alias for 'check health')
+	cmd.AddCommand(newBrainHealthTopLevelCommand())
 	// Git integration commands
 	cmd.AddCommand(newBrainGitStatusCommand())
 	cmd.AddCommand(newBrainGitLogCommand())

@@ -24,15 +24,15 @@ type Issue struct {
 type IssueType string
 
 const (
-	IssueTypeBrokenLink      IssueType = "broken-link"
-	IssueTypeMissingAsset    IssueType = "missing-asset"
-	IssueTypeOrphanedFile    IssueType = "orphaned-file"
-	IssueTypeDuplicate       IssueType = "duplicate"
-	IssueTypeFormat          IssueType = "format"
-	IssueTypeWrongLinkFormat IssueType = "wrong-link-format"
-	IssueTypeWrongFilename   IssueType = "wrong-filename"
-    IssueTypeWrongMediaFilename IssueType = "wrong-media-filename"
-    IssueTypeWrongMediaLocation IssueType = "wrong-media-location"
+	IssueTypeBrokenLink         IssueType = "broken-link"
+	IssueTypeMissingAsset       IssueType = "missing-asset"
+	IssueTypeOrphanedFile       IssueType = "orphaned-file"
+	IssueTypeDuplicate          IssueType = "duplicate"
+	IssueTypeFormat             IssueType = "format"
+	IssueTypeWrongLinkFormat    IssueType = "wrong-link-format"
+	IssueTypeWrongFilename      IssueType = "wrong-filename"
+	IssueTypeWrongMediaFilename IssueType = "wrong-media-filename"
+	IssueTypeWrongMediaLocation IssueType = "wrong-media-location"
 )
 
 // Severity indicates how critical an issue is
@@ -84,13 +84,13 @@ func NewChecker(brainPath string) (*Checker, error) {
 	}
 
 	return &Checker{
-		brainPath:     brainPath,
-		brainType:     info.Type,
-		brainInfo:     info,
-		allFiles:      make(map[string]bool),
-		assetFiles:    make(map[string]bool),
-		linkedFiles:   make(map[string]bool),
-		markdownFiles: make([]string, 0),
+		brainPath:       brainPath,
+		brainType:       info.Type,
+		brainInfo:       info,
+		allFiles:        make(map[string]bool),
+		assetFiles:      make(map[string]bool),
+		linkedFiles:     make(map[string]bool),
+		markdownFiles:   make([]string, 0),
 		assetReferences: make(map[string][]string),
 	}, nil
 }
@@ -675,7 +675,7 @@ func (c *Checker) suggestWikilinkFix(target string) string {
 
 		// Calculate similarity score
 		score := levenshteinSimilarity(targetLower, fileLower)
-		
+
 		// Also boost exact substring matches
 		if strings.Contains(fileLower, targetLower) || strings.Contains(targetLower, fileLower) {
 			score += 50
@@ -729,7 +729,7 @@ func (c *Checker) suggestMarkdownLinkFix(target, sourceFile string) string {
 
 		// Calculate similarity score
 		score := levenshteinSimilarity(targetLower, fileLower)
-		
+
 		// Boost exact substring matches
 		if strings.Contains(fileLower, targetLower) || strings.Contains(targetLower, fileLower) {
 			score += 50
@@ -913,21 +913,34 @@ func (c *Checker) isEntryPoint(relPath string) bool {
 
 // checkFilenameConvention checks if a file follows brain-specific naming conventions
 func (c *Checker) checkFilenameConvention(relPath string) *Issue {
-	// Only check specific patterns that are clearly wrong
-	
-	// Logseq: Pages should NOT have YYYY_MM_DD___ prefix (only journals should)
+	// Check filename conventions based on brain type
+	basename := filepath.Base(relPath)
+
+	// Skip hidden files and special names
+	if strings.HasPrefix(basename, ".") {
+		return nil
+	}
+
+	// Logseq: Skip journal files - they use YYYY_MM_DD.md format (Logseq standard)
+	if c.brainType == BrainTypeLogseq && strings.HasPrefix(relPath, "journals/") {
+		return nil
+	}
+
+	// Logseq specific: Pages should NOT have YYYY_MM_DD___ prefix
+	// Check this FIRST before general kebab-case check
 	if c.brainType == BrainTypeLogseq {
-		basename := filepath.Base(relPath)
-		
 		// Check if file is in pages/ directory with date prefix
-		if strings.HasPrefix(relPath, "pages/") && 
-		   len(basename) > 14 && 
-		   basename[4] == '_' && 
-		   basename[7] == '_' && 
-		   basename[10:14] == "___" {
+		// Format: YYYY_MM_DD___title.md (positions: 0-3_5-6_8-9___rest)
+		if strings.HasPrefix(relPath, "pages/") &&
+			len(basename) > 13 &&
+			basename[4] == '_' &&
+			basename[7] == '_' &&
+			basename[10:13] == "___" {
 			// This is a pages/ file with YYYY_MM_DD___ prefix - wrong!
-			correctName := basename[14:] // Remove date prefix
-			
+			correctName := basename[13:] // Remove date prefix (YYYY_MM_DD___ = 13 chars)
+			// Also convert to kebab-case
+			correctName = toKebabCase(strings.TrimSuffix(correctName, ".md")) + ".md"
+
 			return &Issue{
 				Type:     IssueTypeWrongFilename,
 				Severity: SeverityWarning,
@@ -937,8 +950,67 @@ func (c *Checker) checkFilenameConvention(relPath string) *Issue {
 			}
 		}
 	}
-	
+
+	// All brain types: markdown files should be lowercase kebab-case
+	if strings.HasSuffix(basename, ".md") {
+		nameWithoutExt := strings.TrimSuffix(basename, ".md")
+
+		// Check for various naming violations
+		hasUppercase := false
+		hasSpaces := strings.Contains(nameWithoutExt, " ")
+		hasUnderscores := strings.Contains(nameWithoutExt, "_")
+
+		for _, char := range nameWithoutExt {
+			if char >= 'A' && char <= 'Z' {
+				hasUppercase = true
+				break
+			}
+		}
+
+		// Generate suggested kebab-case filename
+		if hasUppercase || hasSpaces || hasUnderscores {
+			suggested := toKebabCase(nameWithoutExt)
+
+			var reason string
+			if hasUppercase && hasSpaces {
+				reason = "Filename contains uppercase letters and spaces"
+			} else if hasUppercase && hasUnderscores {
+				reason = "Filename contains uppercase letters and underscores"
+			} else if hasUppercase {
+				reason = "Filename contains uppercase letters"
+			} else if hasSpaces {
+				reason = "Filename contains spaces"
+			} else {
+				reason = "Filename contains underscores"
+			}
+
+			return &Issue{
+				Type:     IssueTypeWrongFilename,
+				Severity: SeverityWarning,
+				File:     relPath,
+				Message:  fmt.Sprintf("Filename should be lowercase kebab-case: %s.md", suggested),
+				Details:  fmt.Sprintf("%s. Rename to: %s.md", reason, suggested),
+			}
+		}
+	}
+
 	return nil
+}
+
+// toKebabCase converts a string to lowercase kebab-case
+func toKebabCase(s string) string {
+	// Replace spaces and underscores with hyphens
+	result := strings.ReplaceAll(s, " ", "-")
+	result = strings.ReplaceAll(result, "_", "-")
+	// Convert to lowercase
+	result = strings.ToLower(result)
+	// Replace multiple hyphens with single hyphen
+	for strings.Contains(result, "--") {
+		result = strings.ReplaceAll(result, "--", "-")
+	}
+	// Trim leading/trailing hyphens
+	result = strings.Trim(result, "-")
+	return result
 }
 
 // extractTitleFromFilename extracts the title part from a filename based on brain type
@@ -1076,85 +1148,86 @@ func sanitizeTitle(title string) string {
 
 	return safeName
 }
+
 // checkPotentialMissingJournalLinks checks if recent notes might not be linked in journals
 // This is informational only, as users can intentionally skip journal links
 func (c *Checker) checkPotentialMissingJournalLinks() []Issue {
 	var issues []Issue
-	
+
 	notesDir := filepath.Join(c.brainPath, "notes")
 	journalDir := filepath.Join(c.brainPath, "journal")
-	
+
 	// Check if notes directory exists
 	if _, err := os.Stat(notesDir); err != nil {
 		return issues
 	}
-	
+
 	// Check if journal directory exists
 	if _, err := os.Stat(journalDir); err != nil {
 		return issues // No journal directory, can't check
 	}
-	
+
 	// Get files from past 7 days
 	now := time.Now()
 	recentDate := now.AddDate(0, 0, -7) // 7 days ago
-	
+
 	// Read note files and check if they're mentioned in journals
 	entries, err := os.ReadDir(notesDir)
 	if err != nil {
 		return issues
 	}
-	
+
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
-		
+
 		// Get file modification time
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-		
+
 		// Only check recently modified notes (past 7 days)
 		if info.ModTime().Before(recentDate) {
 			continue
 		}
-		
+
 		noteName := entry.Name()
-		
+
 		// Extract date if exists (for notes, should be YYYY-MM-DD.md format initially created)
 		// For Flip brains, note files are just title.md
 		// We can't reliably determine which journal entry should contain it
 		// So we just note that recent notes exist
-		
+
 		// Check if this note is referenced in any journal file
 		noteTitle := strings.TrimSuffix(noteName, ".md")
 		found := false
-		
+
 		journalEntries, err := os.ReadDir(journalDir)
 		if err != nil {
 			continue
 		}
-		
+
 		for _, jentry := range journalEntries {
 			if jentry.IsDir() || !strings.HasSuffix(jentry.Name(), ".md") {
 				continue
 			}
-			
+
 			// Read journal file
 			journalPath := filepath.Join(journalDir, jentry.Name())
 			content, err := os.ReadFile(journalPath)
 			if err != nil {
 				continue
 			}
-			
+
 			// Check if note name is mentioned in journal
 			if strings.Contains(string(content), noteName) || strings.Contains(string(content), noteTitle) {
 				found = true
 				break
 			}
 		}
-		
+
 		// Only report as info if not found (optional suggestion)
 		if !found {
 			relPath := filepath.Join("notes", noteName)
@@ -1168,6 +1241,6 @@ func (c *Checker) checkPotentialMissingJournalLinks() []Issue {
 			issues = append(issues, issue)
 		}
 	}
-	
+
 	return issues
 }

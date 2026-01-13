@@ -19,9 +19,9 @@ type RepairAction struct {
 
 // RepairResult contains the result of a repair operation
 type RepairResult struct {
-	Issue     Issue
-	Success   bool
-	Message   string
+	Issue      Issue
+	Success    bool
+	Message    string
 	SkipReason string
 }
 
@@ -217,7 +217,7 @@ func (r *Repairer) repairOrphanedFile(brainPath string, issue Issue) error {
 	}
 
 	srcPath := filepath.Join(brainPath, issue.File)
-	
+
 	// Create .orphaned directory if needed
 	orphanedDir := filepath.Join(brainPath, ".orphaned")
 	if err := os.MkdirAll(orphanedDir, 0755); err != nil {
@@ -549,7 +549,7 @@ func (r *Repairer) updateLinksInFile(filePath, oldBasename, newBasename, oldFile
 	// Update wikilink embeds with filenames: ![[oldFilename]] -> ![[newFilename]]
 	wikiEmbedPattern := regexp.MustCompile(`!\[\[` + regexp.QuoteMeta(oldFilename) + `\]\]`)
 	if wikiEmbedPattern.MatchString(text) {
-		text = wikiEmbedPattern.ReplaceAllString(text, "![["+newFilename+"]]" )
+		text = wikiEmbedPattern.ReplaceAllString(text, "![["+newFilename+"]]")
 		updated = true
 	}
 
