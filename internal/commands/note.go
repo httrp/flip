@@ -520,32 +520,31 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 // generateNoteFilename creates a filename based on brain type conventions
 func generateNoteFilename(title string, brainType brain.BrainType) string {
 	safeName := sanitizeFilename(title)
-	now := time.Now()
 
 	switch brainType {
 	case brain.BrainTypeLogseq:
-		// Logseq: YYYY_MM_DD___title.md
-		return fmt.Sprintf("%s___%s.md", now.Format("2006_01_02"), safeName)
+		// Logseq pages: title.md (no date prefix, date in frontmatter)
+		return fmt.Sprintf("%s.md", safeName)
 
 	case brain.BrainTypeObsidian:
-		// Obsidian: simple title.md (no date prefix usually)
+		// Obsidian: simple title.md (no date prefix)
 		return fmt.Sprintf("%s.md", safeName)
 
 	case brain.BrainTypeDendron:
-		// Dendron: notes.YYYY-MM-DD-title.md
-		return fmt.Sprintf("notes.%s-%s.md", now.Format("2006-01-02"), safeName)
+		// Dendron: notes.title.md (hierarchical naming)
+		return fmt.Sprintf("notes.%s.md", safeName)
 
 	case brain.BrainTypeFoam:
-		// Foam: simple title.md or YYYY-MM-DD-title.md (user preference, we use dated)
-		return fmt.Sprintf("%s-%s.md", now.Format("2006-01-02"), safeName)
+		// Foam: title.md (no date prefix)
+		return fmt.Sprintf("%s.md", safeName)
 
 	case brain.BrainTypeFlip:
-		// Flip: YYYY-MM-DD-title.md
-		return fmt.Sprintf("%s-%s.md", now.Format("2006-01-02"), safeName)
+		// Flip: title.md (date in frontmatter, not filename)
+		return fmt.Sprintf("%s.md", safeName)
 
 	default:
-		// Generic: YYYY-MM-DD-title.md
-		return fmt.Sprintf("%s-%s.md", now.Format("2006-01-02"), safeName)
+		// Generic: title.md
+		return fmt.Sprintf("%s.md", safeName)
 	}
 }
 

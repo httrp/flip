@@ -114,18 +114,20 @@ brain-root/
 
 #### General Notes
 
-**Pattern:** `YYYY-MM-DD-{slug-title}.md`  
+**Pattern:** `{slug-title}.md`  
 **Location:** `notes/`  
 **Examples:**
-- `2026-01-07-business-development.md`
-- `2025-12-11-bonusprogramm.md`
-- `2026-01-10-ideal-customer-profile.md`
+- `business-development.md`
+- `bonusprogramm.md`
+- `ideal-customer-profile.md`
 
 **Rationale:**
-- Optional creation date = useful for sorting
+- Title only = clean, readable filenames
+- Creation date in frontmatter = metadata, not filename
 - Slug-case title = clear, concise
 - Lowercase = consistent with all other files
 - Hyphen separators = standard web convention
+- No redundancy = avoid duplicating metadata
 
 #### Task Files
 
@@ -406,8 +408,8 @@ flip brain repair --path /path/to/brain --apply    # Apply changes
 | **Case** | Lowercase only | Cross-platform compatibility |
 | **Separators** | Kebab-case (hyphens) | Web standard, readable |
 | **Journal** | `YYYY-MM-DD.md` | Date is primary ID |
-| **Meetings** | `YYYY-MM-DD-meeting-title.md` | Distinguishable, sortable |
-| **Notes** | `YYYY-MM-DD-title.md` | Optional date, clear title |
+| **Meetings** | `YYYY-MM-DD-meeting-title.md` | Distinguishable, temporal reference |
+| **Notes** | `title.md` | Metadata in frontmatter, not filename |
 | **Metadata** | YAML frontmatter | Flexible, machine-readable |
 | **Links** | Wikilinks preferred | Auto-complete, bidirectional |
 | **Assets** | Centralized `assets/` | Organization, reusability |
