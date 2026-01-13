@@ -546,13 +546,20 @@ func (c *Checker) checkLinkTarget(sourceFile, target string, lineNum int, linkTy
 			return nil
 		}
 
+		// Broken wikilink - try to find suggestions
+		suggestion := c.suggestWikilinkFix(target)
+		details := "Target note not found in brain"
+		if suggestion != "" {
+			details += fmt.Sprintf(". Did you mean: [[%s]]?", suggestion)
+		}
+
 		return &Issue{
 			Type:     IssueTypeBrokenLink,
 			Severity: SeverityError,
 			File:     sourceFile,
 			Line:     lineNum,
 			Message:  fmt.Sprintf("Broken wikilink: [[%s]]", target),
-			Details:  "Target note not found in brain",
+			Details:  details,
 		}
 	}
 
@@ -571,10 +578,16 @@ func (c *Checker) checkLinkTarget(sourceFile, target string, lineNum int, linkTy
 		}
 	}
 
-	// Link is broken
+	// Link is broken - try to find suggestions
 	issueType := IssueTypeBrokenLink
 	if isAsset(filepath.Ext(target)) {
 		issueType = IssueTypeMissingAsset
+	}
+
+	suggestion := c.suggestMarkdownLinkFix(target, sourceFile)
+	details := fmt.Sprintf("Target not found: %s", targetPath)
+	if suggestion != "" {
+		details += fmt.Sprintf(". Did you mean: %s?", suggestion)
 	}
 
 	return &Issue{
@@ -583,7 +596,7 @@ func (c *Checker) checkLinkTarget(sourceFile, target string, lineNum int, linkTy
 		File:     sourceFile,
 		Line:     lineNum,
 		Message:  fmt.Sprintf("Broken link: %s", target),
-		Details:  fmt.Sprintf("Target not found: %s", targetPath),
+		Details:  details,
 	}
 }
 
@@ -641,6 +654,182 @@ func (c *Checker) findWikilink(target string) string {
 	}
 
 	return ""
+}
+
+// suggestWikilinkFix suggests a correct wikilink based on similarity
+func (c *Checker) suggestWikilinkFix(target string) string {
+	targetLower := strings.ToLower(target)
+	var candidates []struct {
+		path  string
+		score int
+	}
+
+	// Collect all markdown files
+	for mdFile := range c.allFiles {
+		if !strings.HasSuffix(mdFile, ".md") {
+			continue
+		}
+
+		fileBase := strings.TrimSuffix(filepath.Base(mdFile), ".md")
+		fileLower := strings.ToLower(fileBase)
+
+		// Calculate similarity score
+		score := levenshteinSimilarity(targetLower, fileLower)
+		
+		// Also boost exact substring matches
+		if strings.Contains(fileLower, targetLower) || strings.Contains(targetLower, fileLower) {
+			score += 50
+		}
+
+		// Only consider reasonable matches (>50% similar)
+		if score > 50 {
+			candidates = append(candidates, struct {
+				path  string
+				score int
+			}{fileBase, score})
+		}
+	}
+
+	// Return the best match
+	if len(candidates) > 0 {
+		// Sort by score descending
+		maxScore := 0
+		bestCandidate := ""
+		for _, c := range candidates {
+			if c.score > maxScore {
+				maxScore = c.score
+				bestCandidate = c.path
+			}
+		}
+		return bestCandidate
+	}
+
+	return ""
+}
+
+// suggestMarkdownLinkFix suggests a correct markdown link based on similarity
+func (c *Checker) suggestMarkdownLinkFix(target, sourceFile string) string {
+	// Extract just the filename from the link
+	targetFile := filepath.Base(target)
+	targetLower := strings.ToLower(strings.TrimSuffix(targetFile, ".md"))
+
+	var candidates []struct {
+		path  string
+		score int
+	}
+
+	// Collect all files in brain
+	for file := range c.allFiles {
+		if !strings.HasSuffix(file, ".md") {
+			continue
+		}
+
+		fileBase := strings.TrimSuffix(filepath.Base(file), ".md")
+		fileLower := strings.ToLower(fileBase)
+
+		// Calculate similarity score
+		score := levenshteinSimilarity(targetLower, fileLower)
+		
+		// Boost exact substring matches
+		if strings.Contains(fileLower, targetLower) || strings.Contains(targetLower, fileLower) {
+			score += 50
+		}
+
+		if score > 50 {
+			candidates = append(candidates, struct {
+				path  string
+				score int
+			}{file, score})
+		}
+	}
+
+	// Return the best match
+	if len(candidates) > 0 {
+		maxScore := 0
+		bestCandidate := ""
+		for _, c := range candidates {
+			if c.score > maxScore {
+				maxScore = c.score
+				bestCandidate = c.path
+			}
+		}
+		return bestCandidate
+	}
+
+	return ""
+}
+
+// levenshteinSimilarity calculates string similarity as a percentage (0-100)
+// Based on Levenshtein distance
+func levenshteinSimilarity(s1, s2 string) int {
+	if len(s1) == 0 && len(s2) == 0 {
+		return 100
+	}
+
+	distance := levenshteinDistance(s1, s2)
+	maxLen := len(s1)
+	if len(s2) > maxLen {
+		maxLen = len(s2)
+	}
+
+	if maxLen == 0 {
+		return 100
+	}
+
+	similarity := 100 - (distance * 100 / maxLen)
+	return similarity
+}
+
+// levenshteinDistance calculates the edit distance between two strings
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	// Create matrix
+	d := make([][]int, len(s1)+1)
+	for i := range d {
+		d[i] = make([]int, len(s2)+1)
+	}
+
+	// Initialize
+	for i := 0; i <= len(s1); i++ {
+		d[i][0] = i
+	}
+	for j := 0; j <= len(s2); j++ {
+		d[0][j] = j
+	}
+
+	// Fill matrix
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 0
+			if s1[i-1] != s2[j-1] {
+				cost = 1
+			}
+			d[i][j] = min(
+				d[i-1][j]+1,      // deletion
+				d[i][j-1]+1,      // insertion
+				d[i-1][j-1]+cost, // substitution
+			)
+		}
+	}
+
+	return d[len(s1)][len(s2)]
+}
+
+// min returns the minimum of multiple integers
+func min(nums ...int) int {
+	result := nums[0]
+	for _, n := range nums[1:] {
+		if n < result {
+			result = n
+		}
+	}
+	return result
 }
 
 // checkOrphanedFiles finds files that are not linked from anywhere
