@@ -447,6 +447,7 @@ func runCreateNote() error {
 		ItemPath:    relPath,
 		Brain:       activeBrain,
 		Interactive: true,
+		BrainType:   detection.Type,
 	}); err != nil {
 		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
 	}

@@ -136,6 +136,12 @@ func (c *Checker) Check() (*CheckResult, error) {
 	mediaIssues := c.checkMediaConventions()
 	result.Issues = append(result.Issues, mediaIssues...)
 
+	// Step 3.7: Check for notes with recent creation that might be missing journal links (Flip brains only)
+	if c.brainInfo.Type == "flip" || c.brainInfo.Type == "flip-brain" {
+		journalLinkIssues := c.checkPotentialMissingJournalLinks()
+		result.Issues = append(result.Issues, journalLinkIssues...)
+	}
+
 	// Calculate stats
 	for _, issue := range result.Issues {
 		switch issue.Severity {
@@ -880,4 +886,99 @@ func sanitizeTitle(title string) string {
 	safeName = strings.Trim(safeName, "-")
 
 	return safeName
+}
+// checkPotentialMissingJournalLinks checks if recent notes might not be linked in journals
+// This is informational only, as users can intentionally skip journal links
+func (c *Checker) checkPotentialMissingJournalLinks() []Issue {
+	var issues []Issue
+	
+	notesDir := filepath.Join(c.brainPath, "notes")
+	journalDir := filepath.Join(c.brainPath, "journal")
+	
+	// Check if notes directory exists
+	if _, err := os.Stat(notesDir); err != nil {
+		return issues
+	}
+	
+	// Check if journal directory exists
+	if _, err := os.Stat(journalDir); err != nil {
+		return issues // No journal directory, can't check
+	}
+	
+	// Get files from past 7 days
+	now := time.Now()
+	recentDate := now.AddDate(0, 0, -7) // 7 days ago
+	
+	// Read note files and check if they're mentioned in journals
+	entries, err := os.ReadDir(notesDir)
+	if err != nil {
+		return issues
+	}
+	
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		
+		// Get file modification time
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		
+		// Only check recently modified notes (past 7 days)
+		if info.ModTime().Before(recentDate) {
+			continue
+		}
+		
+		noteName := entry.Name()
+		
+		// Extract date if exists (for notes, should be YYYY-MM-DD.md format initially created)
+		// For Flip brains, note files are just title.md
+		// We can't reliably determine which journal entry should contain it
+		// So we just note that recent notes exist
+		
+		// Check if this note is referenced in any journal file
+		noteTitle := strings.TrimSuffix(noteName, ".md")
+		found := false
+		
+		journalEntries, err := os.ReadDir(journalDir)
+		if err != nil {
+			continue
+		}
+		
+		for _, jentry := range journalEntries {
+			if jentry.IsDir() || !strings.HasSuffix(jentry.Name(), ".md") {
+				continue
+			}
+			
+			// Read journal file
+			journalPath := filepath.Join(journalDir, jentry.Name())
+			content, err := os.ReadFile(journalPath)
+			if err != nil {
+				continue
+			}
+			
+			// Check if note name is mentioned in journal
+			if strings.Contains(string(content), noteName) || strings.Contains(string(content), noteTitle) {
+				found = true
+				break
+			}
+		}
+		
+		// Only report as info if not found (optional suggestion)
+		if !found {
+			relPath := filepath.Join("notes", noteName)
+			issue := Issue{
+				Type:     IssueTypeFormat,
+				Severity: SeverityInfo,
+				File:     relPath,
+				Message:  "Recent note might not be linked in journal",
+				Details:  "This note was recently created/modified but isn't referenced in any journal entry. This is optional - you can skip journal links if not needed.",
+			}
+			issues = append(issues, issue)
+		}
+	}
+	
+	return issues
 }
