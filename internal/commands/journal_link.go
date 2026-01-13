@@ -31,20 +31,21 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 
 	// Only ask in interactive mode
 	if opts.Interactive {
-		// Ask if user wants to add link
+		// Ask if user wants to skip adding link to journal (default: add it)
 		promptLink := promptui.Select{
 			Label: "Add link to today's journal?",
-			Items: []string{"Yes", "No"},
+			Items: []string{"Add link (default)", "Skip"},
 		}
 
 		idx, _, err := promptLink.Run()
 		if err != nil {
-			return nil // User cancelled
+			// User cancelled: default to adding link
 		}
 
-		if idx == 1 { // No
+		if idx == 1 { // Skip
 			return nil
 		}
+		// idx == 0 or cancelled: add the link (default behavior)
 	}
 
 	// Detect brain type if not provided
