@@ -718,9 +718,31 @@ func (c *Checker) isEntryPoint(relPath string) bool {
 
 // checkFilenameConvention checks if a file follows brain-specific naming conventions
 func (c *Checker) checkFilenameConvention(relPath string) *Issue {
-	// DISABLED: Filename convention checking is too complex and brain-specific
-	// Focus on more important checks: broken links, missing assets, orphaned files
-	// TODO: Re-enable with simpler, brain-specific rules if needed
+	// Only check specific patterns that are clearly wrong
+	
+	// Logseq: Pages should NOT have YYYY_MM_DD___ prefix (only journals should)
+	if c.brainType == BrainTypeLogseq {
+		basename := filepath.Base(relPath)
+		
+		// Check if file is in pages/ directory with date prefix
+		if strings.HasPrefix(relPath, "pages/") && 
+		   len(basename) > 14 && 
+		   basename[4] == '_' && 
+		   basename[7] == '_' && 
+		   basename[10:14] == "___" {
+			// This is a pages/ file with YYYY_MM_DD___ prefix - wrong!
+			correctName := basename[14:] // Remove date prefix
+			
+			return &Issue{
+				Type:     IssueTypeWrongFilename,
+				Severity: SeverityWarning,
+				File:     relPath,
+				Message:  fmt.Sprintf("Logseq pages should not have date prefix. Expected: %s", correctName),
+				Details:  fmt.Sprintf("Rename to: %s (date belongs in frontmatter, not filename)", correctName),
+			}
+		}
+	}
+	
 	return nil
 }
 
