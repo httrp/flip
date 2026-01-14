@@ -3,6 +3,7 @@ package commands
 import (
 	"archive/zip"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -265,42 +267,26 @@ func installToVSCodeProfile(vsixPath string) error {
 	}
 
 	fmt.Printf("✅ Installed to: %s\n", extensionDir)
+
+	// Update extensions.json in all VS Code profiles
+	fmt.Println("\n→ Updating VS Code profiles...")
+	if err := updateProfileExtensionsJSON(extensionDir); err != nil {
+		fmt.Printf("⚠️  Warning: could not update all profiles: %v\n", err)
+	}
+
 	return nil
 }
 
 // getVSCodeExtensionsDir returns the path to VS Code's extensions directory
-// Handles multiple profiles - installs to the standard extensions directory
-// which is shared across all profiles
+// Uses ~/.vscode/extensions which is shared across all profiles
 func getVSCodeExtensionsDir() (string, error) {
-	var vscodeDir string
-
-	switch runtime.GOOS {
-	case "darwin":
-		// macOS: ~/Library/Application Support/Code
-		home, _ := os.UserHomeDir()
-		vscodeDir = filepath.Join(home, "Library", "Application Support", "Code")
-
-	case "linux":
-		// Linux: ~/.config/Code
-		home, _ := os.UserHomeDir()
-		vscodeDir = filepath.Join(home, ".config", "Code")
-
-	case "windows":
-		// Windows: %APPDATA%\Code
-		appData := os.Getenv("APPDATA")
-		if appData == "" {
-			home, _ := os.UserHomeDir()
-			appData = filepath.Join(home, "AppData", "Roaming")
-		}
-		vscodeDir = filepath.Join(appData, "Code")
-
-	default:
-		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get home directory: %w", err)
 	}
 
-	// Use standard extensions directory (shared across all profiles)
-	// This is the most reliable location that works with all VS Code versions
-	extensionsDir := filepath.Join(vscodeDir, "extensions")
+	// Use ~/.vscode/extensions (shared across all profiles on all platforms)
+	extensionsDir := filepath.Join(home, ".vscode", "extensions")
 	if err := os.MkdirAll(extensionsDir, 0755); err != nil {
 		return "", err
 	}
@@ -332,4 +318,180 @@ func uninstallExtension() error {
 
 	fmt.Println("✅ Extension uninstalled.")
 	return nil
+}
+
+// getVSCodeUserDir returns the VS Code user data directory
+func getVSCodeUserDir() (string, error) {
+	var userDir string
+
+	switch runtime.GOOS {
+	case "darwin":
+		home, _ := os.UserHomeDir()
+		userDir = filepath.Join(home, "Library", "Application Support", "Code", "User")
+	case "linux":
+		home, _ := os.UserHomeDir()
+		userDir = filepath.Join(home, ".config", "Code", "User")
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			home, _ := os.UserHomeDir()
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		userDir = filepath.Join(appData, "Code", "User")
+	default:
+		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	return userDir, nil
+}
+
+// getVSCodeSharedExtensionsDir returns ~/.vscode/extensions (shared across all profiles)
+func getVSCodeSharedExtensionsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".vscode", "extensions"), nil
+}
+
+// updateProfileExtensionsJSON updates the extensions.json in each VS Code profile
+// This is necessary because the VS Code CLI doesn't properly update profile-specific extensions.json
+func updateProfileExtensionsJSON(extensionPath string) error {
+	userDir, err := getVSCodeUserDir()
+	if err != nil {
+		return err
+	}
+
+	profilesDir := filepath.Join(userDir, "profiles")
+	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
+		// No profiles, nothing to update
+		return nil
+	}
+
+	// Read profile names from storage.json
+	profileNames := make(map[string]string)
+	storageFile := filepath.Join(userDir, "globalStorage", "storage.json")
+	if data, err := os.ReadFile(storageFile); err == nil {
+		var storage map[string]interface{}
+		if json.Unmarshal(data, &storage) == nil {
+			if profiles, ok := storage["userDataProfiles"].([]interface{}); ok {
+				for _, p := range profiles {
+					if profile, ok := p.(map[string]interface{}); ok {
+						loc, _ := profile["location"].(string)
+						name, _ := profile["name"].(string)
+						if loc != "" && name != "" {
+							profileNames[loc] = name
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Iterate through all profiles
+	entries, err := os.ReadDir(profilesDir)
+	if err != nil {
+		return nil // Not an error if we can't read profiles
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		profileID := entry.Name()
+		extensionsFile := filepath.Join(profilesDir, profileID, "extensions.json")
+
+		if _, err := os.Stat(extensionsFile); os.IsNotExist(err) {
+			continue
+		}
+
+		if updated := updateExtensionsFile(extensionsFile, extensionPath); updated {
+			profileName := profileNames[profileID]
+			if profileName == "" {
+				profileName = profileID
+			}
+			fmt.Printf("  ✓ Updated profile: %s\n", profileName)
+		}
+	}
+
+	// Also update default profile's extensions.json if it exists
+	defaultExtFile := filepath.Join(userDir, "extensions.json")
+	if _, err := os.Stat(defaultExtFile); err == nil {
+		if updateExtensionsFile(defaultExtFile, extensionPath) {
+			fmt.Println("  ✓ Updated default profile")
+		}
+	}
+
+	return nil
+}
+
+// updateExtensionsFile updates a single extensions.json file
+// Uses map[string]interface{} to preserve all fields (VS Code adds many extra fields)
+func updateExtensionsFile(filePath, extensionPath string) bool {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+
+	var extensions []map[string]interface{}
+	if err := json.Unmarshal(data, &extensions); err != nil {
+		return false
+	}
+
+	// Find and update flip extension
+	found := false
+	for i, ext := range extensions {
+		identifier, ok := ext["identifier"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		id, _ := identifier["id"].(string)
+		if id != ExtensionID {
+			continue
+		}
+
+		found = true
+		// Update version
+		extensions[i]["version"] = ExtensionVersion
+		extensions[i]["relativeLocation"] = fmt.Sprintf("danorama.flip-vscode-%s", ExtensionVersion)
+
+		// Update location (preserve other fields like $mid, scheme)
+		if location, ok := ext["location"].(map[string]interface{}); ok {
+			location["path"] = extensionPath
+			extensions[i]["location"] = location
+		} else {
+			extensions[i]["location"] = map[string]interface{}{"path": extensionPath}
+		}
+
+		// Update metadata (preserve other fields)
+		if metadata, ok := ext["metadata"].(map[string]interface{}); ok {
+			metadata["pinned"] = false
+			metadata["installedTimestamp"] = time.Now().UnixMilli()
+			extensions[i]["metadata"] = metadata
+		} else {
+			extensions[i]["metadata"] = map[string]interface{}{
+				"pinned":             false,
+				"installedTimestamp": time.Now().UnixMilli(),
+			}
+		}
+		break
+	}
+
+	if !found {
+		// Extension not in this profile, nothing to update
+		return false
+	}
+
+	// Write back with same formatting
+	newData, err := json.MarshalIndent(extensions, "", "  ")
+	if err != nil {
+		return false
+	}
+
+	if err := os.WriteFile(filePath, newData, 0644); err != nil {
+		return false
+	}
+
+	return true
 }
