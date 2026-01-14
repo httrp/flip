@@ -234,7 +234,21 @@ func installToVSCodeProfile(vsixPath string) error {
 	defer reader.Close()
 
 	for _, file := range reader.File {
-		targetPath := filepath.Join(extensionDir, file.Name)
+		// VSIX files have "extension/" prefix - strip it
+		// Skip non-extension files like [Content_Types].xml
+		name := file.Name
+		if strings.HasPrefix(name, "extension/") {
+			name = strings.TrimPrefix(name, "extension/")
+		} else {
+			// Skip metadata files at root level
+			continue
+		}
+
+		if name == "" {
+			continue
+		}
+
+		targetPath := filepath.Join(extensionDir, name)
 
 		if file.FileInfo().IsDir() {
 			os.MkdirAll(targetPath, 0755)
