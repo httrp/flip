@@ -43,7 +43,7 @@ export async function searchTasks(): Promise<void> {
     const selected = quickPick.selectedItems[0];
     if (selected && selected.task) {
       quickPick.hide();
-      await openTaskLocation(selected.task);
+      await showTaskActions(selected.task);
     }
   });
 
@@ -71,7 +71,7 @@ export async function showFrogTasks(): Promise<void> {
   });
 
   if (selected && selected.task) {
-    await openTaskLocation(selected.task);
+    await showTaskActions(selected.task);
   }
 }
 
@@ -108,7 +108,7 @@ export async function showTodaysTasks(): Promise<void> {
   });
 
   if (selected && selected.task) {
-    await openTaskLocation(selected.task);
+    await showTaskActions(selected.task);
   }
 }
 
@@ -162,5 +162,47 @@ async function openTaskLocation(task: TaskInfo): Promise<void> {
     );
   } catch (error) {
     vscode.window.showErrorMessage(`Failed to open task: ${error}`);
+  }
+}
+
+/**
+ * Show task action menu after selection
+ */
+async function showTaskActions(task: TaskInfo): Promise<void> {
+  const actions = [
+    { label: '$(file-text) Open task', value: 'open' },
+    { label: '$(check) Mark as Done', value: 'done' },
+    { label: '$(sync) Set In Progress', value: 'in-progress' },
+    { label: '$(circle-outline) Set Open', value: 'open-status' },
+    { label: '$(clock) Defer', value: 'deferred' },
+    { label: '$(close) Cancel', value: 'cancelled' },
+  ];
+
+  const selected = await vscode.window.showQuickPick(actions, {
+    placeHolder: `Action for: ${task.description}`,
+  });
+
+  if (!selected) {
+    return;
+  }
+
+  if (selected.value === 'open') {
+    await openTaskLocation(task);
+  } else {
+    // Update status
+    const client = getFlipClient();
+    const status = selected.value === 'open-status' ? 'open' : selected.value as 'done' | 'in-progress' | 'deferred' | 'cancelled';
+    
+    const result = await client.updateTaskStatus({
+      file: task.path,
+      line: task.line,
+      status,
+    });
+
+    if (result.success) {
+      vscode.window.showInformationMessage(`✓ Task marked as ${status}`);
+    } else {
+      vscode.window.showErrorMessage(`Failed to update task: ${result.error}`);
+    }
   }
 }
