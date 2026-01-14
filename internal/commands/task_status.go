@@ -95,6 +95,7 @@ func NewTaskStatusCommand() *cobra.Command {
 	cmd.Flags().IntVar(&opts.Line, "line", 0, "Line number of the task (1-based)")
 	cmd.Flags().StringVar(&opts.Status, "status", "", "New status (open, in-progress, done, deferred, cancelled)")
 	cmd.MarkFlagRequired("status")
+	cmd.Flags().Bool("json", false, "Output result as JSON")
 
 	return cmd
 }
