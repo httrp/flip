@@ -53,31 +53,9 @@ package-extension: build-extension
 	@echo "✓ Extension packaged as .vsix"
 
 # Install VS Code Extension (works with VS Code or VSCodium)
-# First uninstalls the old version to clear cache, then installs fresh
+# Uses profile-aware script to update in all profiles where flip is installed
 install-extension: package-extension
-	@echo "Detecting VS Code CLI (code/codium/code-insiders)..."
-	@CLI=$$(command -v code || true); \
-	if [ -z "$$CLI" ]; then \
-		CLI=$$(command -v codium || true); \
-	fi; \
-	if [ -z "$$CLI" ]; then \
-		CLI=$$(command -v code-insiders || true); \
-	fi; \
-	if [ -z "$$CLI" ]; then \
-		echo "❌ VS Code CLI not found. Please ensure 'code' or 'codium' is in PATH."; \
-		exit 1; \
-	fi; \
-	VSIX=$$(ls -t $(VSIX_DIR)/flip-vscode-*.vsix 2>/dev/null | head -n 1); \
-	if [ -z "$$VSIX" ]; then \
-		echo "❌ No VSIX found. Run 'make package-extension' first."; \
-		exit 1; \
-	fi; \
-	VERSION=$$(basename "$$VSIX" | sed 's/flip-vscode-//;s/\.vsix//'); \
-	echo "→ Uninstalling old extension (clearing cache)..."; \
-	"$$CLI" --uninstall-extension danorama.flip-vscode 2>/dev/null || true; \
-	sleep 1; \
-	echo "→ Installing fresh extension v$$VERSION via $$CLI"; \
-	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension v$$VERSION installed successfully"
+	@bash scripts/install-extension-profile.sh
 
 # Uninstall the extension by identifier
 uninstall-extension:
