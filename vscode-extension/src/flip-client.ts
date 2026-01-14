@@ -629,7 +629,7 @@ export class FlipClient {
     file?: string;
     line?: number;
   }): Promise<FlipResult<TaskResult>> {
-    const args = ['task', 'new', '--no-edit', '--no-link', '--description', this.shellEscape(options.description)];
+    const args = ['task', 'new', '--no-edit', '--description', this.shellEscape(options.description)];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
