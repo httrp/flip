@@ -92,7 +92,7 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 	case "note":
 		emoji = "📝"
 	case "task":
-		emoji = "✅"
+		emoji = "📋"
 	case "exercise":
 		emoji = "💪"
 	case "meeting":
