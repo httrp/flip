@@ -30,8 +30,12 @@ help:
 	@echo "  make uninstall           Remove installed flip"
 
 # Build everything
-build: build-cli build-extension
+build: sync-version build-cli build-extension
 	@echo "✓ Build complete: $(BINARY) + VS Code Extension"
+
+# Sync extension version between package.json and Go
+sync-version:
+	@bash scripts/sync-extension-version.sh
 
 # Build CLI only
 build-cli:
@@ -49,6 +53,7 @@ package-extension: build-extension
 	@echo "✓ Extension packaged as .vsix"
 
 # Install VS Code Extension (works with VS Code or VSCodium)
+# First uninstalls the old version to clear cache, then installs fresh
 install-extension: package-extension
 	@echo "Detecting VS Code CLI (code/codium/code-insiders)..."
 	@CLI=$$(command -v code || true); \
@@ -67,8 +72,12 @@ install-extension: package-extension
 		echo "❌ No VSIX found. Run 'make package-extension' first."; \
 		exit 1; \
 	fi; \
-	echo "Installing extension: $$VSIX via $$CLI"; \
-	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed"
+	VERSION=$$(basename "$$VSIX" | sed 's/flip-vscode-//;s/\.vsix//'); \
+	echo "→ Uninstalling old extension (clearing cache)..."; \
+	"$$CLI" --uninstall-extension danorama.flip-vscode 2>/dev/null || true; \
+	sleep 1; \
+	echo "→ Installing fresh extension v$$VERSION via $$CLI"; \
+	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension v$$VERSION installed successfully"
 
 # Uninstall the extension by identifier
 uninstall-extension:
