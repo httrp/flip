@@ -563,145 +563,21 @@ func generateNoteContent(title string, brainType brain.BrainType, brainPath stri
 		author = "Unknown"
 	}
 
-	// Try to load template from file
-	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
-	if err != nil {
-		// Fallback to hardcoded template if file not found
-		if !JSONOutput {
-			fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
-		}
-		return generateDefaultNoteContent(title, brainType, author)
-	}
+	// Load template (falls back to embedded defaults automatically)
+	tmpl, _ := templates.Load(brainType, templates.TemplateTypeNote)
 
 	// Prepare template variables
 	vars := map[string]string{
 		"title":   title,
 		"date":    dateStr,
-		"tags":    "note",
+		"tags":    "",
 		"author":  author,
-		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
+		"id":      uuid.New().String(),
 		"updated": fmt.Sprintf("%d", now.Unix()),
 		"created": fmt.Sprintf("%d", now.Unix()),
 	}
 
 	return templates.Render(tmpl, vars)
-}
-
-// generateDefaultNoteContent provides fallback templates when template files don't exist
-func generateDefaultNoteContent(title string, brainType brain.BrainType, author string) string {
-	now := time.Now()
-	dateStr := now.Format("2006-01-02")
-	timeStr := now.Format("15:04")
-
-	switch brainType {
-	case brain.BrainTypeLogseq:
-		return fmt.Sprintf(`- title:: %s
-- created:: %s %s
-- author:: %s
-- tags:: 
-
-## %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- TODO Task title [priority: high] [deadline: YYYY-MM-DD] [assignee: name]
-
-`, title, dateStr, timeStr, author, title)
-
-	case brain.BrainTypeObsidian:
-		return fmt.Sprintf(`---
-title: %s
-created: %s
-author: %s
-tags: []
----
-
-# %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
-
-`, title, dateStr, author, title)
-
-	case brain.BrainTypeDendron:
-		return fmt.Sprintf(`---
-id: %s
-title: %s
-desc: ''
-author: %s
-updated: %d
-created: %d
----
-
-# %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
-
-`, generateID(), title, author, now.Unix(), now.Unix(), title)
-
-	case brain.BrainTypeFoam:
-		return fmt.Sprintf(`---
-title: %s
-date: %s
-author: %s
-tags: []
----
-
-# %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- [ ] Task title
-
-`, title, dateStr, author, title)
-
-	case brain.BrainTypeFlip:
-		return fmt.Sprintf(`---
-title: %s
-created: %s
-updated: %s
-type: note
-author: %s
-tags: []
----
-
-# %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- [ ] Task title - Priority: High, Deadline: YYYY-MM-DD, Assignee: name
-
-`, title, dateStr, dateStr, author, title)
-
-	default:
-		return fmt.Sprintf(`---
-title: %s
-date: %s
----
-
-# %s
-
-## Related
-- [[related-note]]
-
-## Tasks
-- [ ] Example task
-
-`, title, dateStr, title)
-	}
 }
 
 // promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor

@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.29",
+  "version": "0.1.33",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -118,6 +118,50 @@
       {
         "command": "flip.journalSync",
         "title": "Flip: Journal Sync (Fehlende Einträge prüfen)"
+      },
+      {
+        "command": "flip.definitions",
+        "title": "Flip: Manage Definitions (Orgs/People/Contexts)"
+      },
+      {
+        "command": "flip.addOrganization",
+        "title": "Flip: Add Organization"
+      },
+      {
+        "command": "flip.addPerson",
+        "title": "Flip: Add Person"
+      },
+      {
+        "command": "flip.exercises",
+        "title": "Flip: Exercises (List & Track)"
+      },
+      {
+        "command": "flip.newExercise",
+        "title": "Flip: New Exercise"
+      },
+      {
+        "command": "flip.quickTrack",
+        "title": "Flip: Quick Track Exercise"
+      },
+      {
+        "command": "flip.templates",
+        "title": "Flip: Manage Templates"
+      },
+      {
+        "command": "flip.editTemplate",
+        "title": "Flip: Edit Template"
+      },
+      {
+        "command": "flip.resetTemplate",
+        "title": "Flip: Reset Template to Default"
+      },
+      {
+        "command": "flip.insertTasks",
+        "title": "Flip: Insert Tasks into Journal"
+      },
+      {
+        "command": "flip.convertToNote",
+        "title": "Flip: Convert File to Note"
       }
     ],
     "keybindings": [
