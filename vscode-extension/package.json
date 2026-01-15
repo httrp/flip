@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -154,6 +154,14 @@
       {
         "command": "flip.resetTemplate",
         "title": "Flip: Reset Template to Default"
+      },
+      {
+        "command": "flip.insertTasks",
+        "title": "Flip: Insert Tasks into Journal"
+      },
+      {
+        "command": "flip.convertToNote",
+        "title": "Flip: Convert File to Note"
       }
     ],
     "keybindings": [

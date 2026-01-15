@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getFlipClient, refreshFlipClient, BrainInfo } from './flip-client';
-import { createJournal } from './commands/journal';
+import { createJournal, insertTasksIntoJournalCommand } from './commands/journal';
 import { createMeetingNote } from './commands/meeting';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask, updateTaskStatus } from './commands/task';
@@ -16,6 +16,7 @@ import { mediaNormalize } from './commands/media-normalize';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
+import { convertToFlipNote } from './commands/convert-to-note';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -73,6 +74,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.templates', templateCommand),
     vscode.commands.registerCommand('flip.editTemplate', editTemplateCommand),
     vscode.commands.registerCommand('flip.resetTemplate', resetTemplateCommand),
+    
+    // Journal task insertion
+    vscode.commands.registerCommand('flip.insertTasks', insertTasksIntoJournalCommand),
+    
+    // Convert file to flip note
+    vscode.commands.registerCommand('flip.convertToNote', convertToFlipNote),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),
