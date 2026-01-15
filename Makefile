@@ -7,7 +7,7 @@ INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help
+.PHONY: build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks
 
 # Default: show help
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "  make uninstall-extension Uninstall VS Code Extension"
 	@echo "  make install             Install flip CLI to GOPATH/bin"
 	@echo "  make dev-link            Create /usr/local/bin symlink (macOS/Linux)"
+	@echo "  make setup-hooks         Install git pre-commit hooks"
 	@echo "  make test                Run Go tests"
 	@echo "  make lint                Run Go linter (vet)"
 	@echo "  make smoke               Run smoke tests"
@@ -113,3 +114,14 @@ uninstall:
 	rm -f $(INSTALL_PATH)/$(BINARY)
 	sudo rm -f /usr/local/bin/$(BINARY)
 	@echo "✓ flip uninstalled"
+
+# Setup git hooks
+setup-hooks:
+	@echo "Installing git hooks..."
+	@echo '#!/bin/bash' > .git/hooks/pre-commit
+	@echo 'REPO_ROOT="$$(git rev-parse --show-toplevel)"' >> .git/hooks/pre-commit
+	@echo 'if [ -x "$$REPO_ROOT/scripts/check-extension-version.sh" ]; then' >> .git/hooks/pre-commit
+	@echo '    "$$REPO_ROOT/scripts/check-extension-version.sh"' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✓ Git hooks installed"
