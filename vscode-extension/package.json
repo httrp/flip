@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -118,6 +118,18 @@
       {
         "command": "flip.journalSync",
         "title": "Flip: Journal Sync (Fehlende Einträge prüfen)"
+      },
+      {
+        "command": "flip.definitions",
+        "title": "Flip: Manage Definitions (Orgs/People/Contexts)"
+      },
+      {
+        "command": "flip.addOrganization",
+        "title": "Flip: Add Organization"
+      },
+      {
+        "command": "flip.addPerson",
+        "title": "Flip: Add Person"
       }
     ],
     "keybindings": [

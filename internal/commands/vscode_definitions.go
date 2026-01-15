@@ -34,6 +34,7 @@ func NewVSCodeDefinitionsCommand() *cobra.Command {
 	cmd.AddCommand(NewDefinitionsListCommand())
 	cmd.AddCommand(NewDefinitionsAddOrgCommand())
 	cmd.AddCommand(NewDefinitionsAddPersonCommand())
+	cmd.AddCommand(NewDefinitionsRemoveCommand())
 
 	return cmd
 }
@@ -246,6 +247,89 @@ func NewDefinitionsAddPersonCommand() *cobra.Command {
 	cmd.Flags().StringVar(&role, "role", "", "Person's role (optional)")
 	cmd.Flags().StringVar(&brainName, "brain", "", "Brain name to use (optional, uses active brain if not set)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+
+	return cmd
+}
+
+// NewDefinitionsRemoveCommand removes a definition
+func NewDefinitionsRemoveCommand() *cobra.Command {
+	var defType, abbr, brainName string
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "Remove a definition (organization, person, context)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+			if abbr == "" {
+				OutputJSONError("definitions-remove", fmt.Errorf("--abbreviation is required"))
+				return nil
+			}
+			if defType == "" {
+				OutputJSONError("definitions-remove", fmt.Errorf("--type is required (organization, person, context)"))
+				return nil
+			}
+
+			defs, err := loadTaskDefinitionsForBrain(brainName)
+			if err != nil {
+				OutputJSONError("definitions-remove", err)
+				return nil
+			}
+
+			var removed bool
+			switch defType {
+			case "organization", "org":
+				for i, o := range defs.Organizations {
+					if strings.EqualFold(o.Abbreviation, abbr) {
+						defs.Organizations = append(defs.Organizations[:i], defs.Organizations[i+1:]...)
+						removed = true
+						break
+					}
+				}
+			case "person", "people":
+				for i, p := range defs.People {
+					if strings.EqualFold(p.Abbreviation, abbr) {
+						defs.People = append(defs.People[:i], defs.People[i+1:]...)
+						removed = true
+						break
+					}
+				}
+			case "context":
+				for i, c := range defs.Contexts {
+					if strings.EqualFold(c.Abbreviation, abbr) {
+						defs.Contexts = append(defs.Contexts[:i], defs.Contexts[i+1:]...)
+						removed = true
+						break
+					}
+				}
+			default:
+				OutputJSONError("definitions-remove", fmt.Errorf("unknown type: %s", defType))
+				return nil
+			}
+
+			if !removed {
+				OutputJSONError("definitions-remove", fmt.Errorf("%s with abbreviation '%s' not found", defType, abbr))
+				return nil
+			}
+
+			if err := saveTaskDefinitions(defs); err != nil {
+				OutputJSONError("definitions-remove", err)
+				return nil
+			}
+
+			OutputJSONSuccess("definitions-remove", map[string]string{
+				"type":         defType,
+				"abbreviation": abbr,
+				"status":       "removed",
+			})
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&defType, "type", "", "Definition type (organization, person, context)")
+	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Abbreviation to remove")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain name to use (optional)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON")
 
 	return cmd
 }

@@ -624,6 +624,17 @@ export class FlipClient {
   }
 
   /**
+   * Remove a definition (organization, person, context)
+   */
+  async removeDefinition(options: { type: string; abbreviation: string; brain?: string }): Promise<FlipResult<void>> {
+    const args = ['vscode', 'definitions', 'remove', '--type', options.type, '--abbreviation', this.shellEscape(options.abbreviation)];
+    if (options.brain) {
+      args.push('--brain', this.shellEscape(options.brain));
+    }
+    return this.execute<void>(args);
+  }
+
+  /**
    * Get all unique participants from a meeting series history
    */
   async getSeriesParticipants(seriesName: string): Promise<FlipResult<{ participants: string[] }>> {
@@ -845,6 +856,17 @@ export class FlipClient {
       args.push('--push');
     }
     return this.execute<SyncResult>(args);
+  }
+
+  /**
+   * Get definitions path for a brain
+   */
+  async getDefinitionsPath(options?: { brain?: string }): Promise<FlipResult<{ path: string }>> {
+    const args = ['definitions', 'path'];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<{ path: string }>(args);
   }
 
   /**
