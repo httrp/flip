@@ -319,6 +319,77 @@ export interface HealthReport {
 }
 
 /**
+ * Exercise item from exercises list
+ */
+export interface ExerciseItemResult {
+  id: string;
+  name: string;
+  context?: string;
+  description?: string;
+  goal?: string;
+  status?: string;
+  tags?: string[];
+  variant_count: number;
+  session_count: number;
+  last_session?: string;
+  file_path: string;
+  rel_path: string;
+  created: string;
+}
+
+/**
+ * Exercise variant
+ */
+export interface ExerciseVariantResult {
+  name?: string;
+  description?: string;
+  tracking_properties?: Record<string, string>;
+}
+
+/**
+ * Exercise detail result
+ */
+export interface ExerciseDetailResult extends ExerciseItemResult {
+  variants?: ExerciseVariantResult[];
+  duration?: string;
+  related?: string[];
+  brain_name: string;
+  brain_path: string;
+}
+
+/**
+ * Exercises list result
+ */
+export interface ExercisesListResult {
+  exercises: ExerciseItemResult[];
+  brain_name: string;
+  brain_path: string;
+  total: number;
+}
+
+/**
+ * Exercise track result
+ */
+export interface ExerciseTrackResult {
+  success: boolean;
+  exercise_id: string;
+  exercise_name: string;
+  journal_path: string;
+  date: string;
+}
+
+/**
+ * Exercise new result
+ */
+export interface ExerciseNewResult {
+  success: boolean;
+  id: string;
+  name: string;
+  file_path: string;
+  rel_path: string;
+}
+
+/**
  * Brain sync result
  */
 export interface BrainSyncResult {
@@ -867,6 +938,83 @@ export class FlipClient {
       args.push('--brain', options.brain);
     }
     return this.execute<{ path: string }>(args);
+  }
+
+  /**
+   * List all exercises
+   */
+  async listExercises(options?: { brain?: string; context?: string }): Promise<FlipResult<ExercisesListResult>> {
+    const args = ['vscode', 'exercises', 'list'];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    if (options?.context) {
+      args.push('--context', options.context);
+    }
+    return this.execute<ExercisesListResult>(args);
+  }
+
+  /**
+   * Show exercise details
+   */
+  async showExercise(exerciseId: string, options?: { brain?: string }): Promise<FlipResult<ExerciseDetailResult>> {
+    const args = ['vscode', 'exercises', 'show', exerciseId];
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<ExerciseDetailResult>(args);
+  }
+
+  /**
+   * Track an exercise session
+   */
+  async trackExercise(options: {
+    exerciseId: string;
+    duration?: number;
+    variant?: string;
+    notes?: string;
+    brain?: string;
+  }): Promise<FlipResult<ExerciseTrackResult>> {
+    const args = ['vscode', 'exercises', 'track', '--exercise', options.exerciseId];
+    if (options.duration) {
+      args.push('--duration', options.duration.toString());
+    }
+    if (options.variant) {
+      args.push('--variant', options.variant);
+    }
+    if (options.notes) {
+      args.push('--notes', this.shellEscape(options.notes));
+    }
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<ExerciseTrackResult>(args);
+  }
+
+  /**
+   * Create a new exercise
+   */
+  async createExercise(options: {
+    name: string;
+    context?: string;
+    description?: string;
+    goal?: string;
+    brain?: string;
+  }): Promise<FlipResult<ExerciseNewResult>> {
+    const args = ['vscode', 'exercises', 'new', '--name', this.shellEscape(options.name)];
+    if (options.context) {
+      args.push('--context', this.shellEscape(options.context));
+    }
+    if (options.description) {
+      args.push('--description', this.shellEscape(options.description));
+    }
+    if (options.goal) {
+      args.push('--goal', this.shellEscape(options.goal));
+    }
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<ExerciseNewResult>(args);
   }
 
   /**

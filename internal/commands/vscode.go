@@ -266,6 +266,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(NewVSCodeMeetingsCommand())
 	cmd.AddCommand(NewVSCodeDefinitionsCommand())
 	cmd.AddCommand(NewVSCodeJournalCommand())
+	cmd.AddCommand(NewVSCodeExercisesCommand())
 
 	// Extension commands
 	cmd.AddCommand(newVSCodeExtensionInstallCommand())
