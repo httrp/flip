@@ -7,11 +7,14 @@ INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks
+.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks
 
 # Default: show help
 help:
 	@echo "Flip - Build Targets:"
+	@echo ""
+	@echo "  make all                 Full check: build + lint + test + smoke"
+	@echo "  make ci                  Run exactly what CI runs"
 	@echo ""
 	@echo "  make build               Build everything (CLI + Extension)"
 	@echo "  make build-cli           Build flip CLI only"
@@ -29,6 +32,16 @@ help:
 	@echo "  make clean-cli           Clean CLI binary only"
 	@echo "  make clean-extension     Clean Extension build files"
 	@echo "  make uninstall           Remove installed flip"
+
+# Full check before commit (recommended before pushing)
+all: build lint test smoke
+	@echo ""
+	@echo "✓ All checks passed! Safe to commit."
+
+# Run exactly what CI runs
+ci: build lint test smoke
+	@echo ""
+	@echo "✓ CI simulation complete"
 
 # Build everything
 build: sync-version build-cli build-extension
