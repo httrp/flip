@@ -282,6 +282,15 @@ func generateID() string {
 func sanitizeFilename(title string) string {
 	safeName := strings.ToLower(title)
 
+	// Replace German umlauts with ASCII equivalents
+	replacements := map[string]string{
+		"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss",
+		"Ä": "ae", "Ö": "oe", "Ü": "ue",
+	}
+	for from, to := range replacements {
+		safeName = strings.ReplaceAll(safeName, from, to)
+	}
+
 	// Replace spaces and special chars with hyphen, but keep structure
 	safeName = strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {

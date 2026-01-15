@@ -195,11 +195,23 @@ func createJournalTemplateForDate(date time.Time) string {
 
 ## Activities
 
+## Meeting-Notes
+
+## New Tasks
+
+## Exercises
+
 `, dateStr, weekday)
 }
 
-// appendLinkToJournal appends a link to the journal file
+// appendLinkToJournal appends a link to the journal file in the appropriate section
 func appendLinkToJournal(journalPath, linkText string) error {
+	return appendLinkToJournalSection(journalPath, linkText, "")
+}
+
+// appendLinkToJournalSection appends a link to a specific section in the journal file
+// If section is empty, it determines the section from the link emoji
+func appendLinkToJournalSection(journalPath, linkText, section string) error {
 	// Read existing content
 	content, err := os.ReadFile(journalPath)
 	if err != nil {
@@ -208,19 +220,26 @@ func appendLinkToJournal(journalPath, linkText string) error {
 
 	fileContent := string(content)
 
-	// Find "## Activities" section and add link after it
-	// or just append to end if section not found
-	activitySection := "## Activities"
-	if idx := strings.Index(fileContent, activitySection); idx != -1 {
-		// Found Activities section, insert after it
-		insertPos := idx + len(activitySection)
+	// Determine section from link text if not specified
+	if section == "" {
+		section = getSectionForLink(linkText)
+	}
+
+	// Try to find the target section
+	if idx := strings.Index(fileContent, section); idx != -1 {
+		// Found target section, insert after it
+		insertPos := idx + len(section)
 
 		// Skip to end of line
 		for insertPos < len(fileContent) && fileContent[insertPos] != '\n' {
 			insertPos++
 		}
-		// Move past newline(s)
-		for insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
+		// Move past one newline
+		if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
+			insertPos++
+		}
+		// Skip empty line if present
+		if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
 			insertPos++
 		}
 
@@ -230,7 +249,40 @@ func appendLinkToJournal(journalPath, linkText string) error {
 		return os.WriteFile(journalPath, []byte(newContent), 0644)
 	}
 
-	// Fallback: append to end
+	// Fallback to Activities section
+	if section != "## Activities" {
+		if idx := strings.Index(fileContent, "## Activities"); idx != -1 {
+			insertPos := idx + len("## Activities")
+			for insertPos < len(fileContent) && fileContent[insertPos] != '\n' {
+				insertPos++
+			}
+			if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
+				insertPos++
+			}
+			if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
+				insertPos++
+			}
+			newContent := fileContent[:insertPos] + linkText + "\n" + fileContent[insertPos:]
+			return os.WriteFile(journalPath, []byte(newContent), 0644)
+		}
+	}
+
+	// Ultimate fallback: append to end
 	fileContent += "\n" + linkText + "\n"
 	return os.WriteFile(journalPath, []byte(fileContent), 0644)
+}
+
+// getSectionForLink determines the journal section based on the link emoji
+func getSectionForLink(linkText string) string {
+	if strings.HasPrefix(linkText, "🤝") {
+		return "## Meeting-Notes"
+	}
+	if strings.HasPrefix(linkText, "📋") {
+		return "## New Tasks"
+	}
+	if strings.HasPrefix(linkText, "💪") {
+		return "## Exercises"
+	}
+	// Default: Activities for notes and other items
+	return "## Activities"
 }
