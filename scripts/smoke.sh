@@ -2,8 +2,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "> Building flip binary..."
-go build -o flip ./cmd/flip
+# Use existing binary if available, otherwise build
+if [ ! -f ./flip ]; then
+  echo "> Building flip binary..."
+  go build -o flip ./cmd/flip
+else
+  echo "> Using existing flip binary"
+fi
 
 echo "> Running flip status..."
 STATUS_OUT=$(./flip status || true)
