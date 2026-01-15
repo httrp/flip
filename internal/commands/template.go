@@ -292,10 +292,20 @@ func viewTemplateFlow() error {
 }
 
 func resetTemplateFlow() error {
-	fmt.Println("\n⚠️  Reset Template")
-	fmt.Println("This will restore the template to its default version.")
-	fmt.Println("Note: Default templates are currently managed manually.")
+	fmt.Println("\n🔄 Reset Template")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
+
+	// Option to reset all or single template
+	scopePrompt := promptui.Select{
+		Label: "What would you like to reset?",
+		Items: []string{"Single template", "All templates for a brain type", "◀️  Back"},
+	}
+
+	scopeIdx, _, err := scopePrompt.Run()
+	if err != nil || scopeIdx == 2 {
+		return runTemplateMenu()
+	}
 
 	// Select brain type
 	brainTypePrompt := promptui.Select{
@@ -322,13 +332,38 @@ func resetTemplateFlow() error {
 		brainType = brain.BrainTypeFoam
 	}
 
-	// Select template type
+	if scopeIdx == 1 {
+		// Reset all templates for this brain type
+		confirmPrompt := promptui.Prompt{
+			Label:     fmt.Sprintf("Reset ALL templates for %s to defaults", brainStr),
+			IsConfirm: true,
+		}
+
+		_, err = confirmPrompt.Run()
+		if err != nil {
+			fmt.Println("\n❌ Cancelled")
+			fmt.Println("\nPress Enter to continue...")
+			fmt.Scanln()
+			return runTemplateMenu()
+		}
+
+		if err := templates.ResetBrainTemplates(brainType); err != nil {
+			fmt.Printf("\n❌ Error resetting templates: %v\n", err)
+		} else {
+			fmt.Printf("\n✅ All %s templates reset to defaults\n", brainStr)
+		}
+		fmt.Println("\nPress Enter to continue...")
+		fmt.Scanln()
+		return runTemplateMenu()
+	}
+
+	// Reset single template
 	templatePrompt := promptui.Select{
 		Label: fmt.Sprintf("Select template type for %s", brainStr),
 		Items: []string{"note", "meeting", "journal", "task"},
 	}
 
-	templateIdx, _, err := templatePrompt.Run()
+	templateIdx, templateStr, err := templatePrompt.Run()
 	if err != nil {
 		return runTemplateMenu()
 	}
@@ -345,18 +380,9 @@ func resetTemplateFlow() error {
 		templateType = templates.TemplateTypeTask
 	}
 
-	// Get template path
-	templatePath, err := templates.GetTemplatePath(brainType, templateType)
-	if err != nil {
-		fmt.Printf("\n❌ Error: %v\n", err)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
-		return runTemplateMenu()
-	}
-
 	// Confirm reset
 	confirmPrompt := promptui.Prompt{
-		Label:     fmt.Sprintf("Reset %s template for %s? (yes/no)", templateType, brainStr),
+		Label:     fmt.Sprintf("Reset %s template for %s to default", templateStr, brainStr),
 		IsConfirm: true,
 	}
 
@@ -368,11 +394,11 @@ func resetTemplateFlow() error {
 		return runTemplateMenu()
 	}
 
-	fmt.Printf("\n⚠️  Template reset not yet fully implemented\n")
-	fmt.Printf("Template location: %s\n", templatePath)
-	fmt.Println("\nTo reset manually:")
-	fmt.Println("1. Delete the template file")
-	fmt.Println("2. Flip will recreate it with defaults on next use")
+	if err := templates.ResetTemplate(brainType, templateType); err != nil {
+		fmt.Printf("\n❌ Error resetting template: %v\n", err)
+	} else {
+		fmt.Printf("\n✅ %s template for %s reset to default\n", templateStr, brainStr)
+	}
 	fmt.Println("\nPress Enter to continue...")
 	fmt.Scanln()
 	return runTemplateMenu()

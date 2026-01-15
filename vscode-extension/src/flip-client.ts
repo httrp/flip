@@ -390,6 +390,39 @@ export interface ExerciseNewResult {
 }
 
 /**
+ * Template info
+ */
+export interface TemplateInfo {
+  brain_type: string;
+  template_type: string;
+  content: string;
+  is_default: boolean;
+  path?: string;
+}
+
+/**
+ * Template list result
+ */
+export interface TemplateListResult {
+  templates: TemplateInfo[];
+}
+
+/**
+ * Template get result
+ */
+export interface TemplateGetResult {
+  template: TemplateInfo;
+}
+
+/**
+ * Template reset result
+ */
+export interface TemplateResetResult {
+  message: string;
+  template?: TemplateInfo;
+}
+
+/**
  * Brain sync result
  */
 export interface BrainSyncResult {
@@ -1015,6 +1048,48 @@ export class FlipClient {
       args.push('--brain', options.brain);
     }
     return this.execute<ExerciseNewResult>(args);
+  }
+
+  /**
+   * List templates for a brain type
+   */
+  async listTemplates(brainType: string): Promise<FlipResult<TemplateListResult>> {
+    return this.execute<TemplateListResult>(['vscode', 'templates', 'list', '--brain-type', brainType]);
+  }
+
+  /**
+   * Get a specific template
+   */
+  async getTemplate(brainType: string, templateType: string): Promise<FlipResult<TemplateGetResult>> {
+    return this.execute<TemplateGetResult>([
+      'vscode', 'templates', 'get',
+      '--brain-type', brainType,
+      '--template-type', templateType
+    ]);
+  }
+
+  /**
+   * Get default template
+   */
+  async getDefaultTemplate(brainType: string, templateType: string): Promise<FlipResult<TemplateGetResult>> {
+    return this.execute<TemplateGetResult>([
+      'vscode', 'templates', 'get-default',
+      '--brain-type', brainType,
+      '--template-type', templateType
+    ]);
+  }
+
+  /**
+   * Reset templates
+   */
+  async resetTemplates(brainType: string, templateType?: string, all?: boolean): Promise<FlipResult<TemplateResetResult>> {
+    const args = ['vscode', 'templates', 'reset', '--brain-type', brainType];
+    if (all) {
+      args.push('--all');
+    } else if (templateType) {
+      args.push('--template-type', templateType);
+    }
+    return this.execute<TemplateResetResult>(args);
   }
 
   /**

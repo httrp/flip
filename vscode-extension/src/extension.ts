@@ -15,6 +15,7 @@ import { brainHealthCheck } from './commands/brain-health';
 import { mediaNormalize } from './commands/media-normalize';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
+import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -67,6 +68,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.exercises', exerciseCommand),
     vscode.commands.registerCommand('flip.newExercise', newExerciseCommand),
     vscode.commands.registerCommand('flip.quickTrack', quickTrackCommand),
+    
+    // Template management
+    vscode.commands.registerCommand('flip.templates', templateCommand),
+    vscode.commands.registerCommand('flip.editTemplate', editTemplateCommand),
+    vscode.commands.registerCommand('flip.resetTemplate', resetTemplateCommand),
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),
