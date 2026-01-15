@@ -24,6 +24,9 @@ export async function addParticipantsCommand() {
   const filePath = editor.document.fileName;
   const content = editor.document.getText();
 
+  // Determine brain from file path
+  const brainName = await client.getBrainForPath(filePath);
+
   // Get the current participants if any
   let currentParticipants: string[] = [];
   const participantsMatch = content.match(/^### Participants\n([\s\S]*?)(?=\n###|\Z)/m);
@@ -37,8 +40,8 @@ export async function addParticipantsCommand() {
     }
   }
 
-  // Get all definitions
-  const defsResult = await client.listDefinitions();
+  // Get all definitions (from the same brain as the file)
+  const defsResult = await client.listDefinitions(brainName);
   if (!defsResult.success || !defsResult.data) {
     vscode.window.showErrorMessage('Fehler beim Laden der Definitionen');
     return;
@@ -129,7 +132,7 @@ export async function addParticipantsCommand() {
     // Remove __new__ from selection
     const withoutNew = selected.filter(item => item.person !== '__new__');
     // Add new person and reopen picker with new person selected
-    const newPersonName = await addNewPerson(client, withoutNew);
+    const newPersonName = await addNewPerson(client, withoutNew, brainName);
     if (newPersonName) {
       // Recursively call addParticipantsCommand to let user continue selecting
       vscode.commands.executeCommand('flip.add-participants');
@@ -156,7 +159,8 @@ export async function addParticipantsCommand() {
  */
 async function addNewPerson(
   client: ReturnType<typeof getFlipClient>,
-  currentSelection: vscode.QuickPickItem[]
+  currentSelection: vscode.QuickPickItem[],
+  brainName?: string
 ): Promise<string | undefined> {
   // Prompt for name
   const name = await vscode.window.showInputBox({
@@ -180,11 +184,12 @@ async function addNewPerson(
     placeHolder: 'z.B. Project Manager',
   });
 
-  // Add to definitions
+  // Add to definitions (with brain context)
   const result = await client.addPerson({
     name,
     organization: org || undefined,
     role: role || undefined,
+    brain: brainName,
   });
 
   if (!result.success) {

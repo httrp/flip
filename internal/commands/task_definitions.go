@@ -28,6 +28,7 @@ type TaskDefinitions struct {
 	Contexts      []ContextDef      `yaml:"contexts"`
 	People        []PersonDef       `yaml:"people,omitempty"`
 	Source        string            `yaml:"-"` // Where definitions were loaded from
+	BrainPath     string            `yaml:"-"` // Path to brain (for saving back to correct location)
 }
 
 // OrganizationDef defines an organization with its abbreviation
@@ -253,6 +254,33 @@ func invalidateDefinitionsCache() {
 	definitionsCacheTime = time.Time{}
 }
 
+// loadTaskDefinitionsForBrain loads definitions from a specific brain by name
+// If brainName is empty, falls back to active brain
+func loadTaskDefinitionsForBrain(brainName string) (*TaskDefinitions, error) {
+	if brainName == "" {
+		return loadTaskDefinitions()
+	}
+
+	// Get brain path from workspace
+	brains, err := getAllBrainsInWorkspace()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get brains: %w", err)
+	}
+
+	brainPath, ok := brains[brainName]
+	if !ok {
+		return nil, fmt.Errorf("brain not found: %s", brainName)
+	}
+
+	// Load directly from that brain (bypass cache since it's brain-specific)
+	defs, err := loadBrainDefinitions(brainPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load definitions from brain %s: %w", brainName, err)
+	}
+
+	return defs, nil
+}
+
 // loadBrainDefinitions loads definitions from brain's definitions directory
 // Returns nil if brain format doesn't exist
 func loadBrainDefinitions(brainPath string) (*TaskDefinitions, error) {
@@ -269,6 +297,7 @@ func loadBrainDefinitions(brainPath string) (*TaskDefinitions, error) {
 		Contexts:      []ContextDef{},
 		People:        []PersonDef{},
 		Source:        "brain",
+		BrainPath:     brainPath,
 	}
 
 	// Load organizations.yaml
@@ -447,19 +476,27 @@ func loadBrainPeople(path string) ([]PersonDef, error) {
 
 // saveBrainDefinitions saves definitions to brain's individual yaml files
 func saveBrainDefinitions(defs *TaskDefinitions) error {
-	brain, err := getActiveBrain()
-	if err != nil {
-		return fmt.Errorf("no active brain: %w", err)
+	// Use stored BrainPath if available, otherwise fall back to active brain
+	var brainPath string
+	if defs.BrainPath != "" {
+		brainPath = defs.BrainPath
+	} else {
+		brain, err := getActiveBrain()
+		if err != nil {
+			return fmt.Errorf("no active brain: %w", err)
+		}
+		brainPath = brain.Path
 	}
 
-	defsDir := filepath.Join(brain.Path, "definitions")
+	defsDir := filepath.Join(brainPath, "definitions")
 	if err := os.MkdirAll(defsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create definitions directory: %w", err)
 	}
 
 	// Save people.yaml in brain format
 	if len(defs.People) > 0 {
-		if err := saveBrainPeople(filepath.Join(defsDir, "people.yaml"), defs.People); err != nil {
+		peoplePath := filepath.Join(defsDir, "people.yaml")
+		if err := saveBrainPeople(peoplePath, defs.People); err != nil {
 			return fmt.Errorf("failed to save people: %w", err)
 		}
 	}

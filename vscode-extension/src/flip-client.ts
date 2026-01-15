@@ -460,6 +460,25 @@ export class FlipClient {
   }
 
   /**
+   * Get brain name for a given file path by checking which brain contains it
+   */
+  async getBrainForPath(filePath: string): Promise<string | undefined> {
+    const result = await this.getBrains();
+    if (!result.success || !result.data) {
+      return undefined;
+    }
+
+    // Find the brain whose path is a prefix of the file path
+    for (const brain of result.data) {
+      if (filePath.startsWith(brain.path)) {
+        return brain.name;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Get notes list for a brain
    */
   async getNotes(brain?: string): Promise<FlipResult<NotesResult>> {
@@ -559,14 +578,18 @@ export class FlipClient {
   /**
    * List all definitions (organizations, projects, contexts, people)
    */
-  async listDefinitions(): Promise<FlipResult<DefinitionsResult>> {
-    return this.execute<DefinitionsResult>(['vscode', 'definitions', 'list']);
+  async listDefinitions(brain?: string): Promise<FlipResult<DefinitionsResult>> {
+    const args = ['vscode', 'definitions', 'list'];
+    if (brain) {
+      args.push('--brain', this.shellEscape(brain));
+    }
+    return this.execute<DefinitionsResult>(args);
   }
 
   /**
    * Add a new organization to definitions
    */
-  async addOrganization(options: { abbreviation: string; name?: string; description?: string }): Promise<FlipResult<DefinitionItem>> {
+  async addOrganization(options: { abbreviation: string; name?: string; description?: string; brain?: string }): Promise<FlipResult<DefinitionItem>> {
     const args = ['vscode', 'definitions', 'add-org', '--abbreviation', this.shellEscape(options.abbreviation)];
     if (options.name) {
       args.push('--name', this.shellEscape(options.name));
@@ -574,13 +597,16 @@ export class FlipClient {
     if (options.description) {
       args.push('--description', this.shellEscape(options.description));
     }
+    if (options.brain) {
+      args.push('--brain', this.shellEscape(options.brain));
+    }
     return this.execute<DefinitionItem>(args);
   }
 
   /**
    * Add a new person to definitions
    */
-  async addPerson(options: { name: string; abbreviation?: string; organization?: string; role?: string }): Promise<FlipResult<DefinitionItem>> {
+  async addPerson(options: { name: string; abbreviation?: string; organization?: string; role?: string; brain?: string }): Promise<FlipResult<DefinitionItem>> {
     const args = ['vscode', 'definitions', 'add-person', '--name', this.shellEscape(options.name)];
     if (options.abbreviation) {
       args.push('--abbreviation', this.shellEscape(options.abbreviation));
@@ -590,6 +616,9 @@ export class FlipClient {
     }
     if (options.role) {
       args.push('--role', this.shellEscape(options.role));
+    }
+    if (options.brain) {
+      args.push('--brain', this.shellEscape(options.brain));
     }
     return this.execute<DefinitionItem>(args);
   }

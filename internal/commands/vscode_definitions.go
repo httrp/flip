@@ -41,6 +41,7 @@ func NewVSCodeDefinitionsCommand() *cobra.Command {
 // NewDefinitionsListCommand lists all definitions for VS Code
 func NewDefinitionsListCommand() *cobra.Command {
 	var jsonOutput bool
+	var brainName string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -48,7 +49,7 @@ func NewDefinitionsListCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			JSONOutput = jsonOutput
 
-			defs, err := loadTaskDefinitions()
+			defs, err := loadTaskDefinitionsForBrain(brainName)
 			if err != nil {
 				OutputJSONError("definitions-list", err)
 				return nil
@@ -108,6 +109,7 @@ func NewDefinitionsListCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain name to use (optional, uses active brain if not set)")
 
 	return cmd
 }
@@ -121,7 +123,7 @@ type AddOrgResult struct {
 
 // NewDefinitionsAddOrgCommand adds a new organization (non-interactive)
 func NewDefinitionsAddOrgCommand() *cobra.Command {
-	var name, abbr, desc string
+	var name, abbr, desc, brainName string
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
@@ -134,7 +136,7 @@ func NewDefinitionsAddOrgCommand() *cobra.Command {
 				return nil
 			}
 
-			defs, err := loadTaskDefinitions()
+			defs, err := loadTaskDefinitionsForBrain(brainName)
 			if err != nil {
 				OutputJSONError("definitions-add-org", err)
 				return nil
@@ -169,6 +171,7 @@ func NewDefinitionsAddOrgCommand() *cobra.Command {
 	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Organization abbreviation (required)")
 	cmd.Flags().StringVar(&name, "name", "", "Organization full name (optional, defaults to abbreviation)")
 	cmd.Flags().StringVar(&desc, "description", "", "Organization description (optional)")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain name to use (optional, uses active brain if not set)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
@@ -184,7 +187,7 @@ type AddPersonResult struct {
 
 // NewDefinitionsAddPersonCommand adds a new person definition
 func NewDefinitionsAddPersonCommand() *cobra.Command {
-	var name, abbr, org, role string
+	var name, abbr, org, role, brainName string
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
@@ -197,7 +200,7 @@ func NewDefinitionsAddPersonCommand() *cobra.Command {
 				return nil
 			}
 
-			defs, err := loadTaskDefinitions()
+			defs, err := loadTaskDefinitionsForBrain(brainName)
 			if err != nil {
 				OutputJSONError("definitions-add-person", err)
 				return nil
@@ -241,6 +244,7 @@ func NewDefinitionsAddPersonCommand() *cobra.Command {
 	cmd.Flags().StringVar(&abbr, "abbreviation", "", "Person's abbreviation (optional, auto-generated if not provided)")
 	cmd.Flags().StringVar(&org, "organization", "", "Person's organization (optional)")
 	cmd.Flags().StringVar(&role, "role", "", "Person's role (optional)")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain name to use (optional, uses active brain if not set)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
 	return cmd
