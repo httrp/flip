@@ -64,11 +64,11 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 	}
 	dateStr := targetDate.Format("2006-01-02")
 
-	// Build link format based on brain type
-	linkText := buildJournalLink(opts, dateStr)
-
 	// Get journal path for this brain and date
 	journalPath := getJournalFilePathForDate(opts.Brain, targetDate)
+
+	// Build link format based on brain type (pass journalPath for correct relative links)
+	linkText := buildJournalLink(opts, dateStr, journalPath)
 
 	// Ensure journal exists
 	if err := ensureJournalExistsForDate(journalPath, targetDate); err != nil {
@@ -85,7 +85,8 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 }
 
 // buildJournalLink creates the link text for adding to journal
-func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
+// journalPath: the path to the journal file (to calculate relative links)
+func buildJournalLink(opts JournalLinkOptions, dateStr, journalPath string) string {
 	// Emoji based on item type
 	emoji := "📎" // default
 	switch opts.ItemType {
@@ -97,6 +98,26 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 		emoji = "💪"
 	case "meeting":
 		emoji = "🤝"
+	}
+
+	// Calculate relative path from journal to item
+	// opts.ItemPath is relative from brain root, but we need relative from journal file
+	var linkPath string
+	if journalPath != "" {
+		// Convert to absolute paths for proper relative calculation
+		journalDir := filepath.Dir(journalPath)
+		itemPath := filepath.Join(opts.Brain.Path, opts.ItemPath)
+		
+		// Calculate relative path from journal directory to item
+		rel, err := filepath.Rel(journalDir, itemPath)
+		if err == nil {
+			linkPath = rel
+		} else {
+			// Fallback to original
+			linkPath = opts.ItemPath
+		}
+	} else {
+		linkPath = opts.ItemPath
 	}
 
 	// Build link based on brain type
@@ -115,8 +136,8 @@ func buildJournalLink(opts JournalLinkOptions, dateStr string) string {
 		return fmt.Sprintf("%s [[%s]]", emoji, pageName)
 
 	default:
-		// Flip and others: use markdown links with relative path
-		return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, opts.ItemPath)
+		// Flip and others: use markdown links with relative path from journal
+		return fmt.Sprintf("%s [%s](%s)", emoji, opts.ItemName, linkPath)
 	}
 }
 

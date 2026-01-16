@@ -152,7 +152,7 @@ async function insertTasksIntoJournal(filterType: string, brainName?: string): P
   const today = new Date().toISOString().split('T')[0];
 
   // Fetch tasks based on filter
-  let tasks: TaskInfo[] = [];
+  let filteredTasks: TaskInfo[] = [];
   
   const result = await client.getTasks({ 
     status: 'open',
@@ -168,26 +168,60 @@ async function insertTasksIntoJournal(filterType: string, brainName?: string): P
 
   switch (filterType) {
     case 'overdue':
-      tasks = allTasks.filter(t => t.due && t.due < today);
+      filteredTasks = allTasks.filter(t => t.due && t.due < today);
       break;
     case 'today':
-      tasks = allTasks.filter(t => t.due === today);
+      filteredTasks = allTasks.filter(t => t.due === today);
       break;
     case 'frog':
-      tasks = allTasks.filter(t => t.frog);
+      filteredTasks = allTasks.filter(t => t.frog);
       break;
     case 'all':
-      tasks = allTasks;
+      filteredTasks = allTasks;
       break;
   }
 
-  if (tasks.length === 0) {
+  if (filteredTasks.length === 0) {
     vscode.window.showInformationMessage(`No ${filterType} tasks found`);
     return;
   }
 
-  // Format tasks as links
-  const taskSection = formatTasksSection(tasks, filterType);
+  // Create quick pick items for multi-select
+  interface TaskPickItem extends vscode.QuickPickItem {
+    task: TaskInfo;
+  }
+
+  const taskItems: TaskPickItem[] = filteredTasks.map(task => {
+    const icons: string[] = [];
+    if (task.frog) icons.push('🐸');
+    if (task.priority === 'high') icons.push('⏫');
+    if (task.due) icons.push(`📅 ${task.due}`);
+    
+    return {
+      label: `${icons.join(' ')} ${task.description}`.trim(),
+      description: task.rel_path || task.path,
+      picked: true, // Pre-select all
+      task
+    };
+  });
+
+  // Show multi-select picker
+  const selectedItems = await vscode.window.showQuickPick(taskItems, {
+    placeHolder: `Select tasks to add (${filteredTasks.length} found)`,
+    title: 'Select Tasks',
+    canPickMany: true
+  });
+
+  if (!selectedItems || selectedItems.length === 0) {
+    return;
+  }
+
+  const selectedTasks = selectedItems.map(item => item.task);
+
+  // Format tasks as links (NO checkboxes - just links!)
+  // Pass the journal file path so links are relative from the journal
+  const journalFilePath = editor.document.fileName;
+  const taskSection = formatTasksSection(selectedTasks, filterType, journalFilePath);
 
   // Find a good insertion point (after ## Tasks or at end of file)
   const document = editor.document;
@@ -211,13 +245,19 @@ async function insertTasksIntoJournal(filterType: string, brainName?: string): P
     editBuilder.insert(insertPosition, taskSection);
   });
 
-  vscode.window.showInformationMessage(`Inserted ${tasks.length} task links`);
+  vscode.window.showInformationMessage(`Inserted ${selectedTasks.length} task links`);
 }
 
 /**
- * Format tasks as a markdown section with links
+ * Format tasks as a markdown section with links only (NO checkboxes!)
+ * Tasks are linked, not duplicated - the actual task lives in the task file
+ * 
+ * @param tasks Tasks to format
+ * @param filterType The type of filter used (for header)
+ * @param journalFilePath The path to the journal file (to calculate relative links)
  */
-function formatTasksSection(tasks: TaskInfo[], filterType: string): string {
+function formatTasksSection(tasks: TaskInfo[], filterType: string, journalFilePath?: string): string {
+  const path = require('path');
   const lines: string[] = [];
   
   // Add section header if inserting at end
@@ -240,10 +280,22 @@ function formatTasksSection(tasks: TaskInfo[], filterType: string): string {
     
     const prefix = icons.length > 0 ? icons.join(' ') + ' ' : '';
     
-    // Create a link to the task file
-    // Format: - [ ] [Task description](path/to/task.md)
-    const relPath = task.rel_path || task.path;
-    lines.push(`- [ ] ${prefix}[${task.description}](${relPath})`);
+    // Calculate correct relative path from journal to task
+    let linkPath = task.rel_path || task.path;
+    if (journalFilePath) {
+      try {
+        const journalDir = path.dirname(journalFilePath);
+        const taskAbsPath = path.resolve(journalDir, '..', task.rel_path || task.path);
+        linkPath = path.relative(journalDir, taskAbsPath);
+      } catch (e) {
+        // Fallback to original path if calculation fails
+        linkPath = task.rel_path || task.path;
+      }
+    }
+    
+    // Create ONLY a link to the task file - NO checkbox!
+    // This prevents duplicate tasks in the system
+    lines.push(`📋 ${prefix}[${task.description}](${linkPath})`);
   }
 
   lines.push('');
