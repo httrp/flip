@@ -5,7 +5,10 @@ BINARY=flip
 GOPATH=$(shell go env GOPATH)
 INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
-VSIX_FILE=$(VSIX_DIR)/flip-vscode-*.vsix
+# Extract version dynamically from package.json
+EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
+VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
+VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
 
 .PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks
 
@@ -63,10 +66,10 @@ build-extension:
 
 # Package Extension as .vsix file
 package-extension: build-extension
-	@echo "Building VSIX package..."
-	@cd $(VSIX_DIR) && (timeout 30 npx vsce package --out flip-vscode-0.2.5.vsix -y 2>/dev/null || true)
-	@if [ -f "$(VSIX_DIR)/flip-vscode-0.2.5.vsix" ]; then \
-		echo "✓ Extension packaged: $(VSIX_DIR)/flip-vscode-0.2.5.vsix"; \
+	@echo "Building VSIX package (version $(EXTENSION_VERSION))..."
+	@cd $(VSIX_DIR) && (yes | timeout 30 npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true)
+	@if [ -f "$(VSIX_FILE)" ]; then \
+		echo "✓ Extension packaged: $(VSIX_FILE)"; \
 	else \
 		echo "⚠️  Could not create new VSIX, using existing"; \
 	fi
@@ -85,7 +88,7 @@ install-extension: package-extension
 		echo "❌ VS Code CLI not found. Install VS Code and ensure 'code' is in PATH."; \
 		exit 1; \
 	fi; \
-	VSIX=$$(ls -t $(VSIX_DIR)/flip-vscode-*.vsix | head -1); \
+	VSIX=$$(ls -t $(VSIX_GLOB) 2>/dev/null | head -1); \
 	if [ -z "$$VSIX" ]; then \
 		echo "❌ No VSIX file found"; \
 		exit 1; \

@@ -59,6 +59,13 @@ echo "✓ Updated vscode_extension.go"
 
 echo ""
 echo "✅ Version bumped to $NEW_VERSION"
+
+# Clean up old VSIX files
+echo ""
+echo "Cleaning up old VSIX files..."
+find "$REPO_ROOT/vscode-extension" -name "flip-vscode-*.vsix" -delete
+echo "✓ Old VSIX files removed"
+
 echo ""
 echo "Next steps:"
 echo "  1. Review changes: git diff"
