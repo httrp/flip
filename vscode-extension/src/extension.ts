@@ -17,6 +17,7 @@ import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
 import { convertToFlipNote } from './commands/convert-to-note';
+import { showAbout, showHelp } from './commands/about';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -77,6 +78,10 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Journal task insertion
     vscode.commands.registerCommand('flip.insertTasks', insertTasksIntoJournalCommand),
+    
+    // Help & About
+    vscode.commands.registerCommand('flip.about', showAbout),
+    vscode.commands.registerCommand('flip.help', showHelp),
     
     // Convert file to flip note
     vscode.commands.registerCommand('flip.convertToNote', convertToFlipNote),
