@@ -3,7 +3,7 @@ import { getFlipClient, refreshFlipClient, BrainInfo } from './flip-client';
 import { createJournal, insertTasksIntoJournalCommand } from './commands/journal';
 import { createMeetingNote } from './commands/meeting';
 import { createNote, createQuicknote } from './commands/note';
-import { createTask, updateTaskStatus } from './commands/task';
+import { createTask, updateTaskStatus, markTaskDone } from './commands/task';
 import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
 import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/search';
 import { syncBrains, quickSync, syncAndPush } from './commands/sync';
@@ -88,9 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Placeholder commands (to be implemented)
     vscode.commands.registerCommand('flip.meetingNote', createMeetingNote),
-    vscode.commands.registerCommand('flip.taskDone', () => {
-      vscode.window.showInformationMessage('Task done: Not yet implemented');
-    })
+    vscode.commands.registerCommand('flip.taskDone', markTaskDone)
   );
 
   // Create status bar item

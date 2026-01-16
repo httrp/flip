@@ -277,3 +277,48 @@ export async function updateTaskStatus(): Promise<void> {
     }
   );
 }
+/**
+ * Quick toggle: Mark task as done (no prompt)
+ * Perfect for keyboard shortcut or quick action
+ */
+export async function markTaskDone(): Promise<void> {
+  const client = getFlipClient();
+  const editor = vscode.window.activeTextEditor;
+
+  if (!editor) {
+    vscode.window.showWarningMessage('Open a task file to mark it as done.');
+    return;
+  }
+
+  if (editor.document.languageId !== 'markdown') {
+    vscode.window.showWarningMessage('Task operations work in markdown files.');
+    return;
+  }
+
+  const file = editor.document.uri.fsPath;
+  const line = editor.selection.active.line + 1;
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Marking task as done...',
+      cancellable: false,
+    },
+    async () => {
+      const result = await client.updateTaskStatus({ file, line, status: 'done' });
+      if (!result.success || !result.data) {
+        vscode.window.showErrorMessage(`Failed to mark task as done: ${result.error ?? 'unknown error'}`);
+        return;
+      }
+
+      const data = result.data as TaskResult;
+      const doc = await vscode.workspace.openTextDocument(data.path);
+      const editorInstance = await vscode.window.showTextDocument(doc);
+      const position = new vscode.Position(data.line ? data.line - 1 : line - 1, 0);
+      editorInstance.selection = new vscode.Selection(position, position);
+      editorInstance.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+
+      vscode.window.showInformationMessage(`✓ Task marked as done in ${data.brain_name}`);
+    }
+  );
+}

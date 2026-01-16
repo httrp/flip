@@ -76,6 +76,10 @@
         "title": "Flip: Update Task Status"
       },
       {
+        "command": "flip.taskDone",
+        "title": "Flip: Mark Task as Done"
+      },
+      {
         "command": "flip.taskSearch",
         "title": "Flip: Search Tasks"
       },
