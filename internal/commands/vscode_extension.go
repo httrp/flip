@@ -17,7 +17,7 @@ import (
 )
 
 // ExtensionVersion must match the version in vscode-extension/package.json
-const ExtensionVersion = "0.1.33"
+const ExtensionVersion = "0.2.4"
 const ExtensionID = "danorama.flip-vscode"
 
 //go:embed assets/flip-vscode.vsix

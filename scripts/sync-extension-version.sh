@@ -34,8 +34,12 @@ GO_VERSION=$(grep 'const ExtensionVersion = ' "$VSCODE_GO" | sed 's/.*"\([^"]*\)
 if [ "$GO_VERSION" != "$PACKAGE_VERSION" ]; then
     echo "🔄 Syncing extension version: $GO_VERSION → $PACKAGE_VERSION"
     
-    # Update vscode_extension.go
-    sed -i '' "s/const ExtensionVersion = \"[^\"]*\"/const ExtensionVersion = \"$PACKAGE_VERSION\"/" "$VSCODE_GO"
+    # Update vscode_extension.go (use sed -i for Linux, sed -i '' for macOS)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/const ExtensionVersion = \"[^\"]*\"/const ExtensionVersion = \"$PACKAGE_VERSION\"/" "$VSCODE_GO"
+    else
+        sed -i "s/const ExtensionVersion = \"[^\"]*\"/const ExtensionVersion = \"$PACKAGE_VERSION\"/" "$VSCODE_GO"
+    fi
     
     if [ $? -eq 0 ]; then
         echo "✓ Updated ExtensionVersion in vscode_extension.go to $PACKAGE_VERSION"
