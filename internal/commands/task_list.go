@@ -24,6 +24,7 @@ func NewTaskListCommand() *cobra.Command {
 		overdue        bool
 		groupByFile    bool
 		frogOnly       bool
+		jsonOutput     bool  // Add JSON output flag
 	)
 
 	cmd := &cobra.Command{
@@ -57,6 +58,11 @@ func NewTaskListCommand() *cobra.Command {
 				filter.Context = contextFilter
 			}
 
+			// Use JSON output if requested
+			if jsonOutput {
+				return runListTasksJSON(filter)
+			}
+
 			return runListTasks(filter, groupByFile)
 		},
 	}
@@ -72,6 +78,7 @@ func NewTaskListCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "Show overdue tasks")
 	cmd.Flags().BoolVarP(&groupByFile, "group", "g", false, "Group tasks by file")
 	cmd.Flags().BoolVar(&frogOnly, "frog", false, "Show only 🐸 eat-the-frog tasks")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output tasks as JSON")
 
 	return cmd
 }
@@ -679,4 +686,88 @@ func getRelativePathFromBrain(fullPath, brainPath string) string {
 		return rel
 	}
 	return fullPath
+}
+
+// runListTasksJSON outputs filtered tasks as JSON (for VS Code extension)
+func runListTasksJSON(filter tasks.TaskFilter) error {
+	// Load workspace config
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("task-list", err)
+		return nil
+	}
+
+	if config.ActiveWorkspace == "" {
+		OutputJSONError("task-list", fmt.Errorf("no active workspace"))
+		return nil
+	}
+
+	// Find active workspace
+	var activeWs *Workspace
+	for i := range config.Workspaces {
+		if config.Workspaces[i].Name == config.ActiveWorkspace {
+			activeWs = &config.Workspaces[i]
+			break
+		}
+	}
+
+	if activeWs == nil {
+		OutputJSONError("task-list", fmt.Errorf("active workspace not found"))
+		return nil
+	}
+
+	if len(activeWs.Brains) == 0 {
+		OutputJSONError("task-list", fmt.Errorf("no brains in workspace"))
+		return nil
+	}
+
+	result := TasksResult{
+		Tasks: []TaskInfo{},
+	}
+
+	// Scan each brain
+	for _, brain := range activeWs.Brains {
+		scanner := tasks.NewScanner(brain.Path)
+		brainTasks, err := scanner.ScanBrain()
+		if err != nil {
+			continue
+		}
+
+		// Build index and apply filter
+		index := tasks.NewTaskIndex()
+		index.Build(brainTasks)
+		
+		filteredTasks := index.Query(filter)
+
+		// Convert to TaskInfo
+		for _, t := range filteredTasks {
+			relPath := getRelativePathFromBrain(t.Context.FilePath, brain.Path)
+			
+			taskInfo := TaskInfo{
+				Description:  t.Description,
+				Status:       statusString(t.Status),
+				Priority:     priorityString(t.Priority),
+				Tags:         t.Tags,
+				Frog:         t.Frog,
+				Path:         t.Context.FilePath,
+				RelPath:      relPath,
+				Line:         t.Context.LineNumber,
+				BrainName:    brain.Name,
+				BrainType:    brain.Type,
+				Organization: t.Organization,
+				Project:      t.Project,
+				ContextTag:   t.ContextTag,
+			}
+
+			if t.Due != nil {
+				taskInfo.Due = t.Due.Format("2006-01-02")
+			}
+
+			result.Tasks = append(result.Tasks, taskInfo)
+		}
+	}
+
+	result.TotalCount = len(result.Tasks)
+	OutputJSONSuccess("task-list", result)
+	return nil
 }

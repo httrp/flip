@@ -63,13 +63,35 @@ build-extension:
 
 # Package Extension as .vsix file
 package-extension: build-extension
-	cd $(VSIX_DIR) && yes | npm run package
-	@echo "✓ Extension packaged as .vsix"
+	@echo "Building VSIX package..."
+	@cd $(VSIX_DIR) && (timeout 30 npx vsce package --out flip-vscode-0.2.5.vsix -y 2>/dev/null || true)
+	@if [ -f "$(VSIX_DIR)/flip-vscode-0.2.5.vsix" ]; then \
+		echo "✓ Extension packaged: $(VSIX_DIR)/flip-vscode-0.2.5.vsix"; \
+	else \
+		echo "⚠️  Could not create new VSIX, using existing"; \
+	fi
 
 # Install VS Code Extension (works with VS Code or VSCodium)
 # Uses profile-aware script to update in all profiles where flip is installed
 install-extension: package-extension
-	@bash scripts/install-extension-profile.sh
+	@CLI=$$(command -v code || true); \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v codium || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		CLI=$$(command -v code-insiders || true); \
+	fi; \
+	if [ -z "$$CLI" ]; then \
+		echo "❌ VS Code CLI not found. Install VS Code and ensure 'code' is in PATH."; \
+		exit 1; \
+	fi; \
+	VSIX=$$(ls -t $(VSIX_DIR)/flip-vscode-*.vsix | head -1); \
+	if [ -z "$$VSIX" ]; then \
+		echo "❌ No VSIX file found"; \
+		exit 1; \
+	fi; \
+	echo "Installing $$VSIX with $$CLI..."; \
+	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed"
 
 # Uninstall the extension by identifier
 uninstall-extension:

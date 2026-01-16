@@ -10,21 +10,26 @@ else
   echo "> Using existing flip binary"
 fi
 
-echo "> Running flip status..."
-STATUS_OUT=$(./flip status || true)
-if [ $? -ne 0 ]; then
-  echo "[X] flip status failed"
+echo "> Testing flip vscode info..."
+if ! timeout 5 ./flip vscode info --json > /dev/null 2>&1; then
+  echo "[X] flip vscode info failed"
   exit 1
 fi
-echo "[OK] flip status completed"
+echo "[OK] flip vscode info completed"
 
-echo "> Running flip brain list..."
-BRAIN_OUT=$(./flip brain list || true)
-if [ $? -ne 0 ]; then
-  echo "[X] flip brain list failed"
+echo "> Testing flip task list..."
+if ! timeout 10 ./flip task list --json > /dev/null 2>&1; then
+  echo "[X] flip task list failed"
   exit 1
 fi
-echo "[OK] flip brain list completed"
+echo "[OK] flip task list completed"
+
+echo "> Testing flip task browse (JSON)..."
+if ! timeout 10 ./flip task browse --json > /dev/null 2>&1; then
+  echo "[X] flip task browse --json failed"
+  exit 1
+fi
+echo "[OK] flip task browse --json completed"
 
 echo ""
 echo "[OK] All smoke tests passed"

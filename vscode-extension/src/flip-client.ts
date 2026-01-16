@@ -857,6 +857,35 @@ export class FlipClient {
   }
 
   /**
+   * Browse tasks with JSON output (for WebView panel)
+   */
+  async browseTasksJson(): Promise<FlipResult<TasksResult>> {
+    const args = ['task', 'browse', '--json'];
+    return this.execute<TasksResult>(args);
+  }
+
+  /**
+   * List tasks with JSON output and optional filters
+   */
+  async listTasksJson(options?: {
+    status?: string;
+    priority?: string;
+    frog?: boolean;
+  }): Promise<FlipResult<TasksResult>> {
+    const args = ['task', 'list', '--json'];
+    if (options?.status) {
+      args.push('--status', options.status);
+    }
+    if (options?.priority) {
+      args.push('--priority', options.priority);
+    }
+    if (options?.frog) {
+      args.push('--frog');
+    }
+    return this.execute<TasksResult>(args);
+  }
+
+  /**
    * Search across all brains
    */
   async search(options: {

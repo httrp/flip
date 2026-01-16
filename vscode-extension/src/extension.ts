@@ -5,6 +5,7 @@ import { createMeetingNote } from './commands/meeting';
 import { createNote, createQuicknote } from './commands/note';
 import { createTask, updateTaskStatus, markTaskDone } from './commands/task';
 import { searchTasks, showFrogTasks, showTodaysTasks } from './commands/task-search';
+import { browseTasksPanel } from './commands/task-browse';
 import { searchAllBrains, showRecentNotes, searchWithFilters } from './commands/search';
 import { syncBrains, quickSync, syncAndPush } from './commands/sync';
 import { showStatus, switchBrain } from './commands/status';
@@ -36,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.taskSearch', searchTasks),
     vscode.commands.registerCommand('flip.taskFrog', showFrogTasks),
     vscode.commands.registerCommand('flip.taskToday', showTodaysTasks),
+    vscode.commands.registerCommand('flip.taskBrowse', () => browseTasksPanel(context.extensionUri)),
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
     vscode.commands.registerCommand('flip.insertLink', insertLink),
