@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -198,6 +198,14 @@
       {
         "command": "flip.setDefaultBrain",
         "title": "Flip: Set Default Brain"
+      },
+      {
+        "command": "flip.manage",
+        "title": "Flip: Manage (Settings, Cleanup, etc.)"
+      },
+      {
+        "command": "flip.settings",
+        "title": "Flip: Settings & Configuration"
       }
     ],
     "keybindings": [

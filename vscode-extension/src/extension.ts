@@ -19,6 +19,7 @@ import { templateCommand, editTemplateCommand, resetTemplateCommand } from './co
 import { convertToFlipNote } from './commands/convert-to-note';
 import { showAbout, showHelp } from './commands/about';
 import { manageBrains, listBrains, addBrain, initBrain, removeBrain, setDefaultBrain } from './commands/brain';
+import { showManage, showSettings } from './commands/manage';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -66,6 +67,10 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.initBrain', initBrain),
     vscode.commands.registerCommand('flip.removeBrain', removeBrain),
     vscode.commands.registerCommand('flip.setDefaultBrain', setDefaultBrain),
+    
+    // Manage & Settings
+    vscode.commands.registerCommand('flip.manage', showManage),
+    vscode.commands.registerCommand('flip.settings', showSettings),
     
     // Media normalize
     vscode.commands.registerCommand('flip.mediaNormalize', mediaNormalize),
