@@ -18,6 +18,7 @@ import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './comman
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
 import { convertToFlipNote } from './commands/convert-to-note';
 import { showAbout, showHelp } from './commands/about';
+import { manageBrains, listBrains, addBrain, initBrain, removeBrain, setDefaultBrain } from './commands/brain';
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 
@@ -57,6 +58,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Brain health
     vscode.commands.registerCommand('flip.brainHealth', brainHealthCheck),
+    
+    // Brain management
+    vscode.commands.registerCommand('flip.manageBrains', manageBrains),
+    vscode.commands.registerCommand('flip.listBrains', listBrains),
+    vscode.commands.registerCommand('flip.addBrain', addBrain),
+    vscode.commands.registerCommand('flip.initBrain', initBrain),
+    vscode.commands.registerCommand('flip.removeBrain', removeBrain),
+    vscode.commands.registerCommand('flip.setDefaultBrain', setDefaultBrain),
     
     // Media normalize
     vscode.commands.registerCommand('flip.mediaNormalize', mediaNormalize),

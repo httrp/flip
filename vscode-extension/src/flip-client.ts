@@ -1093,6 +1093,13 @@ export class FlipClient {
   }
 
   /**
+   * Execute arbitrary flip command
+   */
+  async runCommand(args: string[]): Promise<FlipResult<any>> {
+    return this.execute<any>(args);
+  }
+
+  /**
    * Check if flip is available
    */
   async isAvailable(): Promise<boolean> {
