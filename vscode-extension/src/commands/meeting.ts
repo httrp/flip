@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getFlipClient, NoteResult, MeetingSeriesInfo, DefinitionItem } from '../flip-client';
+import { pickDate } from '../ui/datePicker';
 import { promptAutoAddToJournal } from './journal-helper';
 
 /**
@@ -147,12 +148,13 @@ export async function createMeetingNote(): Promise<void> {
       series = selectedSeries.value;
     }
 
-    // Auto-generate title: "Series Name - DD.MM.YYYY"
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    title = `${series} - ${day}.${month}.${year}`;
+    // Pick meeting date (default: today), then auto-generate title: "Series Name - DD.MM.YYYY"
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const picked = await pickDate(dateStr, 'Select Meeting Date');
+    if (!picked) return; // cancel
+    const [yyyy, mm, dd] = picked.split('-');
+    title = `${series} - ${dd}.${mm}.${yyyy}`;
   } else {
     // Single meeting: prompt for title
     const inputTitle = await vscode.window.showInputBox({

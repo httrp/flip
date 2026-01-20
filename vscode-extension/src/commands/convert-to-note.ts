@@ -217,11 +217,9 @@ async function collectMissingMetadata(
       }
 
       case 'date': {
-        const date = await vscode.window.showInputBox({
-          prompt: 'Enter meeting date (YYYY-MM-DD)',
-          value: today,
-          placeHolder: 'YYYY-MM-DD'
-        });
+        // Use date picker
+        const { pickDate } = await import('../ui/datePicker');
+        const date = await pickDate(today, 'Select Meeting Date');
         if (date === undefined) return null;
         metadata.date = date || today;
         break;
