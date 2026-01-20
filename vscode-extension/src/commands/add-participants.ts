@@ -29,7 +29,8 @@ export async function addParticipantsCommand() {
 
   // Get the current participants if any
   let currentParticipants: string[] = [];
-  const participantsMatch = content.match(/^### Participants\n([\s\S]*?)(?=\n###|\Z)/m);
+  // Match Participants section regardless of # count (## or ### or even #)
+  const participantsMatch = content.match(/^#+\s+Participants\s*\n([\s\S]*?)(?=\n#+\s+|\Z)/m);
   if (participantsMatch) {
     const participantsText = participantsMatch[1].trim();
     if (participantsText && participantsText !== '-') {
@@ -255,36 +256,43 @@ function updateParticipants(editor: vscode.TextEditor, participants: string[]) {
   const content = editor.document.getText();
   const participantsSection = participants.map(p => `- ${p}`).join('\n');
 
-  // Check if participants section exists
-  const participantsRegex = /^### Participants\n([\s\S]*?)(?=\n###|\Z)/m;
+  // Try to find existing Participants section (any # level)
+  const participantsRegex = /^(#+\s+Participants\s*)\n([\s\S]*?)(?=\n#+\s+|\Z)/m;
   const match = content.match(participantsRegex);
 
   const edit = new vscode.WorkspaceEdit();
 
   if (match) {
-    // Replace existing participants section
+    // Replace existing participants section, keeping the original format
     const start = content.indexOf(match[0]);
     const end = start + match[0].length;
     const startPos = editor.document.positionAt(start);
     const endPos = editor.document.positionAt(end);
     const range = new vscode.Range(startPos, endPos);
     
-    const newSection = `### Participants\n${participantsSection}`;
+    const newSection = `${match[1]}\n${participantsSection}`;
     edit.replace(editor.document.uri, range, newSection);
   } else {
-    // Find first ### heading to insert after
-    const firstHeadingRegex = /^(###\s+\w+.*?)$/m;
-    const headingMatch = content.match(firstHeadingRegex);
+    // Section doesn't exist - just insert it after the first heading or at a good spot
+    // Try to insert after frontmatter (---)
+    const frontmatterEnd = content.indexOf('\n---\n');
+    let insertPos = 0;
     
-    if (headingMatch) {
-      const insertPos = content.indexOf(headingMatch[0]) + headingMatch[0].length;
-      const pos = editor.document.positionAt(insertPos);
-      edit.insert(editor.document.uri, pos, `\n\n### Participants\n${participantsSection}`);
+    if (frontmatterEnd !== -1) {
+      // Found frontmatter, insert after it
+      insertPos = frontmatterEnd + 5; // After the second ---\n
     } else {
-      // Fallback: insert at beginning
-      const pos = editor.document.positionAt(0);
-      edit.insert(editor.document.uri, pos, `### Participants\n${participantsSection}\n\n`);
+      // No frontmatter, try to insert after first heading
+      const firstHeadingMatch = content.match(/^#+\s+\w+.*?$/m);
+      if (firstHeadingMatch) {
+        const headingStart = content.indexOf(firstHeadingMatch[0]);
+        const headingEnd = headingStart + firstHeadingMatch[0].length;
+        insertPos = content.indexOf('\n', headingEnd) + 1; // After heading line
+      }
     }
+
+    const pos = editor.document.positionAt(insertPos);
+    edit.insert(editor.document.uri, pos, `\n## Participants\n${participantsSection}\n`);
   }
 
   vscode.workspace.applyEdit(edit);
