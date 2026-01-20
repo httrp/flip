@@ -75,7 +75,7 @@ package-extension: build-extension
 	fi
 
 # Install VS Code Extension (works with VS Code or VSCodium)
-# Uses profile-aware script to update in all profiles where flip is installed
+# Installs to both default profile AND "da" profile if it exists
 install-extension: package-extension
 	@CLI=$$(command -v code || true); \
 	if [ -z "$$CLI" ]; then \
@@ -93,8 +93,9 @@ install-extension: package-extension
 		echo "❌ No VSIX file found"; \
 		exit 1; \
 	fi; \
-	echo "Installing $$VSIX with $$CLI..."; \
-	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed"
+	echo "Installing $$VSIX..."; \
+	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed (default profile)"; \
+	"$$CLI" --install-extension "$$VSIX" --force --profile "da" 2>/dev/null && echo "✓ Extension installed (da profile)" || true
 
 # Uninstall the extension by identifier
 uninstall-extension:
