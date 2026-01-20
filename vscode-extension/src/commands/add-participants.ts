@@ -2,10 +2,19 @@ import * as vscode from 'vscode';
 import { getFlipClient, FlipResult, DefinitionItem } from '../flip-client';
 
 /**
+ * Participant with optional abbreviation for @-mentions
+ */
+interface Participant {
+  name: string;
+  abbreviation?: string;
+}
+
+/**
  * Participant item for quick pick
  */
 interface ParticipantItem extends vscode.QuickPickItem {
   person: string;
+  abbreviation?: string;
   isFromSeries?: boolean;
 }
 
@@ -27,8 +36,8 @@ export async function addParticipantsCommand() {
   // Determine brain from file path
   const brainName = await client.getBrainForPath(filePath);
 
-  // Get the current participants if any
-  let currentParticipants: string[] = [];
+  // Get the current participants if any (parse name and potential abbreviation)
+  let currentParticipants: Participant[] = [];
   // Match Participants section regardless of # count (## or ### or even #)
   const participantsMatch = content.match(/^#+\s+Participants\s*\n([\s\S]*?)(?=\n#+\s+|\Z)/m);
   if (participantsMatch) {
@@ -36,8 +45,16 @@ export async function addParticipantsCommand() {
     if (participantsText && participantsText !== '-') {
       currentParticipants = participantsText
         .split('\n')
-        .map(line => line.replace(/^-\s*/, '').trim())
-        .filter(p => p.length > 0);
+        .map(line => {
+          const text = line.replace(/^-\s*/, '').trim();
+          // Check for pattern: "Name (@abbrev)"
+          const abbrevMatch = text.match(/^(.+?)\s+\(@(\w+)\)$/);
+          if (abbrevMatch) {
+            return { name: abbrevMatch[1].trim(), abbreviation: abbrevMatch[2] };
+          }
+          return { name: text, abbreviation: undefined };
+        })
+        .filter(p => p.name.length > 0);
     }
   }
 
@@ -66,6 +83,17 @@ export async function addParticipantsCommand() {
     const items: ParticipantItem[] = [];
     const seenParticipants = new Set<string>();
 
+    // Helper to check if participant is already selected
+    const isParticipantSelected = (name: string): boolean => {
+      return currentParticipants.some(p => p.name === name || p.name.startsWith(name + ' ('));
+    };
+
+    // Helper to find abbreviation for existing participant
+    const findAbbreviation = (name: string): string | undefined => {
+      const found = currentParticipants.find(p => p.name === name || p.name.startsWith(name + ' ('));
+      return found?.abbreviation;
+    };
+
     // Add historical series participants first (for series meetings)
     if (seriesParticipants.length > 0) {
       items.push({
@@ -75,10 +103,11 @@ export async function addParticipantsCommand() {
       });
       for (const p of seriesParticipants) {
         seenParticipants.add(p);
-        const isSelected = currentParticipants.includes(p);
+        const isSelected = isParticipantSelected(p);
         items.push({
           label: `${isSelected ? '$(check)' : '$(circle-outline)'} ${p}`,
           person: p,
+          abbreviation: findAbbreviation(p),
           isFromSeries: true,
           picked: isSelected,
           description: isSelected ? 'ausgewählt' : '',
@@ -86,7 +115,7 @@ export async function addParticipantsCommand() {
       }
     }
 
-    // Add people from definitions
+    // Add people from definitions (with their abbreviations)
     if (defsResult.data.people.length > 0) {
       items.push({
         label: '── Definitionen ──',
@@ -96,12 +125,15 @@ export async function addParticipantsCommand() {
       for (const person of defsResult.data.people) {
         const display = person.organization ? `${person.name} (${person.organization})` : person.name;
         if (!seenParticipants.has(display)) {
-          const isSelected = currentParticipants.includes(person.name) || currentParticipants.includes(display);
+          const isSelected = isParticipantSelected(person.name);
+          // Show abbreviation in description
+          const abbrevDesc = person.abbreviation ? `@${person.abbreviation}` : '';
           items.push({
             label: `${isSelected ? '$(check)' : '$(circle-outline)'} ${display}`,
             person: display,
+            abbreviation: person.abbreviation,
             picked: isSelected,
-            description: isSelected ? 'ausgewählt' : '',
+            description: isSelected ? `ausgewählt ${abbrevDesc}`.trim() : abbrevDesc,
           });
           seenParticipants.add(display);
         }
@@ -143,17 +175,18 @@ export async function addParticipantsCommand() {
     if (hasNewPerson) {
       // Remove __new__ from selection
       const withoutNew = selected.filter(item => item.person !== '__new__' && item.person !== '__done__');
-      // Get selected participants
-      const selectedParticipants = withoutNew
-        .map(item => item.person)
-        .filter(p => p.length > 0);
+      // Get selected participants with abbreviations
+      const selectedParticipants: Participant[] = withoutNew
+        .filter(item => item.person.length > 0)
+        .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
 
       // Add new person
-      const newPersonName = await addNewPersonInteractive(client, brainName);
-      if (newPersonName) {
+      const newPerson = await addNewPersonInteractive(client, brainName);
+      if (newPerson) {
         // Automatically add the new person to selection
-        if (!currentParticipants.includes(newPersonName)) {
-          currentParticipants.push(newPersonName);
+        const alreadyExists = currentParticipants.some(p => p.name === newPerson.name);
+        if (!alreadyExists) {
+          currentParticipants.push(newPerson);
         }
         // Continue loop to show picker again
         content = editor.document.getText(); // Refresh content
@@ -162,14 +195,22 @@ export async function addParticipantsCommand() {
     } else if (isDone) {
       // Save and exit
       done = true;
-      // Update participants in the file with current selection
-      const finalSelected = selected
-        .filter(item => item.person !== '__done__')
-        .map(item => item.person)
-        .filter(p => p.length > 0);
+      // Update participants in the file with current selection (with abbreviations)
+      const finalSelected: Participant[] = selected
+        .filter(item => item.person !== '__done__' && item.person.length > 0)
+        .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
 
-      // Merge with existing
-      const allParticipants = Array.from(new Set([...currentParticipants, ...finalSelected]));
+      // Merge with existing, keeping abbreviations
+      const mergedMap = new Map<string, Participant>();
+      for (const p of currentParticipants) {
+        mergedMap.set(p.name, p);
+      }
+      for (const p of finalSelected) {
+        if (!mergedMap.has(p.name)) {
+          mergedMap.set(p.name, p);
+        }
+      }
+      const allParticipants = Array.from(mergedMap.values());
 
       if (allParticipants.length === 0) {
         vscode.window.showWarningMessage('Keine Teilnehmer ausgewählt');
@@ -181,11 +222,10 @@ export async function addParticipantsCommand() {
         vscode.window.showInformationMessage(`${allParticipants.length} Teilnehmer gespeichert`);
       }
     } else {
-      // Update selection (without __new__ or __done__)
+      // Update selection (without __new__ or __done__) - with abbreviations
       currentParticipants = selected
-        .filter(item => item.person !== '__new__' && item.person !== '__done__')
-        .map(item => item.person)
-        .filter(p => p.length > 0);
+        .filter(item => item.person !== '__new__' && item.person !== '__done__' && item.person.length > 0)
+        .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
 
       if (currentParticipants.length === 0) {
         vscode.window.showWarningMessage('Keine Teilnehmer ausgewählt');
@@ -207,7 +247,7 @@ export async function addParticipantsCommand() {
 async function addNewPersonInteractive(
   client: ReturnType<typeof getFlipClient>,
   brainName?: string
-): Promise<string | undefined> {
+): Promise<{ name: string; abbreviation?: string } | undefined> {
   // Prompt for name
   const name = await vscode.window.showInputBox({
     prompt: 'Name der neuen Person',
@@ -224,11 +264,91 @@ async function addNewPersonInteractive(
     return undefined;
   }
 
-  // Prompt for organization
-  const org = await vscode.window.showInputBox({
-    prompt: 'Organisation (optional)',
-    placeHolder: 'z.B. Acme Corp',
+  // Prompt for abbreviation/Kürzel
+  const defaultAbbrev = generateAbbreviation(name.trim());
+  const abbreviation = await vscode.window.showInputBox({
+    prompt: 'Kürzel für @-Mentions (optional)',
+    placeHolder: `z.B. ${defaultAbbrev}`,
+    value: defaultAbbrev,
   });
+
+  // Get organizations for picker
+  const defsResult = await client.listDefinitions(brainName);
+  let selectedOrg: string | undefined;
+  let isNewOrg = false;
+
+  if (defsResult.success && defsResult.data) {
+    // Build org picker items
+    interface OrgPickItem extends vscode.QuickPickItem {
+      orgName: string;
+      isNew?: boolean;
+    }
+
+    const orgItems: OrgPickItem[] = defsResult.data.organizations.map(org => ({
+      label: org.name,
+      description: org.abbreviation ? `@${org.abbreviation}` : '',
+      orgName: org.name,
+    }));
+
+    // Add "new org" option
+    orgItems.push({
+      label: '$(plus) Neue Organisation anlegen',
+      orgName: '__new__',
+      isNew: true,
+    });
+
+    // Add "keine" option at the beginning
+    orgItems.unshift({
+      label: '$(circle-slash) Keine Organisation',
+      orgName: '',
+    });
+
+    const orgChoice = await vscode.window.showQuickPick(orgItems, {
+      placeHolder: 'Organisation auswählen (optional)',
+    });
+
+    if (orgChoice) {
+      if (orgChoice.orgName === '__new__') {
+        // Create new organization
+        const newOrgName = await vscode.window.showInputBox({
+          prompt: 'Name der neuen Organisation',
+          placeHolder: 'z.B. Acme Corp',
+        });
+
+        if (newOrgName) {
+          const newOrgAbbrev = await vscode.window.showInputBox({
+            prompt: 'Kürzel für die Organisation',
+            placeHolder: 'z.B. ACME',
+            value: generateOrgAbbreviation(newOrgName),
+          });
+
+          // Save new organization
+          const orgResult = await client.addOrganization({
+            abbreviation: newOrgAbbrev || generateOrgAbbreviation(newOrgName),
+            name: newOrgName,
+            brain: brainName,
+          });
+
+          if (orgResult.success) {
+            vscode.window.showInformationMessage(`✓ Organisation angelegt: ${newOrgName}`);
+            selectedOrg = newOrgName;
+            isNewOrg = true;
+          } else {
+            vscode.window.showWarningMessage(`Organisation konnte nicht gespeichert werden: ${orgResult.error}`);
+            selectedOrg = newOrgName; // Still use it for the person
+          }
+        }
+      } else if (orgChoice.orgName) {
+        selectedOrg = orgChoice.orgName;
+      }
+    }
+  } else {
+    // Fallback: just ask for org name as text
+    selectedOrg = await vscode.window.showInputBox({
+      prompt: 'Organisation (optional)',
+      placeHolder: 'z.B. Acme Corp',
+    }) || undefined;
+  }
 
   // Prompt for role
   const role = await vscode.window.showInputBox({
@@ -239,7 +359,8 @@ async function addNewPersonInteractive(
   // Add to definitions (with brain context)
   const result = await client.addPerson({
     name: name.trim(),
-    organization: org?.trim() || undefined,
+    abbreviation: abbreviation?.trim() || undefined,
+    organization: selectedOrg?.trim() || undefined,
     role: role?.trim() || undefined,
     brain: brainName,
   });
@@ -249,16 +370,46 @@ async function addNewPersonInteractive(
     return undefined;
   }
 
-  vscode.window.showInformationMessage(`✓ Person angelegt: ${name}`);
-  return name.trim();
+  vscode.window.showInformationMessage(`✓ Person angelegt: ${name}${abbreviation ? ` (@${abbreviation})` : ''}`);
+  return { name: name.trim(), abbreviation: abbreviation?.trim() };
+}
+
+/**
+ * Generate a default abbreviation from a name (first letters of words, uppercase)
+ */
+function generateAbbreviation(name: string): string {
+  return name
+    .split(/\s+/)
+    .map(word => word.charAt(0).toLowerCase())
+    .join('');
+}
+
+/**
+ * Generate a default abbreviation for an organization (uppercase, max 4 chars)
+ */
+function generateOrgAbbreviation(name: string): string {
+  const words = name.split(/\s+/);
+  if (words.length === 1) {
+    return name.substring(0, 4).toUpperCase();
+  }
+  return words
+    .map(word => word.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 4);
 }
 
 /**
  * Update the Participants section in the document
  */
-async function updateParticipants(editor: vscode.TextEditor, participants: string[]): Promise<boolean> {
+async function updateParticipants(editor: vscode.TextEditor, participants: Participant[]): Promise<boolean> {
   const content = editor.document.getText();
-  const participantsSection = participants.map(p => `- ${p}`).join('\n');
+  // Format participants with optional abbreviation: "- Name (@abbrev)" or just "- Name"
+  const participantsSection = participants.map(p => {
+    if (p.abbreviation) {
+      return `- ${p.name} (@${p.abbreviation})`;
+    }
+    return `- ${p.name}`;
+  }).join('\n');
 
   // Try to find existing Participants section (any # level)
   const participantsRegex = /^(#+\s+Participants\s*)\n([\s\S]*?)(?=\n#+\s+|\Z)/m;
