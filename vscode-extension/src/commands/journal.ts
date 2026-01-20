@@ -47,6 +47,27 @@ export async function createJournal(): Promise<void> {
     return;
   }
 
+  // Ask user for date (default: today)
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  const selectedDate = await vscode.window.showInputBox({
+    prompt: 'Journal date (YYYY-MM-DD)',
+    value: dateStr,
+    placeHolder: 'e.g. 2026-01-20',
+    validateInput: (value) => {
+      // Check if valid date format
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return 'Invalid date format. Use YYYY-MM-DD';
+      }
+      return null;
+    }
+  });
+
+  if (!selectedDate) {
+    return; // User cancelled
+  }
+
   // Show progress
   let journalData: JournalResult | undefined;
   let wasCreated = false;
@@ -58,7 +79,7 @@ export async function createJournal(): Promise<void> {
       cancellable: false,
     },
     async () => {
-      const result = await client.createJournal(selectedBrain?.name);
+      const result = await client.createJournal(selectedBrain?.name, selectedDate);
 
       if (!result.success) {
         vscode.window.showErrorMessage(`Failed to create journal: ${result.error}`);
@@ -70,7 +91,12 @@ export async function createJournal(): Promise<void> {
 
       // Open the file
       const doc = await vscode.workspace.openTextDocument(journalData.path);
-      await vscode.window.showTextDocument(doc);
+      const editor = await vscode.window.showTextDocument(doc);
+
+      // Add brain name to first line if journal was just created
+      if (wasCreated && selectedBrain) {
+        await addBrainNameToJournal(editor, selectedBrain.name);
+      }
 
       // Show notification
       const action = wasCreated ? 'Created' : 'Opened';
@@ -83,6 +109,21 @@ export async function createJournal(): Promise<void> {
   // If journal was newly created, ask about inserting tasks
   if (wasCreated && journalData) {
     await askToInsertTasks(journalData);
+  }
+}
+
+/**
+ * Add brain name as a comment at the top of the journal
+ */
+async function addBrainNameToJournal(editor: vscode.TextEditor, brainName: string): Promise<void> {
+  const firstLine = editor.document.lineAt(0).text;
+  
+  // Only add if first line is the date heading (# YYYY-MM-DD)
+  if (firstLine.match(/^#\s+\d{4}-\d{2}-\d{2}/)) {
+    const edit = new vscode.WorkspaceEdit();
+    const insertPos = new vscode.Position(0, 0);
+    edit.insert(editor.document.uri, insertPos, `<!-- ${brainName} -->\n`);
+    await vscode.workspace.applyEdit(edit);
   }
 }
 
