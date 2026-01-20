@@ -176,8 +176,10 @@ export async function addParticipantsCommand() {
         return;
       }
 
-      updateParticipants(editor, allParticipants);
-      vscode.window.showInformationMessage(`${allParticipants.length} Teilnehmer gespeichert`);
+      const success = await updateParticipants(editor, allParticipants);
+      if (success) {
+        vscode.window.showInformationMessage(`${allParticipants.length} Teilnehmer gespeichert`);
+      }
     } else {
       // Update selection (without __new__ or __done__)
       currentParticipants = selected
@@ -191,8 +193,10 @@ export async function addParticipantsCommand() {
       }
 
       done = true;
-      updateParticipants(editor, currentParticipants);
-      vscode.window.showInformationMessage(`${currentParticipants.length} Teilnehmer hinzugefügt`);
+      const success = await updateParticipants(editor, currentParticipants);
+      if (success) {
+        vscode.window.showInformationMessage(`${currentParticipants.length} Teilnehmer hinzugefügt`);
+      }
     }
   }
 }
@@ -252,7 +256,7 @@ async function addNewPersonInteractive(
 /**
  * Update the Participants section in the document
  */
-function updateParticipants(editor: vscode.TextEditor, participants: string[]) {
+async function updateParticipants(editor: vscode.TextEditor, participants: string[]): Promise<boolean> {
   const content = editor.document.getText();
   const participantsSection = participants.map(p => `- ${p}`).join('\n');
 
@@ -272,6 +276,7 @@ function updateParticipants(editor: vscode.TextEditor, participants: string[]) {
     
     const newSection = `${match[1]}\n${participantsSection}`;
     edit.replace(editor.document.uri, range, newSection);
+    console.log(`[flip] Replacing participants section at ${start}-${end}`);
   } else {
     // Section doesn't exist - just insert it after the first heading or at a good spot
     // Try to insert after frontmatter (---)
@@ -293,7 +298,14 @@ function updateParticipants(editor: vscode.TextEditor, participants: string[]) {
 
     const pos = editor.document.positionAt(insertPos);
     edit.insert(editor.document.uri, pos, `\n## Participants\n${participantsSection}\n`);
+    console.log(`[flip] Inserting new participants section at position ${insertPos}`);
   }
 
-  vscode.workspace.applyEdit(edit);
+  // IMPORTANT: await the edit and check if it succeeded
+  const success = await vscode.workspace.applyEdit(edit);
+  if (!success) {
+    console.error('[flip] Failed to apply edit to document');
+    vscode.window.showErrorMessage('Fehler beim Speichern der Teilnehmer');
+  }
+  return success;
 }
