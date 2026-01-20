@@ -81,16 +81,25 @@ export async function addParticipantsCommand() {
 
     // Build items for quick pick with checkboxes
     const items: ParticipantItem[] = [];
-    const seenParticipants = new Set<string>();
+    const seenNames = new Set<string>(); // Track by base name to avoid duplicates
 
-    // Helper to check if participant is already selected
+    // Helper to extract base name (without org suffix)
+    const getBaseName = (fullName: string): string => {
+      // Remove "(Organization)" suffix if present
+      const match = fullName.match(/^(.+?)\s*\([^)]+\)$/);
+      return match ? match[1].trim() : fullName.trim();
+    };
+
+    // Helper to check if participant is already selected (by base name)
     const isParticipantSelected = (name: string): boolean => {
-      return currentParticipants.some(p => p.name === name || p.name.startsWith(name + ' ('));
+      const baseName = getBaseName(name);
+      return currentParticipants.some(p => getBaseName(p.name) === baseName);
     };
 
     // Helper to find abbreviation for existing participant
     const findAbbreviation = (name: string): string | undefined => {
-      const found = currentParticipants.find(p => p.name === name || p.name.startsWith(name + ' ('));
+      const baseName = getBaseName(name);
+      const found = currentParticipants.find(p => getBaseName(p.name) === baseName);
       return found?.abbreviation;
     };
 
@@ -102,10 +111,13 @@ export async function addParticipantsCommand() {
         person: '',
       });
       for (const p of seriesParticipants) {
-        seenParticipants.add(p);
+        const baseName = getBaseName(p);
+        if (seenNames.has(baseName)) continue; // Skip duplicates
+        seenNames.add(baseName);
+        
         const isSelected = isParticipantSelected(p);
         items.push({
-          label: `${isSelected ? '$(check)' : '$(circle-outline)'} ${p}`,
+          label: p,
           person: p,
           abbreviation: findAbbreviation(p),
           isFromSeries: true,
@@ -118,49 +130,45 @@ export async function addParticipantsCommand() {
     // Add people from definitions (with their abbreviations)
     if (defsResult.data.people.length > 0) {
       items.push({
-        label: '── Definitionen ──',
+        label: '── Personen ──',
         kind: vscode.QuickPickItemKind.Separator,
         person: '',
       });
       for (const person of defsResult.data.people) {
+        const baseName = person.name;
+        if (seenNames.has(baseName)) continue; // Skip if already added from series
+        seenNames.add(baseName);
+        
         const display = person.organization ? `${person.name} (${person.organization})` : person.name;
-        if (!seenParticipants.has(display)) {
-          const isSelected = isParticipantSelected(person.name);
-          // Show abbreviation in description
-          const abbrevDesc = person.abbreviation ? `@${person.abbreviation}` : '';
-          items.push({
-            label: `${isSelected ? '$(check)' : '$(circle-outline)'} ${display}`,
-            person: display,
-            abbreviation: person.abbreviation,
-            picked: isSelected,
-            description: isSelected ? `ausgewählt ${abbrevDesc}`.trim() : abbrevDesc,
-          });
-          seenParticipants.add(display);
-        }
+        const isSelected = isParticipantSelected(person.name);
+        // Show abbreviation in description
+        const abbrevDesc = person.abbreviation ? `@${person.abbreviation}` : '';
+        items.push({
+          label: display,
+          person: display,
+          abbreviation: person.abbreviation,
+          picked: isSelected,
+          description: abbrevDesc,
+        });
       }
     }
 
     // Add option to create new person
     items.push({
-      label: '── Neue Person ──',
+      label: '── Aktionen ──',
       kind: vscode.QuickPickItemKind.Separator,
       person: '',
     });
     items.push({
-      label: '$(plus) Neue Person hinzufügen',
+      label: '$(plus) Neue Person hinzufügen...',
       person: '__new__',
-      description: 'Und direkt zum Meeting hinzufügen',
-    });
-    items.push({
-      label: '$(check-all) Fertig - Speichern',
-      person: '__done__',
-      description: `${currentParticipants.length} Teilnehmer ausgewählt`,
+      description: 'Person anlegen und zum Meeting hinzufügen',
     });
 
     // Show quick pick with canSelectMany
     const selected = await vscode.window.showQuickPick(items, {
       canPickMany: true,
-      placeHolder: 'Wähle Teilnehmer aus (ENTER zum Bestätigen, ESC zum Abbrechen)',
+      placeHolder: 'Teilnehmer auswählen, dann OK (Enter)',
       matchOnDescription: true,
     });
 
@@ -170,13 +178,12 @@ export async function addParticipantsCommand() {
 
     // Check if user wants to add new person
     const hasNewPerson = selected.some(item => item.person === '__new__');
-    const isDone = selected.some(item => item.person === '__done__');
 
     if (hasNewPerson) {
-      // Remove __new__ from selection
-      const withoutNew = selected.filter(item => item.person !== '__new__' && item.person !== '__done__');
-      // Get selected participants with abbreviations
-      const selectedParticipants: Participant[] = withoutNew
+      // Remove __new__ from selection and remember current selection
+      const withoutNew = selected.filter(item => item.person !== '__new__');
+      // Update current participants with current selection
+      currentParticipants = withoutNew
         .filter(item => item.person.length > 0)
         .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
 
@@ -188,54 +195,26 @@ export async function addParticipantsCommand() {
         if (!alreadyExists) {
           currentParticipants.push(newPerson);
         }
-        // Continue loop to show picker again
-        content = editor.document.getText(); // Refresh content
+        // Refresh content from document
+        content = editor.document.getText();
       }
-      // Continue loop
-    } else if (isDone) {
-      // Save and exit
-      done = true;
-      // Update participants in the file with current selection (with abbreviations)
-      const finalSelected: Participant[] = selected
-        .filter(item => item.person !== '__done__' && item.person.length > 0)
-        .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
-
-      // Merge with existing, keeping abbreviations
-      const mergedMap = new Map<string, Participant>();
-      for (const p of currentParticipants) {
-        mergedMap.set(p.name, p);
-      }
-      for (const p of finalSelected) {
-        if (!mergedMap.has(p.name)) {
-          mergedMap.set(p.name, p);
-        }
-      }
-      const allParticipants = Array.from(mergedMap.values());
-
-      if (allParticipants.length === 0) {
-        vscode.window.showWarningMessage('Keine Teilnehmer ausgewählt');
-        return;
-      }
-
-      const success = await updateParticipants(editor, allParticipants);
-      if (success) {
-        vscode.window.showInformationMessage(`${allParticipants.length} Teilnehmer gespeichert`);
-      }
+      // Continue loop to show picker again with updated selection
     } else {
-      // Update selection (without __new__ or __done__) - with abbreviations
-      currentParticipants = selected
-        .filter(item => item.person !== '__new__' && item.person !== '__done__' && item.person.length > 0)
+      // User pressed OK without "Neue Person" → save and exit
+      done = true;
+      
+      const finalParticipants: Participant[] = selected
+        .filter(item => item.person.length > 0)
         .map(item => ({ name: item.person, abbreviation: item.abbreviation }));
 
-      if (currentParticipants.length === 0) {
+      if (finalParticipants.length === 0) {
         vscode.window.showWarningMessage('Keine Teilnehmer ausgewählt');
         return;
       }
 
-      done = true;
-      const success = await updateParticipants(editor, currentParticipants);
+      const success = await updateParticipants(editor, finalParticipants);
       if (success) {
-        vscode.window.showInformationMessage(`${currentParticipants.length} Teilnehmer hinzugefügt`);
+        vscode.window.showInformationMessage(`${finalParticipants.length} Teilnehmer gespeichert`);
       }
     }
   }
