@@ -354,13 +354,21 @@ async function addNewPersonInteractive(
 }
 
 /**
- * Generate a default abbreviation from a name (first letters of words, uppercase)
+ * Generate a default abbreviation from a name
+ * Pattern: First 2 chars of first name + first 2 chars of last name, UPPERCASE
+ * Example: "John Doe" → "JODO", "Michael Krüger" → "MIKR"
  */
 function generateAbbreviation(name: string): string {
-  return name
-    .split(/\s+/)
-    .map(word => word.charAt(0).toLowerCase())
-    .join('');
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    // Single name: take first 4 chars
+    return parts[0].substring(0, 4).toUpperCase();
+  }
+  // First name: first 2 chars, Last name: first 2 chars
+  const firstName = parts[0];
+  const lastName = parts[parts.length - 1];
+  const abbrev = (firstName.substring(0, 2) + lastName.substring(0, 2)).toUpperCase();
+  return abbrev;
 }
 
 /**

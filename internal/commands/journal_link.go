@@ -107,7 +107,7 @@ func buildJournalLink(opts JournalLinkOptions, dateStr, journalPath string) stri
 		// Convert to absolute paths for proper relative calculation
 		journalDir := filepath.Dir(journalPath)
 		itemPath := filepath.Join(opts.Brain.Path, opts.ItemPath)
-		
+
 		// Calculate relative path from journal directory to item
 		rel, err := filepath.Rel(journalDir, itemPath)
 		if err == nil {
