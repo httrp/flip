@@ -7,17 +7,35 @@
 
 ---
 
+## 🎯 REFACTORING PROGRESS
+
+### Completed (21. Jan 2026)
+
+| Task | Status | LOC Impact |
+|------|--------|------------|
+| ✅ Embedded JSON → assets/vscode-tasks.json | Done | -180 LOC |
+| ✅ vscode.go split (1727→891 LOC) | Done | -836 LOC |
+| ✅ Create vscode_search.go | Done | +637 LOC (extracted) |
+| ✅ Remove temp files (README_OLD, etc.) | Done | -4 files |
+| ✅ Archive old docs | Done | 6 → archive/ |
+| ✅ Create internal/platform/paths.go | Done | +263 LOC |
+| ✅ Centralize getBrainByName* | Done | DRY |
+
+**Total LOC Reduction:** 29,221 → 29,016 (-205 LOC direct, better structure)
+
+---
+
 ## Executive Summary
 
-**Status:** 🟠 **SIGNIFICANT REFACTORING REQUIRED**
+**Status:** 🟡 **REFACTORING IN PROGRESS**
 
-### Key Metrics
-- **Go Code:** ~29,200 LOC (74 files in commands/)
+### Key Metrics (Updated)
+- **Go Code:** ~29,000 LOC (was 29,200)
 - **TypeScript Code:** ~7,100 LOC (26 files)
 - **Total Functions:** 514 Functions allein in commands/
-- **Large Files:** 24 files >400 LOC (davon 4 >1000 LOC)
-- **Documentation:** 33 MD files (fragmentiert, redundant)
-- **Test Files:** ~12 (sollen entfernt werden per User-Request)
+- **Large Files:** vscode.go now 891 LOC (was 1,726)
+- **Documentation:** 27 MD files (was 33, 6 archived)
+- **New:** internal/platform/ package for cross-platform
 
 ### Critical Issues (Opus Deep Analysis)
 
