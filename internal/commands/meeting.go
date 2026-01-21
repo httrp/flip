@@ -87,6 +87,9 @@ func NewMeetingCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&noLink, "no-link", false, "Don't add link to journal")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
 
+	// Add protocol subcommand
+	cmd.AddCommand(NewMeetingProtocolCommand())
+
 	return cmd
 }
 
