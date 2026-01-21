@@ -204,6 +204,30 @@ func getActiveBrain() (*Brain, error) {
 	return &ws.Brains[0], nil
 }
 
+// getBrainByNameOrActive returns the brain by name if specified, or the active brain.
+// This is a convenience function that combines getBrainByName and getActiveBrain.
+func getBrainByNameOrActive(brainName string) (*Brain, error) {
+	if brainName != "" {
+		return getBrainByName(brainName)
+	}
+	return getActiveBrain()
+}
+
+// getBrainByName returns a brain by name from the active workspace.
+func getBrainByName(brainName string) (*Brain, error) {
+	ws, err := getActiveWorkspace()
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range ws.Brains {
+		if ws.Brains[i].Name == brainName {
+			return &ws.Brains[i], nil
+		}
+	}
+	return nil, fmt.Errorf("brain '%s' not found in workspace '%s'", brainName, ws.Name)
+}
+
 // getAllBrainsInWorkspace returns all brains from the active workspace with their paths
 // Returns a map of brain name -> brain path for convenient iteration
 func getAllBrainsInWorkspace() (map[string]string, error) {

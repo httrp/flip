@@ -70,22 +70,6 @@ func NewVSCodeExercisesCommand() *cobra.Command {
 	return cmd
 }
 
-// getBrainByNameOrActive returns the brain by name or the active brain
-func getBrainByNameOrActive(brainName string) (*Brain, error) {
-	if brainName != "" {
-		brains, err := getAllBrainsInWorkspace()
-		if err != nil {
-			return nil, err
-		}
-		path, ok := brains[brainName]
-		if !ok {
-			return nil, fmt.Errorf("brain '%s' not found", brainName)
-		}
-		return &Brain{Name: brainName, Path: path}, nil
-	}
-	return getActiveBrain()
-}
-
 // NewVSCodeExercisesListCommand lists all exercises for VS Code
 func NewVSCodeExercisesListCommand() *cobra.Command {
 	var jsonOutput bool

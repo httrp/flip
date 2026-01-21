@@ -9,10 +9,9 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/httrp/flip/internal/lang"
+	"github.com/httrp/flip/internal/platform"
 	"github.com/manifoldco/promptui"
 )
 
@@ -192,16 +191,8 @@ func runManageBrainsMenu() error {
 			Label:       lang.GetText("menu.manage_brains.add_label"),
 			Description: lang.GetText("menu.manage_brains.add_desc"),
 			Action: func() error {
-				// Show common paths for brain selection
-				home, _ := os.UserHomeDir()
-				commonPaths := map[string]string{
-					"Home Directory":              home,
-					"Documents":                   filepath.Join(home, "Documents"),
-					"Documents/Obsidian":          filepath.Join(home, "Documents", "Obsidian"),
-					"Documents/Logseq":            filepath.Join(home, "Documents", "Logseq"),
-					"Dropbox (if available)":      filepath.Join(home, "Dropbox"),
-					"iCloud Drive (if available)": filepath.Join(home, "Library", "Mobile Documents"),
-				}
+				// Get platform-specific common paths
+				commonPaths := platform.GetCloudStoragePaths()
 
 				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
@@ -223,14 +214,8 @@ func runManageBrainsMenu() error {
 			Label:       lang.GetText("menu.manage_brains.scan_label"),
 			Description: lang.GetText("menu.manage_brains.scan_desc"),
 			Action: func() error {
-				// Show common paths for scanning
-				home, _ := os.UserHomeDir()
-				commonPaths := map[string]string{
-					"Home Directory (~)":          home,
-					"Documents":                   filepath.Join(home, "Documents"),
-					"Dropbox (if available)":      filepath.Join(home, "Dropbox"),
-					"iCloud Drive (if available)": filepath.Join(home, "Library", "Mobile Documents"),
-				}
+				// Get platform-specific common paths
+				commonPaths := platform.GetCloudStoragePaths()
 
 				scanPath, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
