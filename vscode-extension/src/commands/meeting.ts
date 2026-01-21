@@ -107,6 +107,7 @@ export async function createMeetingNote(): Promise<void> {
 
   let title: string;
   let series: string | undefined;
+  let meetingDate: string; // YYYY-MM-DD format
 
   if (seriesChoice.value === 'series') {
     // Load existing series
@@ -153,10 +154,11 @@ export async function createMeetingNote(): Promise<void> {
     const dateStr = today.toISOString().split('T')[0];
     const picked = await pickDate(dateStr, 'Select Meeting Date');
     if (!picked) return; // cancel
+    meetingDate = picked;
     const [yyyy, mm, dd] = picked.split('-');
     title = `${series} - ${dd}.${mm}.${yyyy}`;
   } else {
-    // Single meeting: prompt for title
+    // Single meeting: prompt for title first
     const inputTitle = await vscode.window.showInputBox({
       prompt: 'Meeting title',
       placeHolder: 'Sprint Planning',
@@ -164,7 +166,22 @@ export async function createMeetingNote(): Promise<void> {
     });
     if (!inputTitle) return;
     title = inputTitle.trim();
+
+    // Pick meeting date (default: today)
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const picked = await pickDate(dateStr, 'Select Meeting Date');
+    if (!picked) return; // cancel
+    meetingDate = picked;
   }
+
+  // Prompt for duration (optional, default: 60 min)
+  const durationInput = await vscode.window.showInputBox({
+    prompt: 'Meeting duration (optional)',
+    placeHolder: '60 min',
+    value: '60 min'
+  });
+  const duration = durationInput?.trim() || '60 min';
 
   // Create the meeting note
   const res = await vscode.window.withProgress(
@@ -174,6 +191,7 @@ export async function createMeetingNote(): Promise<void> {
         title, 
         organization: organization || undefined,
         series,
+        duration,
         brain 
       });
     }
@@ -189,5 +207,6 @@ export async function createMeetingNote(): Promise<void> {
   await vscode.window.showTextDocument(doc);
 
   // Auto-add to journal with countdown (default = add)
-  await promptAutoAddToJournal(data, 'meeting');
+  // Pass meeting date and organization for smart journal linking
+  await promptAutoAddToJournal(data, 'meeting', meetingDate, organization);
 }

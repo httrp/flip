@@ -9,11 +9,18 @@ const AUTO_ADD_TIMEOUT_SECONDS = 5;
 /**
  * Show auto-add to journal popup with countdown
  * Default action is to ADD (if user does nothing)
+ * 
+ * Smart journal linking for meetings:
+ * - If meetingDate == today: Add link to today's journal (standard behavior)
+ * - If meetingDate != today: Add link to journal of meetingDate AND today's journal (with date in link text)
+ * 
  * Returns true if added, false if user declined
  */
 export async function promptAutoAddToJournal(
   noteData: NoteResult,
-  noteType: 'meeting' | 'note' | 'task'
+  noteType: 'meeting' | 'note' | 'task',
+  meetingDate?: string, // YYYY-MM-DD format (only for meetings)
+  organization?: string  // Organization abbreviation (for link prefix)
 ): Promise<boolean> {
   const client = getFlipClient();
   
@@ -41,20 +48,64 @@ export async function promptAutoAddToJournal(
   }
 
   // Either timeout or "Jetzt hinzufügen" - add to journal
-  const linkRes = await client.addToJournal({
-    file: noteData.path,
-    title: noteData.title,
-    type: noteType,
-    brain: noteData.brain_name,
-  });
+  // For meetings with a specific date, use smart linking
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const isHistoricalMeeting = meetingDate && meetingDate !== today;
 
-  if (!linkRes.success) {
-    vscode.window.showWarningMessage(`Journal-Link fehlgeschlagen: ${linkRes.error}`);
-    return false;
+  // Prepare link title with org prefix if available
+  let linkTitle = noteData.title;
+  if (organization) {
+    linkTitle = `${organization} - ${noteData.title}`;
   }
 
-  vscode.window.showInformationMessage('✓ Im Journal verlinkt');
-  return true;
+  if (isHistoricalMeeting && meetingDate) {
+    // Add to meeting date journal
+    const meetingDateResult = await client.addToJournal({
+      file: noteData.path,
+      title: linkTitle,
+      type: noteType,
+      brain: noteData.brain_name,
+      date: meetingDate
+    });
+
+    // Add to today's journal with date in link text
+    const [yyyy, mm, dd] = meetingDate.split('-');
+    const todayLinkTitle = `${organization ? organization + ' - ' : ''}${dd}.${mm}.${yyyy} ${noteData.title}`;
+    const todayResult = await client.addToJournal({
+      file: noteData.path,
+      title: todayLinkTitle,
+      type: noteType,
+      brain: noteData.brain_name,
+      date: today
+    });
+
+    if (!meetingDateResult.success || !todayResult.success) {
+      const errors = [];
+      if (!meetingDateResult.success) errors.push(`Meeting date (${meetingDate}): ${meetingDateResult.error}`);
+      if (!todayResult.success) errors.push(`Today: ${todayResult.error}`);
+      vscode.window.showWarningMessage(`Journal-Link teilweise fehlgeschlagen: ${errors.join(', ')}`);
+      return false;
+    }
+
+    vscode.window.showInformationMessage(`✓ Im Journal verlinkt (${dd}.${mm}.${yyyy} + heute)`);
+    return true;
+  } else {
+    // Standard behavior: add to today's journal only
+    const linkRes = await client.addToJournal({
+      file: noteData.path,
+      title: linkTitle,
+      type: noteType,
+      brain: noteData.brain_name,
+    });
+
+    if (!linkRes.success) {
+      vscode.window.showWarningMessage(`Journal-Link fehlgeschlagen: ${linkRes.error}`);
+      return false;
+    }
+
+    vscode.window.showInformationMessage('✓ Im Journal verlinkt');
+    return true;
+  }
 }
 
 /**
