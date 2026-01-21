@@ -1,0 +1,222 @@
+{
+  "version": "2.0.0",
+  "_flipTasksVersion": "{{VERSION}}",
+  "tasks": [
+    {
+      "label": "Flip: Menu",
+      "type": "shell",
+      "command": "flip",
+      "args": ["menu"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: File Info",
+      "type": "shell",
+      "command": "flip",
+      "args": ["file-info", "${file}"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Journal (Today)",
+      "type": "shell",
+      "command": "flip",
+      "args": ["journal"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: New Task",
+      "type": "shell",
+      "command": "flip",
+      "args": ["task", "new"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Task Done",
+      "type": "shell",
+      "command": "flip",
+      "args": ["task", "done"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Task List",
+      "type": "shell",
+      "command": "flip",
+      "args": ["task", "list"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: New Note",
+      "type": "shell",
+      "command": "flip",
+      "args": ["note"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Quick Note",
+      "type": "shell",
+      "command": "flip",
+      "args": ["quicknote"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Search Notes",
+      "type": "shell",
+      "command": "flip",
+      "args": ["note", "search"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: New Exercise",
+      "type": "shell",
+      "command": "flip",
+      "args": ["exercise", "new"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Track Exercise",
+      "type": "shell",
+      "command": "flip",
+      "args": ["exercise", "track"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: List Exercises",
+      "type": "shell",
+      "command": "flip",
+      "args": ["exercise", "list"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Status",
+      "type": "shell",
+      "command": "flip",
+      "args": ["status"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Meeting Note",
+      "type": "shell",
+      "command": "flip",
+      "args": ["meeting-note"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Definitions",
+      "type": "shell",
+      "command": "flip",
+      "args": ["definitions"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Switch Brain",
+      "type": "shell",
+      "command": "flip",
+      "args": ["brain", "switch"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Brain Info",
+      "type": "shell",
+      "command": "flip",
+      "args": ["brain", "info"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
