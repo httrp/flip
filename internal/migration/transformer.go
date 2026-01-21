@@ -237,20 +237,20 @@ func (t *Transformer) GetTransformationSummary() string {
 	sourceFormat := t.getDateFormat(t.sourceType)
 	targetFormat := t.getDateFormat(t.targetType)
 	if sourceFormat != targetFormat {
-		changes = append(changes, fmt.Sprintf("Journal dates: %s → %s", 
-			t.formatExample(sourceFormat), 
+		changes = append(changes, fmt.Sprintf("Journal dates: %s → %s",
+			t.formatExample(sourceFormat),
 			t.formatExample(targetFormat)))
 	}
 
 	// Directory changes
 	sourceStruct := GetBrainStructure(t.sourceType)
 	targetStruct := GetBrainStructure(t.targetType)
-	
+
 	if sourceStruct.JournalDir != targetStruct.JournalDir {
 		changes = append(changes, fmt.Sprintf("Journal directory: %s/ → %s/",
 			sourceStruct.JournalDir, targetStruct.JournalDir))
 	}
-	
+
 	if sourceStruct.NotesDir != targetStruct.NotesDir {
 		changes = append(changes, fmt.Sprintf("Notes directory: %s/ → %s/",
 			sourceStruct.NotesDir, targetStruct.NotesDir))
@@ -279,9 +279,9 @@ func (t *Transformer) formatExample(format string) string {
 type FrontmatterStyle int
 
 const (
-	FrontmatterYAML     FrontmatterStyle = iota // ---\nkey: value\n---
-	FrontmatterLogseq                           // key:: value (property bullets)
-	FrontmatterNone                             // No frontmatter
+	FrontmatterYAML   FrontmatterStyle = iota // ---\nkey: value\n---
+	FrontmatterLogseq                         // key:: value (property bullets)
+	FrontmatterNone                           // No frontmatter
 )
 
 // GetFrontmatterStyle returns the frontmatter style for a brain type
@@ -364,7 +364,7 @@ func (t *Transformer) yamlToLogseq(content string) string {
 // logseqToYAML converts Logseq property bullets to YAML frontmatter
 func (t *Transformer) logseqToYAML(content string) string {
 	scanner := bufio.NewScanner(strings.NewReader(content))
-	
+
 	var properties []Property
 	var bodyLines []string
 	inProperties := true
@@ -439,9 +439,9 @@ type Property struct {
 // Note: This handles simple cases, not full YAML (no nested objects, arrays)
 func (t *Transformer) parseYAMLProperties(yaml string) []Property {
 	var properties []Property
-	
+
 	scanner := bufio.NewScanner(strings.NewReader(yaml))
-	
+
 	// Simple key: value pattern
 	simpleRegex := regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9_-]*):\s*(.*)$`)
 	// Array item pattern

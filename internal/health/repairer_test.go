@@ -10,7 +10,7 @@ import (
 func TestRepairBrokenLink(t *testing.T) {
 	// Create temp test brain
 	tempDir := t.TempDir()
-	
+
 	// Create .flip.yaml to make it a Flip brain
 	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ Good content here.
 
 	// Repair it
 	results := repairer.RepairIssues([]Issue{issue})
-	
+
 	if len(results) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(results))
 	}
@@ -76,7 +76,7 @@ Good content here.
 func TestRepairOrphanedFile(t *testing.T) {
 	// Create temp test brain
 	tempDir := t.TempDir()
-	
+
 	// Create .flip.yaml
 	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestRepairOrphanedFile(t *testing.T) {
 func TestRepairDryRun(t *testing.T) {
 	// Create temp test brain
 	tempDir := t.TempDir()
-	
+
 	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestRepairDryRun(t *testing.T) {
 
 func TestRepairFormatIssue(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestRepairFormatIssue(t *testing.T) {
 	testFile := "bad-format.md"
 	// Content with formatting issues
 	badContent := "# Title  \r\n\r\n\r\nContent\r\n\r\n\r\n\r\n\r\nMore content   "
-	
+
 	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(badContent), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -281,38 +281,38 @@ func TestCalculateStats(t *testing.T) {
 
 func TestNormalizeContent(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		contains []string
+		name        string
+		input       string
+		contains    []string
 		notContains []string
 	}{
 		{
-			name:     "CRLF to LF",
-			input:    "line1\r\nline2\r\n",
+			name:        "CRLF to LF",
+			input:       "line1\r\nline2\r\n",
 			notContains: []string{"\r"},
 		},
 		{
-			name:     "Trailing whitespace",
-			input:    "line1   \nline2\t\n",
+			name:        "Trailing whitespace",
+			input:       "line1   \nline2\t\n",
 			notContains: []string{"   \n", "\t\n"},
 		},
 		{
-			name:        "Ends with newline",
-			input:       "content",
-			contains:    []string{"content\n"},
+			name:     "Ends with newline",
+			input:    "content",
+			contains: []string{"content\n"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeContent(tt.input)
-			
+
 			for _, c := range tt.contains {
 				if !strings.Contains(result, c) {
 					t.Errorf("Result should contain %q", c)
 				}
 			}
-			
+
 			for _, nc := range tt.notContains {
 				if strings.Contains(result, nc) {
 					t.Errorf("Result should not contain %q", nc)

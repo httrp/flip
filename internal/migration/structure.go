@@ -80,8 +80,8 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			NoteFormat:         "slug-with-date",                                        // 2025-10-27-note-title.md
 			AssetStrategy:      AssetStrategyRootFolder,                                 // assets/image.png
 			AssetLocations:     []string{"assets", "assets/images", "assets/documents"}, // Check these in order
-		PreferredLinkStyle: LinkStyleMarkdown,                                       // Standard Markdown links [text](path.md)
-		SupportsWikilinks:  true,                                                    // Can READ wikilinks (for migration)
+			PreferredLinkStyle: LinkStyleMarkdown,                                       // Standard Markdown links [text](path.md)
+			SupportsWikilinks:  true,                                                    // Can READ wikilinks (for migration)
 			SupportsMarkdown:   true,
 		}
 
@@ -147,11 +147,11 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			AssetsDir:          "attachments", // Common convention
 			AttachmentsDir:     "attachments",
 			TemplatesDir:       "templates",
-			JournalFormat:      "2006-01-02",                            // YYYY-MM-DD (standard)
-			NoteFormat:         "free-form",                             // Very flexible like Obsidian
-			AssetStrategy:      AssetStrategyRootFolder,                 // Usually attachments/ folder
+			JournalFormat:      "2006-01-02",                                          // YYYY-MM-DD (standard)
+			NoteFormat:         "free-form",                                           // Very flexible like Obsidian
+			AssetStrategy:      AssetStrategyRootFolder,                               // Usually attachments/ folder
 			AssetLocations:     []string{"attachments", "assets", "docs/attachments"}, // Multiple common locations
-			PreferredLinkStyle: LinkStyleWikilink,                       // Wikilinks are core to Foam
+			PreferredLinkStyle: LinkStyleWikilink,                                     // Wikilinks are core to Foam
 			SupportsWikilinks:  true,
 			SupportsMarkdown:   true, // Also supports regular markdown links (GitHub-friendly)
 		}

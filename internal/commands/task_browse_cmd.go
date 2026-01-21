@@ -165,18 +165,18 @@ func runTaskBrowseJSON(initialFilter string) error {
 		// Convert tasks to TaskInfo format
 		for _, t := range brainTasks {
 			relPath, _ := filepath.Rel(brain.Path, t.Context.FilePath)
-			
+
 			taskInfo := TaskInfo{
 				Description:  t.Description,
-				Status:       statusString(t.Status),      // Use vscode.go function
-				Priority:     priorityString(t.Priority),  // Use vscode.go function
+				Status:       statusString(t.Status),     // Use vscode.go function
+				Priority:     priorityString(t.Priority), // Use vscode.go function
 				Tags:         t.Tags,
 				Frog:         t.Frog,
 				Path:         t.Context.FilePath,
 				RelPath:      relPath,
 				Line:         t.Context.LineNumber,
-				BrainName:    brain.Name,    // From Brain struct
-				BrainType:    brain.Type,    // From Brain struct
+				BrainName:    brain.Name, // From Brain struct
+				BrainType:    brain.Type, // From Brain struct
 				Organization: t.Organization,
 				Project:      t.Project,
 				ContextTag:   t.ContextTag,

@@ -24,7 +24,7 @@ func NewTaskListCommand() *cobra.Command {
 		overdue        bool
 		groupByFile    bool
 		frogOnly       bool
-		jsonOutput     bool  // Add JSON output flag
+		jsonOutput     bool // Add JSON output flag
 	)
 
 	cmd := &cobra.Command{
@@ -736,13 +736,13 @@ func runListTasksJSON(filter tasks.TaskFilter) error {
 		// Build index and apply filter
 		index := tasks.NewTaskIndex()
 		index.Build(brainTasks)
-		
+
 		filteredTasks := index.Query(filter)
 
 		// Convert to TaskInfo
 		for _, t := range filteredTasks {
 			relPath := getRelativePathFromBrain(t.Context.FilePath, brain.Path)
-			
+
 			taskInfo := TaskInfo{
 				Description:  t.Description,
 				Status:       statusString(t.Status),
