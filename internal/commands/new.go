@@ -145,14 +145,14 @@ func runNewWorkspace() error {
 	config, _ := loadWorkspaceConfig()
 	defaultTaken := false
 	for _, ws := range config.Workspaces {
-		if ws.Name == "default" {
+		if ws.Name == DefaultWorkspaceName {
 			defaultTaken = true
 			break
 		}
 	}
 
 	// Suggest 'default' if available, otherwise 'workspace'
-	defaultName := "default"
+	defaultName := DefaultWorkspaceName
 	if defaultTaken {
 		defaultName = "workspace"
 	}

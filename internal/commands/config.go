@@ -257,14 +257,14 @@ func ensureDefaultWorkspace() (*Workspace, error) {
 
 	// Check if default workspace exists
 	for i := range config.Workspaces {
-		if config.Workspaces[i].Name == "default" {
+		if config.Workspaces[i].Name == DefaultWorkspaceName {
 			return &config.Workspaces[i], nil
 		}
 	}
 
 	// Create default workspace
 	defaultWS := Workspace{
-		Name:        "default",
+		Name:        DefaultWorkspaceName,
 		Description: "All brains known to flip on this machine",
 		Brains:      []Brain{},
 	}
@@ -273,7 +273,7 @@ func ensureDefaultWorkspace() (*Workspace, error) {
 
 	// Set as active if no other workspace is active
 	if config.ActiveWorkspace == "" {
-		config.ActiveWorkspace = "default"
+		config.ActiveWorkspace = DefaultWorkspaceName
 	}
 
 	if err := saveWorkspaceConfig(config); err != nil {
@@ -286,11 +286,11 @@ func ensureDefaultWorkspace() (*Workspace, error) {
 		return nil, err
 	}
 	for i := range config.Workspaces {
-		if config.Workspaces[i].Name == "default" {
+		if config.Workspaces[i].Name == DefaultWorkspaceName {
 			return &config.Workspaces[i], nil
 		}
 	}
-	return nil, fmt.Errorf("default workspace not found after creation")
+	return nil, fmt.Errorf("%s workspace not found after creation", DefaultWorkspaceName)
 }
 
 // addBrainToDefaultWorkspace adds a brain to the default workspace if not already present
@@ -308,7 +308,7 @@ func addBrainToDefaultWorkspace(brain Brain) error {
 
 	// Find default workspace
 	for i := range config.Workspaces {
-		if config.Workspaces[i].Name == "default" {
+		if config.Workspaces[i].Name == DefaultWorkspaceName {
 			// Check if brain already exists (by path)
 			for _, b := range config.Workspaces[i].Brains {
 				if b.Path == brain.Path {

@@ -116,8 +116,8 @@ func runEditWorkspaceMenu() error {
 				oldName := wsNames[idx]
 
 				// Don't allow renaming default
-				if oldName == "default" {
-					fmt.Println("\n❌ Cannot rename 'default' workspace - it's reserved")
+				if oldName == DefaultWorkspaceName {
+					fmt.Printf("\n❌ Cannot rename '%s' workspace - it's reserved\n", DefaultWorkspaceName)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
 					return runInteractiveMenu()

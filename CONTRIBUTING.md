@@ -275,3 +275,64 @@ type Task struct {
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+## Code Quality Standards (Senior-Level Best Practices)
+
+### Error Handling
+
+**❌ DON'T: Print and continue**
+```go
+// BAD - Error is logged but not returned
+if err != nil {
+    fmt.Printf("Error: %v\n", err)
+}
+// code continues...
+```
+
+**✅ DO: Return errors with context**
+```go
+// GOOD - Error is wrapped and returned
+if err != nil {
+    return fmt.Errorf("loading workspace config: %w", err)
+}
+```
+
+**Exception**: In interactive menus, printing errors and continuing is acceptable.
+
+### Constants over Magic Strings
+
+**❌ DON'T:**
+```go
+if workspace.Name == "default" { ... }
+```
+
+**✅ DO:**
+```go
+const DefaultWorkspaceName = "default"
+if workspace.Name == DefaultWorkspaceName { ... }
+```
+
+### File Size Limits
+
+| Target | Hard Limit | Action |
+|--------|------------|--------|
+| < 500 LOC | 800 LOC | Split into focused modules |
+
+### Required for New Code
+
+- [ ] Unit tests (`*_test.go`)
+- [ ] GoDoc comments for exported functions
+- [ ] Error handling follows guidelines
+- [ ] No new magic strings
+- [ ] `go vet` passes
+
+### Code Review Checklist
+
+Before submitting PR:
+```bash
+go test ./...      # All tests pass
+go vet ./...       # No warnings
+go build ./...     # Compiles
+```
