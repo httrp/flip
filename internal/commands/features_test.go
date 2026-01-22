@@ -142,3 +142,107 @@ func TestConstants(t *testing.T) {
 		t.Errorf("ExtMarkdown should be '.md', got %s", ExtMarkdown)
 	}
 }
+
+func TestConstantsBrainTypes(t *testing.T) {
+	// Test brain type constants
+	brainTypes := map[string]string{
+		"flip":     BrainTypeFlip,
+		"obsidian": BrainTypeObsidian,
+		"logseq":   BrainTypeLogseq,
+		"dendron":  BrainTypeDendron,
+		"foam":     BrainTypeFoam,
+		"unknown":  BrainTypeUnknown,
+	}
+
+	for expected, actual := range brainTypes {
+		if actual != expected {
+			t.Errorf("BrainType constant mismatch: expected %s, got %s", expected, actual)
+		}
+	}
+}
+
+func TestConstantsFileExtensions(t *testing.T) {
+	// All extensions should start with a dot
+	extensions := []string{ExtMarkdown, ExtYAML, ExtJSON}
+	for _, ext := range extensions {
+		if len(ext) == 0 || ext[0] != '.' {
+			t.Errorf("Extension '%s' should start with a dot", ext)
+		}
+	}
+}
+
+func TestConstantsDirectoryNames(t *testing.T) {
+	// Directory names should be lowercase and not empty
+	dirs := map[string]string{
+		"journal":     DirJournal,
+		"notes":       DirNotes,
+		"meetings":    DirMeetings,
+		"tasks":       DirTasks,
+		"templates":   DirTemplates,
+		"definitions": DirDefinitions,
+		"assets":      DirAssets,
+	}
+
+	for expected, actual := range dirs {
+		if actual != expected {
+			t.Errorf("Directory constant mismatch: expected %s, got %s", expected, actual)
+		}
+	}
+}
+
+func TestFeatureEnvVarParsing(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected bool
+	}{
+		{"0", false},
+		{"false", false},
+		{"FALSE", false},
+		{"1", true},
+		{"true", true},
+		{"TRUE", true},
+		// Note: "yes" is NOT supported - only "1" and "true"
+	}
+
+	feature := FeatureExercises
+	
+	for _, tt := range tests {
+		t.Run(tt.envValue, func(t *testing.T) {
+			// Reset feature state
+			EnableFeature(feature)
+			
+			os.Setenv("FLIP_FEATURE_EXERCISES", tt.envValue)
+			defer os.Unsetenv("FLIP_FEATURE_EXERCISES")
+
+			result := IsEnabled(feature)
+			if result != tt.expected {
+				t.Errorf("For env value '%s': expected %v, got %v", tt.envValue, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFeatureEnvVarEmpty(t *testing.T) {
+	// Empty env var means use registry default (enabled)
+	feature := FeatureExercises
+	EnableFeature(feature)
+	
+	os.Unsetenv("FLIP_FEATURE_EXERCISES")
+	
+	if !IsEnabled(feature) {
+		t.Error("Empty env var should use default (enabled)")
+	}
+}
+
+func TestAllFeaturesHaveDescriptions(t *testing.T) {
+	info := GetFeatureInfo()
+	
+	for _, fi := range info {
+		if fi.Description == "" {
+			t.Errorf("Feature %s has no description", fi.Name)
+		}
+		if len(fi.Description) < 10 {
+			t.Errorf("Feature %s description too short: %s", fi.Name, fi.Description)
+		}
+	}
+}
