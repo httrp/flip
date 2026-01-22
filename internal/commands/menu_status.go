@@ -23,8 +23,12 @@ func runStatusMenu() error {
 	fmt.Println()
 	showBreadcrumb("Main", "Status & Git")
 
-	menuItems := []MenuItem{
-		{
+	// Build menu items dynamically based on enabled features
+	var menuItems []MenuItem
+
+	// Core status items (always available)
+	menuItems = append(menuItems,
+		MenuItem{
 			Label:       lang.GetText("menu.status.overview_label"),
 			Description: lang.GetText("menu.status.overview_desc"),
 			Command:     lang.GetText("menu.status.overview_cmd"),
@@ -37,7 +41,7 @@ func runStatusMenu() error {
 				return runStatusMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.status.git_status_label"),
 			Description: lang.GetText("menu.status.git_status_desc"),
 			Command:     lang.GetText("menu.status.git_status_cmd"),
@@ -50,7 +54,7 @@ func runStatusMenu() error {
 				return runStatusMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.status.git_log_label"),
 			Description: lang.GetText("menu.status.git_log_desc"),
 			Command:     lang.GetText("menu.status.git_log_cmd"),
@@ -63,7 +67,7 @@ func runStatusMenu() error {
 				return runStatusMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.status.git_commit_label"),
 			Description: lang.GetText("menu.status.git_commit_desc"),
 			Command:     lang.GetText("menu.status.git_commit_cmd"),
@@ -74,7 +78,7 @@ func runStatusMenu() error {
 				return runStatusMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.status.git_pull_label"),
 			Description: lang.GetText("menu.status.git_pull_desc"),
 			Command:     lang.GetText("menu.status.git_pull_cmd"),
@@ -85,19 +89,25 @@ func runStatusMenu() error {
 				return runStatusMenu()
 			},
 		},
-		{
+	)
+
+	// VS Code feature
+	if IsEnabled(FeatureVSCode) {
+		menuItems = append(menuItems, MenuItem{
 			Label:       lang.GetText("menu.status.vscode_label"),
 			Description: lang.GetText("menu.status.vscode_desc"),
 			Command:     lang.GetText("menu.status.vscode_cmd"),
 			Action:      runVSCodeMenu,
-		},
-		{
-			Label:       lang.GetText("menu.status.back_label"),
-			Description: lang.GetText("menu.status.back_desc"),
-			Command:     "",
-			Action:      runInteractiveMenu,
-		},
+		})
 	}
+
+	// Back button (always available)
+	menuItems = append(menuItems, MenuItem{
+		Label:       lang.GetText("menu.status.back_label"),
+		Description: lang.GetText("menu.status.back_desc"),
+		Command:     "",
+		Action:      runInteractiveMenu,
+	})
 
 	templates := createMenuItemWithCommandTemplates()
 

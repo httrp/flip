@@ -21,8 +21,12 @@ func runBrowseSearchMenu() error {
 	fmt.Println()
 	showBreadcrumb("Main", "Browse & Search")
 
-	menuItems := []MenuItem{
-		{
+	// Build menu items dynamically based on enabled features
+	var menuItems []MenuItem
+
+	// Core browse functions (always available)
+	menuItems = append(menuItems,
+		MenuItem{
 			Label:       lang.GetText("menu.browse.recent_label"),
 			Description: lang.GetText("menu.browse.recent_desc"),
 			Command:     lang.GetText("menu.browse.recent_cmd"),
@@ -35,7 +39,7 @@ func runBrowseSearchMenu() error {
 				return runBrowseSearchMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.browse.search_label"),
 			Description: lang.GetText("menu.browse.search_desc"),
 			Command:     lang.GetText("menu.browse.search_cmd"),
@@ -74,7 +78,11 @@ func runBrowseSearchMenu() error {
 				return runBrowseSearchMenu()
 			},
 		},
-		{
+	)
+
+	// Tasks feature
+	if IsEnabled(FeatureTasks) {
+		menuItems = append(menuItems, MenuItem{
 			Label:       lang.GetText("menu.browse.task_browser_label"),
 			Description: lang.GetText("menu.browse.task_browser_desc"),
 			Command:     lang.GetText("menu.browse.task_browser_cmd"),
@@ -87,8 +95,12 @@ func runBrowseSearchMenu() error {
 				}
 				return runBrowseSearchMenu()
 			},
-		},
-		{
+		})
+	}
+
+	// Exercises feature
+	if IsEnabled(FeatureExercises) {
+		menuItems = append(menuItems, MenuItem{
 			Label:       "🏋️  Exercises",
 			Description: "Track session or browse exercise history",
 			Command:     "flip exercise",
@@ -98,14 +110,16 @@ func runBrowseSearchMenu() error {
 				}
 				return runBrowseSearchMenu()
 			},
-		},
-		{
-			Label:       lang.GetText("menu.browse.back_label"),
-			Description: lang.GetText("menu.browse.back_desc"),
-			Command:     "",
-			Action:      runInteractiveMenu,
-		},
+		})
 	}
+
+	// Back button (always available)
+	menuItems = append(menuItems, MenuItem{
+		Label:       lang.GetText("menu.browse.back_label"),
+		Description: lang.GetText("menu.browse.back_desc"),
+		Command:     "",
+		Action:      runInteractiveMenu,
+	})
 
 	templates := createMenuItemWithCommandTemplates()
 

@@ -22,32 +22,44 @@ func runManageResourcesMenu() error {
 	showBreadcrumb("Main › Manage")
 	fmt.Println()
 
-	menuItems := []MenuItem{
-		{
+	// Build menu items dynamically based on enabled features
+	var menuItems []MenuItem
+
+	// Core management items (always available)
+	menuItems = append(menuItems,
+		MenuItem{
 			Label:       lang.GetText("menu.manage.workspaces_label"),
 			Description: lang.GetText("menu.manage.workspaces_desc"),
 			Command:     lang.GetText("menu.manage.workspaces_cmd"),
 			Action:      runEditWorkspaceMenu,
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.manage.brains_label"),
 			Description: lang.GetText("menu.manage.brains_desc"),
 			Command:     lang.GetText("menu.manage.brains_cmd"),
 			Action:      runManageBrainsMenu,
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.manage.config_label"),
 			Description: lang.GetText("menu.manage.config_desc"),
 			Command:     "",
 			Action:      runViewWorkspaceConfig,
 		},
-		{
+	)
+
+	// Templates feature
+	if IsEnabled(FeatureTemplates) {
+		menuItems = append(menuItems, MenuItem{
 			Label:       lang.GetText("menu.manage.templates_label"),
 			Description: lang.GetText("menu.manage.templates_desc"),
 			Command:     lang.GetText("menu.manage.templates_cmd"),
 			Action:      runEditManageMenu, // Reuse existing template management
-		},
-		{
+		})
+	}
+
+	// Git feature (always available - part of core)
+	menuItems = append(menuItems,
+		MenuItem{
 			Label:       lang.GetText("menu.manage.git_status_label"),
 			Description: lang.GetText("menu.manage.git_status_desc"),
 			Command:     "",
@@ -60,7 +72,7 @@ func runManageResourcesMenu() error {
 				return runManageResourcesMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.manage.git_pull_label"),
 			Description: lang.GetText("menu.manage.git_pull_desc"),
 			Command:     "",
@@ -71,7 +83,7 @@ func runManageResourcesMenu() error {
 				return runManageResourcesMenu()
 			},
 		},
-		{
+		MenuItem{
 			Label:       lang.GetText("menu.manage.git_commit_label"),
 			Description: lang.GetText("menu.manage.git_commit_desc"),
 			Command:     "",
@@ -82,19 +94,25 @@ func runManageResourcesMenu() error {
 				return runManageResourcesMenu()
 			},
 		},
-		{
+	)
+
+	// Migration feature
+	if IsEnabled(FeatureMigration) {
+		menuItems = append(menuItems, MenuItem{
 			Label:       lang.GetText("menu.manage.migrate_label"),
 			Description: lang.GetText("menu.manage.migrate_desc"),
 			Command:     lang.GetText("menu.manage.migrate_cmd"),
 			Action:      runBrainMigrationMenu,
-		},
-		{
-			Label:       lang.GetText("menu.manage.back_label"),
-			Description: lang.GetText("menu.manage.back_desc"),
-			Command:     "",
-			Action:      runInteractiveMenu,
-		},
+		})
 	}
+
+	// Back button (always available)
+	menuItems = append(menuItems, MenuItem{
+		Label:       lang.GetText("menu.manage.back_label"),
+		Description: lang.GetText("menu.manage.back_desc"),
+		Command:     "",
+		Action:      runInteractiveMenu,
+	})
 
 	templates := createMenuItemWithCommandTemplates()
 
