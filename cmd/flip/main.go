@@ -9,6 +9,9 @@ import (
 )
 
 func main() {
+	// Initialize features from environment variables
+	commands.InitFeaturesFromEnv()
+
 	var theme string
 	var rootCmd = &cobra.Command{
 		Use:   "flip",
@@ -17,7 +20,9 @@ func main() {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Check for VS Code tasks updates (after flags are parsed)
 			// Only shows hint if in VS Code, outdated, and not in JSON mode
-			commands.CheckVSCodeTasksUpdate()
+			if commands.IsEnabled(commands.FeatureVSCode) {
+				commands.CheckVSCodeTasksUpdate()
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -32,37 +37,8 @@ func main() {
 		},
 	}
 
-	// Add commands
-	rootCmd.AddCommand(commands.NewMenuCommand())
-	rootCmd.AddCommand(commands.NewStatusCommand())
-	rootCmd.AddCommand(commands.NewQuickstartCommand())
-	rootCmd.AddCommand(commands.NewIntroCommand())
-	rootCmd.AddCommand(commands.NewWorkspaceCommand())
-	rootCmd.AddCommand(commands.NewMediaCommand())
-	// Brain command with subcommands (init/scan moved here)
-	brainCmd := commands.NewBrainCommand()
-	brainCmd.AddCommand(commands.NewInitCommand())
-	brainCmd.AddCommand(commands.NewScanCommand())
-	brainCmd.AddCommand(commands.NewRecentCommand())
-	brainCmd.AddCommand(commands.NewSearchCommand())
-	rootCmd.AddCommand(brainCmd)
-	// Register 'new', 'note', 'meeting', 'journal', and 'template' commands at root level
-	rootCmd.AddCommand(commands.NewNewCommand())
-	rootCmd.AddCommand(commands.NewNoteCommand())
-	rootCmd.AddCommand(commands.NewQuicknoteCommand())
-	rootCmd.AddCommand(commands.NewMeetingCommand())
-	rootCmd.AddCommand(commands.NewJournalCommand())
-	rootCmd.AddCommand(commands.NewTemplateCommand())
-	// Register task command
-	rootCmd.AddCommand(commands.NewTaskCommand())
-	// Register exercise command
-	rootCmd.AddCommand(commands.NewExerciseCommand())
-	// Register definitions command
-	rootCmd.AddCommand(commands.NewDefinitionsCommand())
-	// Register file-info command (for VS Code integration)
-	rootCmd.AddCommand(commands.NewFileInfoCommand())
-	// Register vscode command for VS Code integration
-	rootCmd.AddCommand(commands.NewVSCodeCommand())
+	// Register commands based on enabled features
+	commands.RegisterFeatureCommands(rootCmd)
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&theme, "theme", "", "icon theme: ascii|emoji|mixed (default: mixed)")
