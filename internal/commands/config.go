@@ -168,7 +168,7 @@ func getActiveWorkspace() (*Workspace, error) {
 			// Default to first workspace if none active
 			return &config.Workspaces[0], nil
 		}
-		return nil, fmt.Errorf("no workspaces configured")
+		return nil, ErrNoActiveWorkspace()
 	}
 
 	for i, ws := range config.Workspaces {
@@ -177,7 +177,7 @@ func getActiveWorkspace() (*Workspace, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("active workspace '%s' not found", config.ActiveWorkspace)
+	return nil, ErrWorkspaceNotFound(config.ActiveWorkspace)
 }
 
 // getActiveBrain returns the default brain from the active workspace
@@ -188,7 +188,7 @@ func getActiveBrain() (*Brain, error) {
 	}
 
 	if len(ws.Brains) == 0 {
-		return nil, fmt.Errorf("no brains in active workspace")
+		return nil, ErrNoBrainInWorkspace()
 	}
 
 	// Return default brain if set
@@ -225,7 +225,7 @@ func getBrainByName(brainName string) (*Brain, error) {
 			return &ws.Brains[i], nil
 		}
 	}
-	return nil, fmt.Errorf("brain '%s' not found in workspace '%s'", brainName, ws.Name)
+	return nil, ErrBrainNotFound(brainName)
 }
 
 // getAllBrainsInWorkspace returns all brains from the active workspace with their paths
@@ -237,7 +237,7 @@ func getAllBrainsInWorkspace() (map[string]string, error) {
 	}
 
 	if len(ws.Brains) == 0 {
-		return nil, fmt.Errorf("no brains in active workspace")
+		return nil, ErrNoBrainInWorkspace()
 	}
 
 	brainPaths := make(map[string]string, len(ws.Brains))
