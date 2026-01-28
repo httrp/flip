@@ -1,8 +1,61 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 const execAsync = promisify(exec);
+
+/**
+ * Find flip executable by checking common installation locations
+ * This helps when VS Code doesn't inherit the shell PATH (especially on Windows)
+ */
+function findFlipExecutable(): string {
+  const config = vscode.workspace.getConfiguration('flip');
+  const configuredPath = config.get<string>('executablePath');
+  
+  // If user explicitly configured a path, use it
+  if (configuredPath && configuredPath !== 'flip') {
+    return configuredPath;
+  }
+
+  // Common locations to check for flip binary
+  const homeDir = os.homedir();
+  const isWindows = process.platform === 'win32';
+  const binaryName = isWindows ? 'flip.exe' : 'flip';
+  
+  const searchPaths = [
+    // Go bin directory (most common for go install)
+    path.join(homeDir, 'go', 'bin', binaryName),
+    // Local bin
+    path.join(homeDir, '.local', 'bin', binaryName),
+    // User bin
+    path.join(homeDir, 'bin', binaryName),
+    // Homebrew on macOS
+    '/usr/local/bin/flip',
+    '/opt/homebrew/bin/flip',
+    // Linux system paths
+    '/usr/bin/flip',
+    '/usr/local/bin/flip',
+  ];
+
+  // Check each path
+  for (const searchPath of searchPaths) {
+    try {
+      if (fs.existsSync(searchPath)) {
+        console.log(`[Flip] Found flip at: ${searchPath}`);
+        return searchPath;
+      }
+    } catch {
+      // Ignore errors, continue searching
+    }
+  }
+
+  // Fall back to 'flip' and hope it's in PATH
+  console.log('[Flip] Using default: flip (from PATH)');
+  return 'flip';
+}
 
 /**
  * Result from flip CLI command
@@ -452,8 +505,9 @@ export class FlipClient {
 
   constructor() {
     const config = vscode.workspace.getConfiguration('flip');
-    this.executablePath = config.get('executablePath', 'flip');
+    this.executablePath = findFlipExecutable();
     this.timeout = config.get('timeout', 10000);
+    console.log(`[Flip] Using executable: ${this.executablePath}`);
   }
 
   /**
@@ -521,10 +575,17 @@ export class FlipClient {
     } catch (error: any) {
       // Check if flip is not installed
       if (error.code === 'ENOENT') {
+        const isWindows = process.platform === 'win32';
+        const homeDir = os.homedir();
+        const goBinPath = path.join(homeDir, 'go', 'bin', isWindows ? 'flip.exe' : 'flip');
+        
         return {
           success: false,
           command: args[0],
-          error: 'flip not found. Please install flip and ensure it\'s in your PATH.'
+          error: `flip not found at '${this.executablePath}'. ` +
+                 `Install flip with 'go install github.com/danorama/flip@latest' ` +
+                 `or set 'flip.executablePath' in VS Code settings to point to your flip binary ` +
+                 `(expected location: ${goBinPath})`
         };
       }
 

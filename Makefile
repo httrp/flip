@@ -1,7 +1,13 @@
 # Makefile for flip CLI and VS Code Extension
 # Works on macOS, Linux, and Windows (with Make installed)
 
-BINARY=flip
+# Detect OS and set binary name
+ifeq ($(OS),Windows_NT)
+    BINARY=flip.exe
+else
+    BINARY=flip
+endif
+
 GOPATH=$(shell go env GOPATH)
 INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
@@ -16,6 +22,7 @@ VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
 help:
 	@echo "Flip - Build Targets:"
 	@echo ""
+	@echo "  make setup               Full setup: build + install CLI + install extension"
 	@echo "  make all                 Full check: build + lint + test + smoke"
 	@echo "  make ci                  Run exactly what CI runs"
 	@echo ""
@@ -35,6 +42,15 @@ help:
 	@echo "  make clean-cli           Clean CLI binary only"
 	@echo "  make clean-extension     Clean Extension build files"
 	@echo "  make uninstall           Remove installed flip"
+
+# Full setup: build + install CLI + install extension (for new machines)
+setup: build install install-extension
+	@echo ""
+	@echo "✓ Full setup complete!"
+	@echo "  • flip CLI installed to $(INSTALL_PATH)"
+	@echo "  • VS Code Extension installed"
+	@echo ""
+	@echo "Next: Reload VS Code window and run 'flip quickstart'"
 
 # Full check before commit (recommended before pushing)
 all: build lint test smoke
@@ -61,7 +77,7 @@ build-cli:
 
 # Build Extension (compile TypeScript)
 build-extension:
-	cd $(VSIX_DIR) && npm run compile
+	@cd $(VSIX_DIR) && npm run compile
 	@echo "✓ Extension built"
 
 # Package Extension as .vsix file
