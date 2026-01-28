@@ -522,7 +522,9 @@ export class FlipClient {
    * Execute a flip command and return parsed JSON result
    */
   private async execute<T>(args: string[]): Promise<FlipResult<T>> {
-    const cmd = `${this.executablePath} ${args.join(' ')} --json`;
+    // Escape args properly for shell (especially important on Windows and with spaces)
+    const escapedArgs = args.map(arg => this.shellEscape(arg));
+    const cmd = `${this.executablePath} ${escapedArgs.join(' ')} --json`;
     
     try {
       let stdout = '';

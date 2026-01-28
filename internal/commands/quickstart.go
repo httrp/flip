@@ -252,7 +252,7 @@ func runQuickstart() error {
 // runFreshStart handles the "Start fresh" flow - shows educational content and runs workspace step with forceNew
 func runFreshStart(config *WorkspaceConfig) error {
 	fmt.Println()
-	
+
 	// Show educational content
 	fmt.Println(getText("quickstart.intro_workspace"))
 	fmt.Println()
@@ -266,7 +266,7 @@ func runFreshStart(config *WorkspaceConfig) error {
 	fmt.Println()
 	fmt.Println("💡 " + getText("quickstart.flap_folder_info"))
 	fmt.Println()
-	
+
 	// Run workspace step with forceNew=true
 	return runWorkspaceStep(config, true)
 }
@@ -282,12 +282,12 @@ func runWorkspaceStep(config *WorkspaceConfig, forceNew bool) error {
 		getText("quickstart.workspace_default_option"),
 		getText("quickstart.workspace_custom_option"),
 	}
-	
+
 	wsChoice, _, err := selectPrompt(getText("quickstart.prompt_workspace_name"), wsChoiceItems)
 	if err != nil {
 		return fmt.Errorf("workspace choice failed: %w", err)
 	}
-	
+
 	var wsName string
 	if wsChoice == 0 {
 		// Use default
@@ -299,7 +299,7 @@ func runWorkspaceStep(config *WorkspaceConfig, forceNew bool) error {
 		fmt.Println()
 		fmt.Println(getText("quickstart.workspace_suggestions"))
 		fmt.Println()
-		
+
 		validate := func(input string) error {
 			if strings.ToLower(input) == "flap" {
 				return fmt.Errorf("%s", getText("quickstart.reserved_flap"))
@@ -327,10 +327,10 @@ func runWorkspaceStep(config *WorkspaceConfig, forceNew bool) error {
 			break
 		}
 	}
-	
+
 	if workspaceExists {
 		existingBrainCount := len(config.Workspaces[existingWSIdx].Brains)
-		
+
 		if forceNew && existingBrainCount > 0 {
 			// Fresh start mode - ask if user wants to clear the workspace
 			fmt.Println()
@@ -339,18 +339,18 @@ func runWorkspaceStep(config *WorkspaceConfig, forceNew bool) error {
 				fmt.Printf("   • %s (%s)\n", b.Name, b.Path)
 			}
 			fmt.Println()
-			
+
 			clearOptions := []string{
 				fmt.Sprintf("Clear workspace and start fresh (remove %d brain(s) from config)", existingBrainCount),
 				"Keep existing brains and add more",
 				"Cancel and go back",
 			}
-			
+
 			clearIdx, _, err := selectPrompt("What would you like to do?", clearOptions)
 			if err != nil || clearIdx == 2 {
 				return fmt.Errorf("setup cancelled")
 			}
-			
+
 			if clearIdx == 0 {
 				// Clear the workspace brains
 				fmt.Println()
@@ -367,7 +367,7 @@ func runWorkspaceStep(config *WorkspaceConfig, forceNew bool) error {
 		} else {
 			fmt.Printf("\n✓ Workspace '%s' already exists, using it\n\n", wsName)
 		}
-		
+
 		config.ActiveWorkspace = wsName
 		if err := saveWorkspaceConfig(config); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
@@ -433,7 +433,7 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 	// Option 3: Scan for brains
 	if brainTypeIdx == 2 {
 		home, _ := os.UserHomeDir()
-		
+
 		// Educational text before scan
 		fmt.Println()
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -452,7 +452,7 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		fmt.Println("   Looking for: Flip, Obsidian, Logseq, Dendron, Foam brains")
 		fmt.Println("   (Ignoring generic markdown folders)")
 		fmt.Println()
-		
+
 		// Scan from home directory - only show recognized brain types, not "potential" brains
 		if err := runScanWithOptions(home, ScanOptions{
 			MinBrainFiles:   5,
@@ -462,24 +462,24 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		}); err != nil {
 			fmt.Printf("⚠️  Scan completed with warnings: %v\n", err)
 		}
-		
+
 		// After scan, offer to add a brain
 		fmt.Println()
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println()
-		
+
 		afterScanOptions := []string{
 			"Add a brain from the list above (enter path)",
 			"Continue with setup complete (brains already added)",
 			"Return to main options",
 		}
-		
+
 		afterIdx, _, err := selectPrompt("What would you like to do?", afterScanOptions)
 		if err != nil || afterIdx == 2 {
 			// Return to brain options
 			return runAddBrainStep(config, wsName)
 		}
-		
+
 		// Option: Continue with setup complete
 		if afterIdx == 1 {
 			fmt.Println()
@@ -490,12 +490,12 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 			fmt.Println()
 			return nil
 		}
-		
+
 		// User wants to add a brain - go to the path entry flow
 		fmt.Println()
 		fmt.Println("💡 Copy the path from the scan results above")
 		fmt.Println()
-		
+
 		validateBrainPath := func(input string) error {
 			if input == "" {
 				return fmt.Errorf("%s", getText("quickstart.no_path_provided"))
@@ -513,38 +513,38 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 			}
 			return nil
 		}
-		
+
 		brainPathInput, err := textPrompt("Enter brain path", "", validateBrainPath)
 		if err != nil {
 			return fmt.Errorf("brain path prompt failed: %w", err)
 		}
-		
+
 		// Expand ~ if present
 		if strings.HasPrefix(brainPathInput, "~/") {
 			brainPathInput = filepath.Join(home, brainPathInput[2:])
 		}
-		
+
 		brainTarget, _ := filepath.Abs(brainPathInput)
 		defaultName := filepath.Base(brainTarget)
-		
+
 		validateBrainName := func(input string) error {
 			if strings.ToLower(input) == "flap" {
 				return fmt.Errorf("%s", getText("quickstart.reserved_flap"))
 			}
 			return nil
 		}
-		
+
 		brainName, err := textPrompt(getText("quickstart.prompt_existing_brain_name"), defaultName, validateBrainName)
 		if err != nil {
 			return fmt.Errorf("brain name prompt failed: %w", err)
 		}
-		
+
 		// Initialize and add brain
 		fmt.Println(fmt.Sprintf(getText("quickstart.initializing_brain"), brainName, brainTarget))
 		if err := runDirectoryInitWithName(brainTarget, brainName, "", false); err != nil {
 			fmt.Printf("! Warning: %v\n", err)
 		}
-		
+
 		// Show completion message
 		fmt.Println()
 		fmt.Println(getText("quickstart.setup_complete"))
@@ -559,8 +559,8 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 	// Option 2: Connect existing brain
 	if brainTypeIdx == 1 {
 		home, _ := os.UserHomeDir()
-		
-		// Educational text 
+
+		// Educational text
 		fmt.Println()
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println(getText("quickstart.what_is_brain"))
@@ -576,26 +576,26 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		fmt.Println()
 		fmt.Println("📂 Where is your existing brain located?")
 		fmt.Println()
-		
+
 		pathOptions := []string{
 			"Enter path manually",
 			fmt.Sprintf("~/Documents (%s)", filepath.Join(home, "Documents")),
 			fmt.Sprintf("~/Dropbox (%s)", filepath.Join(home, "Dropbox")),
 			fmt.Sprintf("~/ (Home: %s)", home),
 		}
-		
+
 		// Add platform-specific common paths
 		if runtime.GOOS == "windows" {
 			pathOptions = append(pathOptions, fmt.Sprintf("OneDrive (%s)", filepath.Join(home, "OneDrive")))
 		}
-		
+
 		pathIdx, _, err := selectPrompt("Choose a starting location or enter path", pathOptions)
 		if err != nil {
 			return fmt.Errorf("path selection failed: %w", err)
 		}
-		
+
 		var brainPathInput string
-		
+
 		if pathIdx == 0 {
 			// Manual entry
 			validateBrainPath := func(input string) error {
@@ -615,7 +615,7 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 				}
 				return nil
 			}
-			
+
 			brainPathInput, err = textPrompt(getText("quickstart.prompt_existing_brain_path"), "", validateBrainPath)
 			if err != nil {
 				return fmt.Errorf("brain path prompt failed: %w", err)
@@ -633,30 +633,30 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 			case 4:
 				basePath = filepath.Join(home, "OneDrive")
 			}
-			
+
 			// List subdirectories and let user choose
 			entries, err := os.ReadDir(basePath)
 			if err != nil {
 				return fmt.Errorf("failed to read directory: %w", err)
 			}
-			
+
 			var subdirs []string
 			subdirs = append(subdirs, "[Use this folder: "+basePath+"]")
 			subdirs = append(subdirs, "[Enter different path]")
-			
+
 			for _, entry := range entries {
 				if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
 					subdirs = append(subdirs, entry.Name())
 				}
 			}
-			
+
 			if len(subdirs) > 2 {
 				fmt.Println()
 				subIdx, subName, err := selectPrompt("Select a folder", subdirs)
 				if err != nil {
 					return fmt.Errorf("folder selection failed: %w", err)
 				}
-				
+
 				if subIdx == 0 {
 					brainPathInput = basePath
 				} else if subIdx == 1 {
@@ -672,7 +672,7 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 				brainPathInput = basePath
 			}
 		}
-		
+
 		// Expand ~ if present
 		if strings.HasPrefix(brainPathInput, "~/") {
 			brainPathInput = filepath.Join(home, brainPathInput[2:])
@@ -698,7 +698,7 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		if err := runDirectoryInitWithName(brainTarget, brainName, "", false); err != nil {
 			fmt.Printf("! Warning: %v\n", err)
 		}
-		
+
 		// Show completion message
 		fmt.Println()
 		fmt.Println(getText("quickstart.setup_complete"))
