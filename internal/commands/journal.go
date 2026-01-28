@@ -504,6 +504,7 @@ func generateJournalFilename(date time.Time, brainType brain.BrainType) string {
 // generateJournalContent creates journal entry content
 func generateJournalContent(date time.Time, brainType brain.BrainType) string {
 	dateStr := date.Format("2006-01-02")
+	weekday := date.Format("Monday")
 
 	// Try to load template from file
 	tmpl, err := templates.Load(brainType, templates.TemplateTypeJournal)
@@ -518,6 +519,7 @@ func generateJournalContent(date time.Time, brainType brain.BrainType) string {
 	// Prepare template variables
 	vars := map[string]string{
 		"date":    dateStr,
+		"weekday": weekday,
 		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
 		"updated": fmt.Sprintf("%d", time.Now().Unix()),
 		"created": fmt.Sprintf("%d", time.Now().Unix()),
