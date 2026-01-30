@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 const execAsync = promisify(exec);
-
+const execFileAsync = promisify(execFile);
 /**
  * Find flip executable by checking common installation locations
  * This helps when VS Code doesn't inherit the shell PATH (especially on Windows)
@@ -525,16 +525,18 @@ export class FlipClient {
     // Escape args properly for shell (especially important on Windows and with spaces)
     const escapedArgs = args.map(arg => this.shellEscape(arg));
     const cmd = `${this.executablePath} ${escapedArgs.join(' ')} --json`;
-    
+    // Add --json flag to args and use execFile instead of shell string concatenation
+    const allArgs = [...args, '--json'];
+     
     try {
       let stdout = '';
       let stderr = '';
       
       try {
-        const result = await execAsync(cmd, { 
-          timeout: this.timeout,
-          env: { ...process.env, TERM_PROGRAM: 'vscode' }
-        });
+         const result = await execFileAsync(this.executablePath, allArgs, { 
+           timeout: this.timeout,
+           env: { ...process.env, TERM_PROGRAM: 'vscode' }
+         });
         stdout = result.stdout;
         stderr = result.stderr;
       } catch (execError: any) {
