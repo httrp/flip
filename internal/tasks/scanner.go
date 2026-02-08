@@ -112,7 +112,10 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 					ApplyFrontmatterToTask(currentTask, frontmatter)
 				}
 
-				tasks = append(tasks, *currentTask)
+				// Skip excluded tasks
+				if !shouldExcludeTask(currentTask, frontmatter, filePath) {
+					tasks = append(tasks, *currentTask)
+				}
 				metadataLines = nil
 			}
 
@@ -145,7 +148,10 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 					ApplyFrontmatterToTask(currentTask, frontmatter)
 				}
 
-				tasks = append(tasks, *currentTask)
+				// Skip excluded tasks
+				if !shouldExcludeTask(currentTask, frontmatter, filePath) {
+					tasks = append(tasks, *currentTask)
+				}
 				currentTask = nil
 				metadataLines = nil
 			}
@@ -163,10 +169,41 @@ func (s *Scanner) ScanFile(filePath string) ([]Task, error) {
 			ApplyFrontmatterToTask(currentTask, frontmatter)
 		}
 
-		tasks = append(tasks, *currentTask)
+		// Skip excluded tasks
+		if !shouldExcludeTask(currentTask, frontmatter, filePath) {
+			tasks = append(tasks, *currentTask)
+		}
 	}
 
 	return tasks, nil
+}
+
+// shouldExcludeTask determines if a task should be excluded from indexing
+// based on frontmatter flags, file type, task tags, and file location.
+func shouldExcludeTask(task *Task, frontmatter *NoteFrontmatter, filePath string) bool {
+	// Auto-exclude by file type
+	if frontmatter != nil && (frontmatter.Type == "exercise" || frontmatter.Type == "template") {
+		return true
+	}
+
+	// File-level exclusion flags
+	if frontmatter != nil && (frontmatter.FlipIgnore || frontmatter.Draft) {
+		return true
+	}
+
+	// Task-level tag exclusion
+	for _, tag := range task.Tags {
+		if tag == "flipignore" {
+			return true
+		}
+	}
+
+	// Auto-exclude tasks in templates folders
+	if strings.Contains(filePath, "/templates/") || strings.Contains(filePath, "\\templates\\") {
+		return true
+	}
+
+	return false
 }
 
 // ScanMultipleBrains scans multiple brains for tasks

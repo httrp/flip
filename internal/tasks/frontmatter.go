@@ -12,7 +12,9 @@ type NoteFrontmatter struct {
 	Project      string
 	Context      string
 	Tags         []string
-	// Can be extended with more fields as needed
+	Type         string // Note type (e.g., "exercise", "template")
+	FlipIgnore   bool   // Exclude all tasks in this file
+	Draft        bool   // Mark file as draft (also excludes tasks)
 }
 
 // ParseFrontmatter extracts YAML frontmatter from a file
@@ -64,6 +66,12 @@ func ParseFrontmatter(filePath string) (*NoteFrontmatter, error) {
 			fm.Project = value
 		case "context", "ctx":
 			fm.Context = value
+		case "type":
+			fm.Type = value
+		case "flipignore":
+			fm.FlipIgnore = strings.ToLower(value) == "true"
+		case "draft":
+			fm.Draft = strings.ToLower(value) == "true"
 		case "tags":
 			// Handle both single tag and array of tags
 			// Simple parsing: split by comma or space

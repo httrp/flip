@@ -511,20 +511,9 @@ export class FlipClient {
   }
 
   /**
-   * Escape a string for safe shell usage
-   */
-  private shellEscape(str: string): string {
-    // Use single quotes and escape any single quotes within
-    return `'${str.replace(/'/g, "'\\''")}'`;
-  }
-
-  /**
    * Execute a flip command and return parsed JSON result
    */
   private async execute<T>(args: string[]): Promise<FlipResult<T>> {
-    // Escape args properly for shell (especially important on Windows and with spaces)
-    const escapedArgs = args.map(arg => this.shellEscape(arg));
-    const cmd = `${this.executablePath} ${escapedArgs.join(' ')} --json`;
     // Add --json flag to args and use execFile instead of shell string concatenation
     const allArgs = [...args, '--json'];
      
@@ -683,9 +672,9 @@ export class FlipClient {
    * Create a new note
    */
   async createNote(options: { title: string; tags?: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['note', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
+    const args = ['note', '--no-edit', '--no-link', '--title', options.title];
     if (options.tags) {
-      args.push('--tags', this.shellEscape(options.tags));
+      args.push('--tags', options.tags);
     }
     if (options.brain) {
       args.push('--brain', options.brain);
@@ -697,7 +686,7 @@ export class FlipClient {
    * Create a quick note
    */
   async createQuicknote(options: { title: string; brain?: string }): Promise<FlipResult<NoteResult>> {
-    const args = ['quicknote', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
+    const args = ['quicknote', '--no-edit', '--no-link', '--title', options.title];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -718,14 +707,14 @@ export class FlipClient {
     series?: string;
     brain?: string;
   }): Promise<FlipResult<NoteResult>> {
-    const args = ['meeting-note', '--no-edit', '--no-link', '--title', this.shellEscape(options.title)];
-    if (options.participants) args.push('--participants', this.shellEscape(options.participants));
-    if (options.organization) args.push('--organization', this.shellEscape(options.organization));
-    if (options.project) args.push('--project', this.shellEscape(options.project));
-    if (options.context) args.push('--context', this.shellEscape(options.context));
-    if (options.tags) args.push('--tags', this.shellEscape(options.tags));
-    if (options.duration) args.push('--duration', this.shellEscape(options.duration));
-    if (options.series) args.push('--series', this.shellEscape(options.series));
+    const args = ['meeting-note', '--no-edit', '--no-link', '--title', options.title];
+    if (options.participants) args.push('--participants', options.participants);
+    if (options.organization) args.push('--organization', options.organization);
+    if (options.project) args.push('--project', options.project);
+    if (options.context) args.push('--context', options.context);
+    if (options.tags) args.push('--tags', options.tags);
+    if (options.duration) args.push('--duration', options.duration);
+    if (options.series) args.push('--series', options.series);
     if (options.brain) args.push('--brain', options.brain);
     return this.execute<NoteResult>(args);
   }
@@ -750,7 +739,7 @@ export class FlipClient {
   async listDefinitions(brain?: string): Promise<FlipResult<DefinitionsResult>> {
     const args = ['vscode', 'definitions', 'list'];
     if (brain) {
-      args.push('--brain', this.shellEscape(brain));
+      args.push('--brain', brain);
     }
     return this.execute<DefinitionsResult>(args);
   }
@@ -759,15 +748,15 @@ export class FlipClient {
    * Add a new organization to definitions
    */
   async addOrganization(options: { abbreviation: string; name?: string; description?: string; brain?: string }): Promise<FlipResult<DefinitionItem>> {
-    const args = ['vscode', 'definitions', 'add-org', '--abbreviation', this.shellEscape(options.abbreviation)];
+    const args = ['vscode', 'definitions', 'add-org', '--abbreviation', options.abbreviation];
     if (options.name) {
-      args.push('--name', this.shellEscape(options.name));
+      args.push('--name', options.name);
     }
     if (options.description) {
-      args.push('--description', this.shellEscape(options.description));
+      args.push('--description', options.description);
     }
     if (options.brain) {
-      args.push('--brain', this.shellEscape(options.brain));
+      args.push('--brain', options.brain);
     }
     return this.execute<DefinitionItem>(args);
   }
@@ -776,18 +765,18 @@ export class FlipClient {
    * Add a new person to definitions
    */
   async addPerson(options: { name: string; abbreviation?: string; organization?: string; role?: string; brain?: string }): Promise<FlipResult<DefinitionItem>> {
-    const args = ['vscode', 'definitions', 'add-person', '--name', this.shellEscape(options.name)];
+    const args = ['vscode', 'definitions', 'add-person', '--name', options.name];
     if (options.abbreviation) {
-      args.push('--abbreviation', this.shellEscape(options.abbreviation));
+      args.push('--abbreviation', options.abbreviation);
     }
     if (options.organization) {
-      args.push('--organization', this.shellEscape(options.organization));
+      args.push('--organization', options.organization);
     }
     if (options.role) {
-      args.push('--role', this.shellEscape(options.role));
+      args.push('--role', options.role);
     }
     if (options.brain) {
-      args.push('--brain', this.shellEscape(options.brain));
+      args.push('--brain', options.brain);
     }
     return this.execute<DefinitionItem>(args);
   }
@@ -796,9 +785,9 @@ export class FlipClient {
    * Remove a definition (organization, person, context)
    */
   async removeDefinition(options: { type: string; abbreviation: string; brain?: string }): Promise<FlipResult<void>> {
-    const args = ['vscode', 'definitions', 'remove', '--type', options.type, '--abbreviation', this.shellEscape(options.abbreviation)];
+    const args = ['vscode', 'definitions', 'remove', '--type', options.type, '--abbreviation', options.abbreviation];
     if (options.brain) {
-      args.push('--brain', this.shellEscape(options.brain));
+      args.push('--brain', options.brain);
     }
     return this.execute<void>(args);
   }
@@ -807,7 +796,7 @@ export class FlipClient {
    * Get all unique participants from a meeting series history
    */
   async getSeriesParticipants(seriesName: string): Promise<FlipResult<{ participants: string[] }>> {
-    return this.execute<{ participants: string[] }>(['vscode', 'meetings', 'get-series-participants', this.shellEscape(seriesName)]);
+    return this.execute<{ participants: string[] }>(['vscode', 'meetings', 'get-series-participants', seriesName]);
   }
 
   /**
@@ -838,7 +827,7 @@ export class FlipClient {
     file?: string;
     line?: number;
   }): Promise<FlipResult<TaskResult>> {
-    const args = ['task', 'new', '--no-edit', '--description', this.shellEscape(options.description)];
+    const args = ['task', 'new', '--no-edit', '--description', options.description];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -876,9 +865,9 @@ export class FlipClient {
    * Add a file to the journal
    */
   async addToJournal(options: { file: string; title?: string; type?: string; brain?: string; date?: string }): Promise<FlipResult<any>> {
-    const args = ['journal', 'link', '--file', this.shellEscape(options.file)];
+    const args = ['journal', 'link', '--file', options.file];
     if (options.title) {
-      args.push('--title', this.shellEscape(options.title));
+      args.push('--title', options.title);
     }
     if (options.type) {
       args.push('--type', options.type);
@@ -960,7 +949,7 @@ export class FlipClient {
     tag?: string;
     limit?: number;
   }): Promise<FlipResult<SearchResults>> {
-    const args = ['vscode', 'search', '--query', this.shellEscape(options.query)];
+    const args = ['vscode', 'search', '--query', options.query];
     if (options.brain) {
       args.push('--brain', options.brain);
     }
@@ -1007,7 +996,7 @@ export class FlipClient {
   }): Promise<FlipResult<HealthReport>> {
     const args = ['brain', 'check', 'health'];
     if (options?.brainPath) {
-      args.push(this.shellEscape(options.brainPath));
+      args.push(options.brainPath);
     }
     if (options?.fix) {
       args.push('--fix');
@@ -1028,7 +1017,7 @@ export class FlipClient {
   }): Promise<FlipResult<HealthReport>> {
     const args = ['media', 'normalize'];
     if (options?.brainPath) {
-      args.push(this.shellEscape(options.brainPath));
+      args.push(options.brainPath);
     }
     if (options?.fix) {
       args.push('--fix');
@@ -1110,7 +1099,7 @@ export class FlipClient {
       args.push('--variant', options.variant);
     }
     if (options.notes) {
-      args.push('--notes', this.shellEscape(options.notes));
+      args.push('--notes', options.notes);
     }
     if (options.brain) {
       args.push('--brain', options.brain);
@@ -1128,15 +1117,15 @@ export class FlipClient {
     goal?: string;
     brain?: string;
   }): Promise<FlipResult<ExerciseNewResult>> {
-    const args = ['vscode', 'exercises', 'new', '--name', this.shellEscape(options.name)];
+    const args = ['vscode', 'exercises', 'new', '--name', options.name];
     if (options.context) {
-      args.push('--context', this.shellEscape(options.context));
+      args.push('--context', options.context);
     }
     if (options.description) {
-      args.push('--description', this.shellEscape(options.description));
+      args.push('--description', options.description);
     }
     if (options.goal) {
-      args.push('--goal', this.shellEscape(options.goal));
+      args.push('--goal', options.goal);
     }
     if (options.brain) {
       args.push('--brain', options.brain);

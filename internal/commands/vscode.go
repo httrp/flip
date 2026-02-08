@@ -199,8 +199,10 @@ func runVSCodeNotes(brainName string) error {
 		case "foam", "obsidian":
 			// Foam/Obsidian use wiki-style links
 			linkFormat = "[[" + name + "]]"
-		default: // flip
-			linkFormat = "[[" + name + "]]"
+		default: // flip or plain - use markdown links
+			// Convert to forward slashes for markdown links
+			mdPath := strings.ReplaceAll(relPath, "\\", "/")
+			linkFormat = "[" + name + "](" + mdPath + ")"
 		}
 
 		result.Notes = append(result.Notes, NoteInfo{

@@ -215,3 +215,152 @@ Values are case-sensitive and support:
 - Hyphens: -
 
 Examples: `P1174`, `CLIENT-XYZ`, `BACKEND`, `MULTI-WORD-CONTEXT`
+---
+
+## Excluding Tasks (flipignore)
+
+Tasks can be excluded from listings, browser, and task insertions using the **flipignore** feature. This is useful for:
+- Example/demo tasks in documentation
+- Test/template tasks  
+- Draft content not yet ready
+
+### Exclusion Methods
+
+#### 1. File-Level Exclusion (Frontmatter)
+
+Exclude ALL tasks in a file:
+
+```markdown
+---
+flipignore: true
+---
+
+# Example Tasks
+
+- [ ] Task 1 (excluded)
+- [ ] Task 2 (excluded)
+```
+
+#### 2. Draft Flag
+
+Mark entire file as draft:
+
+```markdown
+---
+draft: true
+---
+
+# Draft Tasks
+
+- [ ] Work in progress (excluded)
+```
+
+#### 3. Task-Level Exclusion (Tag)
+
+Exclude individual tasks:
+
+```markdown
+# Mixed Tasks
+
+- [ ] Important task (visible)
+- [ ] Example task #flipignore (excluded)
+- [ ] Another task (visible)
+```
+
+#### 4. Auto-Exclusion by Type
+
+Files with specific types are auto-excluded:
+
+```markdown
+---
+type: exercise
+---
+
+# Exercise Template
+
+- [ ] Exercise step 1 (auto-excluded)
+```
+
+Supported types:
+- `type: exercise` - Exercise/workout plans
+- `type: template` - Template files
+
+#### 5. Templates Folder
+
+Tasks in `/templates/` folders are automatically excluded:
+
+```
+brains/
+  ├── templates/
+  │   └── meeting-template.md
+  │       - [ ] Task (auto-excluded)
+  └── tasks.md
+      - [ ] Task (visible)
+```
+
+### Behavior
+
+When a task is excluded, it:
+- ✅ Does NOT appear in `flip task list`
+- ✅ Does NOT appear in VS Code task browser
+- ✅ Is NOT available for insertion in journal entries
+- ✅ Still exists in the file (not deleted)
+
+### Combining Methods
+
+You can combine multiple exclusion methods:
+
+```markdown
+---
+type: template
+flipignore: true
+draft: true
+---
+
+# Example Template
+
+- [ ] Example task #flipignore (triple-excluded)
+```
+
+Only one method is needed - they don't stack.
+
+### Use Cases
+
+#### Documentation Examples
+```markdown
+---
+flipignore: true
+---
+
+# Copy-paste examples for documentation
+
+- [ ] Example: Import data from CSV
+- [ ] Example: Generate report
+```
+
+#### Testing/Drafting
+```markdown
+---
+draft: true
+---
+
+# Testing new task system
+
+- [ ] New feature idea (work in progress)
+- [ ] Alternative approach (experimental)
+```
+
+#### Exercise/Habit Tracking
+```markdown
+---
+type: exercise
+---
+
+# Workout Template
+
+- [ ] Warmup (5 min)
+- [ ] Main set (30 min)
+- [ ] Cooldown (5 min)
+```
+
+When you want to use exercises, you copy the template to a regular note where it becomes visible.
