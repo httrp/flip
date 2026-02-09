@@ -94,12 +94,3 @@ func promptForCommit() bool {
 	return idx == 0
 }
 
-// getGitCommitMessage prompts for a custom commit message
-func getGitCommitMessage(defaultMsg string) (string, error) {
-	prompt := promptui.Prompt{
-		Label:   "Commit message",
-		Default: defaultMsg,
-	}
-
-	return prompt.Run()
-}

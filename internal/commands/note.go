@@ -549,7 +549,7 @@ func generateNoteFilename(title string, brainType brain.BrainType) string {
 	}
 }
 
-// promptForSubfolder, getBrainAuthor, getNotesDirectory, generateID
+// promptForSubfolder, getBrainAuthor, getNotesDirectory
 // are now in content_common.go
 
 // generateNoteContent creates note content with appropriate frontmatter/metadata

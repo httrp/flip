@@ -29,21 +29,6 @@ func openInFileManager(path string) error {
 	return cmd.Start()
 }
 
-// openInDefaultApp opens a file with the system's default application (cross-platform)
-func openInDefaultApp(filePath string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", filePath)
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", filePath)
-	default: // Linux, BSD, etc.
-		cmd = exec.Command("xdg-open", filePath)
-	}
-
-	return cmd.Start()
-}
 
 // Note: For editor opening, use openInEditor() from note.go which has
 // comprehensive fallback logic (VS Code → system default → $EDITOR → CLI editors)
@@ -60,11 +45,6 @@ func getTerminalSize() (width, height int) {
 	return w, h
 }
 
-// isNarrowTerminal returns true if terminal width is less than threshold
-func isNarrowTerminal(threshold int) bool {
-	width, _ := getTerminalSize()
-	return width < threshold
-}
 
 // truncateString truncates a string to fit in terminal width, leaving room for UI elements
 func truncateString(s string, maxLen int) string {
@@ -77,15 +57,6 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-// truncateToFit truncates string to fit terminal width with padding
-func truncateToFit(s string, reservedChars int) string {
-	width, _ := getTerminalSize()
-	maxLen := width - reservedChars
-	if maxLen < 10 {
-		maxLen = 10
-	}
-	return truncateString(s, maxLen)
-}
 
 // createSimpleSelectTemplates creates templates without multi-line details
 func createSimpleSelectTemplates() *promptui.SelectTemplates {
@@ -163,16 +134,6 @@ func createMenuItemWithCommandTemplates() *promptui.SelectTemplates {
 		Inactive: fmt.Sprintf("  {{ printf \"%%-%ds\" .Label }}  {{ .Command | faint }}", maxLabelWidth),
 		Selected: "{{ .Label | green | bold }}",
 		Details:  detailsSection,
-	}
-}
-
-// createCompactSelectTemplates creates minimal templates for quick selection
-func createCompactSelectTemplates() *promptui.SelectTemplates {
-	return &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green }}",
 	}
 }
 

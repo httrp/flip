@@ -234,7 +234,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 
 		// Optional variant name
 		varNamePrompt := promptui.Prompt{
-			Label: fmt.Sprintf("Variant Name (optional, e.g., 'Balance & Control')"),
+			Label: "Variant Name (optional, e.g., 'Balance & Control')",
 		}
 		variant.Name, _ = varNamePrompt.Run()
 

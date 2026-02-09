@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/manifoldco/promptui"
 	"gopkg.in/yaml.v2"
@@ -271,11 +270,6 @@ func promptForSubfolder(baseDir string, brainType brain.BrainType) (string, erro
 
 	// Existing subfolder selected
 	return filepath.Join(baseDir, subdirs[idx-1]), nil
-}
-
-// generateID creates a unique ID for notes (UUID format for Dendron compatibility)
-func generateID() string {
-	return uuid.New().String()
 }
 
 // sanitizeFilename creates a safe filename from a title

@@ -634,36 +634,6 @@ func createDefaultDefinitions() *TaskDefinitions {
 	}
 }
 
-// findOrganizationByAbbr finds an organization by abbreviation
-func (d *TaskDefinitions) findOrganizationByAbbr(abbr string) *OrganizationDef {
-	for i := range d.Organizations {
-		if d.Organizations[i].Abbreviation == abbr {
-			return &d.Organizations[i]
-		}
-	}
-	return nil
-}
-
-// findProjectByAbbr finds a project by abbreviation
-func (d *TaskDefinitions) findProjectByAbbr(abbr string) *ProjectDef {
-	for i := range d.Projects {
-		if d.Projects[i].Abbreviation == abbr {
-			return &d.Projects[i]
-		}
-	}
-	return nil
-}
-
-// findContextByAbbr finds a context by abbreviation
-func (d *TaskDefinitions) findContextByAbbr(abbr string) *ContextDef {
-	for i := range d.Contexts {
-		if d.Contexts[i].Abbreviation == abbr {
-			return &d.Contexts[i]
-		}
-	}
-	return nil
-}
-
 // getOrganizationChoices returns formatted choices for organization selection
 func (d *TaskDefinitions) getOrganizationChoices() []string {
 	choices := make([]string, len(d.Organizations))

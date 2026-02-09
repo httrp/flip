@@ -181,10 +181,6 @@ This is an example note to get you started.`)
 	return nil
 }
 
-func (c *Creator) createDirectories(basePath string) error {
-	return c.createDirectoriesCompatible(basePath, BrainTypeEmpty)
-}
-
 func (c *Creator) createDirectoriesCompatible(basePath string, existingType BrainType) error {
 	directories := c.getDirectoriesForType(basePath, existingType)
 
@@ -573,10 +569,6 @@ fields:
     description: "Time estimate"
 `
 	return c.writeFile(filepath.Join(schemasDir, "task.yaml"), taskSchema)
-}
-
-func (c *Creator) createTemplates(basePath string) error {
-	return c.createTemplatesCompatible(basePath, BrainTypeEmpty)
 }
 
 func (c *Creator) createTemplatesCompatible(basePath string, existingType BrainType) error {

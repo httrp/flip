@@ -321,9 +321,7 @@ func (c *Checker) checkImageRefs(sourceRelPath, line string, lineNum int) ([]Iss
 			count++
 			target := m[1]
 			// Resolve possibly relative path
-			if strings.HasPrefix(target, "/") {
-				target = strings.TrimPrefix(target, "/")
-			}
+			target = strings.TrimPrefix(target, "/")
 			sourceDir := filepath.Dir(sourceRelPath)
 			targetPath := filepath.Clean(filepath.Join(sourceDir, target))
 
@@ -353,7 +351,7 @@ func (c *Checker) checkImageRefs(sourceRelPath, line string, lineNum int) ([]Iss
 					File:     sourceRelPath,
 					Line:     lineNum,
 					Message:  fmt.Sprintf("Missing asset: %s", target),
-					Details:  fmt.Sprintf("Target not found"),
+					Details:  "Target not found",
 				})
 			}
 		}
@@ -1181,47 +1179,6 @@ func extractTitleFromFilename(basename string, brainType BrainType) string {
 
 	default:
 		return basename
-	}
-}
-
-// generateExpectedFilename generates the expected filename based on brain conventions
-// relPath is used to extract existing date if the file already has one
-func generateExpectedFilename(title string, brainType BrainType, relPath string) string {
-	// Sanitize title to kebab-case
-	safeName := sanitizeTitle(title)
-
-	// Extract existing date from filename if present
-	filename := filepath.Base(relPath)
-	basename := strings.TrimSuffix(filename, ".md")
-	dateStr := extractDateFromFilename(basename, brainType)
-
-	// Use existing date or current date
-	if dateStr == "" {
-		now := time.Now()
-		dateStr = now.Format("2006-01-02")
-	}
-
-	switch brainType {
-	case BrainTypeLogseq:
-		// YYYY_MM_DD___title.md
-		logseqDate := strings.ReplaceAll(dateStr, "-", "_")
-		return fmt.Sprintf("%s___%s.md", logseqDate, safeName)
-
-	case BrainTypeObsidian:
-		// title.md (no date)
-		return fmt.Sprintf("%s.md", safeName)
-
-	case BrainTypeDendron:
-		// notes.YYYY-MM-DD-title.md
-		return fmt.Sprintf("notes.%s-%s.md", dateStr, safeName)
-
-	case BrainTypeFoam, BrainTypeFlip:
-		// YYYY-MM-DD-title.md
-		return fmt.Sprintf("%s-%s.md", dateStr, safeName)
-
-	default:
-		// Default: YYYY-MM-DD-title.md
-		return fmt.Sprintf("%s-%s.md", dateStr, safeName)
 	}
 }
 

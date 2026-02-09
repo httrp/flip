@@ -3,7 +3,6 @@ package commands
 // menu_brain.go - Core Brain & Workspace Menu Navigation
 //
 // Contains main menu navigation functions:
-//   - runBrainMenu()           Brain operations submenu
 //   - runSwitchWorkspaceMenu() Switch between workspaces
 //   - runEditManageMenu()      Edit/manage resources submenu
 //
@@ -12,118 +11,11 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/httrp/flip/internal/lang"
 	"github.com/manifoldco/promptui"
 )
 
-// runBrainMenu shows submenu for brain operations
-func runBrainMenu() error {
-	fmt.Println()
-	displayStatusHeader()
-	fmt.Println()
-
-	menuItems := []struct {
-		Label       string
-		Description string
-		Action      func() error
-	}{
-		{
-			Label:       lang.GetText("menu.manage_brains.create_label"),
-			Description: lang.GetText("menu.manage_brains.create_desc"),
-			Action: func() error {
-				if err := runNewBrain(); err != nil {
-					fmt.Printf("\nError: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runInteractiveMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.manage_brains.add_label"),
-			Description: lang.GetText("menu.manage_brains.add_desc"),
-			Action: func() error {
-				home, _ := os.UserHomeDir()
-				commonPaths := map[string]string{
-					"Home Directory":     home,
-					"Documents":          filepath.Join(home, "Documents"),
-					"Documents/Obsidian": filepath.Join(home, "Documents", "Obsidian"),
-					"Documents/Logseq":   filepath.Join(home, "Documents", "Logseq"),
-				}
-
-				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
-				if err != nil {
-					fmt.Printf("\n❌ Selection cancelled\n")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
-					return runBrainMenu()
-				}
-
-				if err := runDirectoryInit(path, "", false); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				} else {
-					fmt.Printf("\n✓ Brain initialized successfully at: %s\n", path)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runBrainMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.manage_brains.scan_label"),
-			Description: lang.GetText("menu.manage_brains.scan_desc"),
-			Action: func() error {
-				home, _ := os.UserHomeDir()
-				commonPaths := map[string]string{
-					"Home Directory (~)":     home,
-					"Documents":              filepath.Join(home, "Documents"),
-					"Dropbox (if available)": filepath.Join(home, "Dropbox"),
-				}
-
-				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
-				if err != nil {
-					fmt.Printf("\n❌ Selection cancelled\n")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
-					return runBrainMenu()
-				}
-
-				if err := runScan(path); err != nil {
-					fmt.Printf("\n❌ Error: %v\n", err)
-				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
-				return runBrainMenu()
-			},
-		},
-		{
-			Label:       lang.GetText("menu.manage_brains.back_label"),
-			Description: lang.GetText("menu.manage_brains.back_desc"),
-			Action:      runInteractiveMenu,
-		},
-	}
-
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     lang.GetText("menu.titles.brain_options"),
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
-	}
-
-	idx, _, err := selectMenu.Run()
-	if err != nil {
-		return runInteractiveMenu()
-	}
-
-	fmt.Println()
-	return menuItems[idx].Action()
-}
 
 // runSwitchWorkspaceMenu shows menu to switch workspace
 func runSwitchWorkspaceMenu() error {

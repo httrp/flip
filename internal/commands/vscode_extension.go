@@ -359,15 +359,6 @@ func getVSCodeUserDir() (string, error) {
 	return userDir, nil
 }
 
-// getVSCodeSharedExtensionsDir returns ~/.vscode/extensions (shared across all profiles)
-func getVSCodeSharedExtensionsDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".vscode", "extensions"), nil
-}
-
 // updateProfileExtensionsJSON updates the extensions.json in each VS Code profile
 // This is necessary because the VS Code CLI doesn't properly update profile-specific extensions.json
 func updateProfileExtensionsJSON(extensionPath string) error {
