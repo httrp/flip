@@ -83,7 +83,14 @@ build-extension:
 # Package Extension as .vsix file
 package-extension: build-extension
 	@echo "Building VSIX package (version $(EXTENSION_VERSION))..."
-	@cd $(VSIX_DIR) && (yes | timeout 30 npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true)
+	@cd $(VSIX_DIR) && ( \
+		TIMEOUT_CMD=$$(command -v timeout || command -v gtimeout || true); \
+		if [ -n "$$TIMEOUT_CMD" ]; then \
+			yes | "$$TIMEOUT_CMD" 30 npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true; \
+		else \
+			yes | npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true; \
+		fi \
+	)
 	@if [ -f "$(VSIX_FILE)" ]; then \
 		echo "✓ Extension packaged: $(VSIX_FILE)"; \
 	else \
