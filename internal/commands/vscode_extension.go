@@ -17,7 +17,7 @@ import (
 )
 
 // ExtensionVersion must match the version in vscode-extension/package.json
-const ExtensionVersion = "0.3.12"
+const ExtensionVersion = "0.3.13"
 const ExtensionID = "danorama.flip-vscode"
 
 //go:embed assets/flip-vscode.vsix
@@ -139,6 +139,7 @@ func installExtension() error {
 
 	// Only skip if installed AND exists locally in this profile
 	if installedVersion == ExtensionVersion && extensionExistsLocally {
+		_ = updateProfileExtensionsJSON(extensionDir)
 		fmt.Printf("✅ Extension v%s is already installed and up to date in this profile.\n", installedVersion)
 		return nil
 	}
@@ -385,7 +386,8 @@ func updateProfileExtensionsJSON(extensionPath string) error {
 						loc, _ := profile["location"].(string)
 						name, _ := profile["name"].(string)
 						if loc != "" && name != "" {
-							profileNames[loc] = name
+							profileID := filepath.Base(strings.ReplaceAll(loc, "\\", "/"))
+							profileNames[profileID] = name
 						}
 					}
 				}
@@ -406,10 +408,6 @@ func updateProfileExtensionsJSON(extensionPath string) error {
 
 		profileID := entry.Name()
 		extensionsFile := filepath.Join(profilesDir, profileID, "extensions.json")
-
-		if _, err := os.Stat(extensionsFile); os.IsNotExist(err) {
-			continue
-		}
 
 		if updated := updateExtensionsFile(extensionsFile, extensionPath); updated {
 			profileName := profileNames[profileID]
@@ -434,13 +432,12 @@ func updateProfileExtensionsJSON(extensionPath string) error {
 // updateExtensionsFile updates a single extensions.json file
 // Uses map[string]interface{} to preserve all fields (VS Code adds many extra fields)
 func updateExtensionsFile(filePath, extensionPath string) bool {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return false
-	}
-
 	var extensions []map[string]interface{}
-	if err := json.Unmarshal(data, &extensions); err != nil {
+	if data, err := os.ReadFile(filePath); err == nil {
+		if err := json.Unmarshal(data, &extensions); err != nil {
+			return false
+		}
+	} else if !os.IsNotExist(err) {
 		return false
 	}
 
@@ -484,8 +481,20 @@ func updateExtensionsFile(filePath, extensionPath string) bool {
 	}
 
 	if !found {
-		// Extension not in this profile, nothing to update
-		return false
+		extensions = append(extensions, map[string]interface{}{
+			"identifier": map[string]interface{}{
+				"id": ExtensionID,
+			},
+			"version":          ExtensionVersion,
+			"relativeLocation": fmt.Sprintf("danorama.flip-vscode-%s", ExtensionVersion),
+			"location": map[string]interface{}{
+				"path": extensionPath,
+			},
+			"metadata": map[string]interface{}{
+				"pinned":             false,
+				"installedTimestamp": time.Now().UnixMilli(),
+			},
+		})
 	}
 
 	// Write back with same formatting

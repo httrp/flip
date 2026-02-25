@@ -1187,7 +1187,7 @@ export class FlipClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
-      await execAsync(`${this.executablePath} --version`, { timeout: 5000 });
+      await execFileAsync(this.executablePath, ['--version'], { timeout: 5000 });
       return true;
     } catch {
       return false;

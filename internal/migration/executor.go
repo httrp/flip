@@ -14,6 +14,7 @@ type Executor struct {
 	plan            *MigrationPlan
 	sourceStructure *BrainStructure
 	targetStructure *BrainStructure
+	transformer     *Transformer
 	assetMigrator   *AssetMigrator
 	linkRewriter    *NoteLinkRewriter
 
@@ -55,6 +56,7 @@ func NewExecutor(plan *MigrationPlan, sourceStruct, targetStruct *BrainStructure
 		plan:            plan,
 		sourceStructure: sourceStruct,
 		targetStructure: targetStruct,
+		transformer:     NewTransformer(sourceStruct.Type, targetStruct.Type),
 		assetMigrator:   assetMigrator,
 		linkRewriter:    linkRewriter,
 		log: &ExecutionLog{
@@ -171,6 +173,9 @@ func (e *Executor) migrateNote(item PlanItem) error {
 	if err != nil {
 		e.log.Errors = append(e.log.Errors, fmt.Sprintf("note links in %s: %v", item.SourcePath, err))
 	}
+
+	// Transform content conventions between brain types (e.g. frontmatter styles)
+	updatedContent = e.transformer.TransformContent(updatedContent)
 
 	// Create target directory
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
