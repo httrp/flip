@@ -672,6 +672,64 @@ go mod tidy
 
 ---
 
+---
+
+## ADDENDUM – 25. Februar 2026 (Systematisches Audit)
+
+**Reviewer:** GitHub Copilot (GPT-5.3-Codex)  
+**Scope:** flip CLI + VS Code Extension + Migration/Brain Handling Pfade
+
+### Ergebnis (Ist-Stand)
+
+- ✅ `make all` vollständig grün (build, vet, tests, smoke)
+- ✅ `get_errors` für `flip/` ohne aktuelle Fehler
+- ✅ Extension Build/Install inkl. Profil-Installation funktioniert
+
+### High-Impact Findings (behoben)
+
+1. **Migration transformierte Content nicht zuverlässig**  
+    In der Migration wurde in `executor.go` beim Note-Write zwar Links/Assets aktualisiert, aber keine inhaltliche Typ-Transformation (z. B. Frontmatter-Stil) erzwungen.
+
+    **Fix:** `Executor` nutzt jetzt den `Transformer` explizit in `migrateNote()` via `TransformContent(...)`.
+
+2. **VS Code Profil-Handling war unvollständig**  
+    `extensions.json` wurde nur aktualisiert, wenn bereits ein Flip-Eintrag existierte; fehlende Einträge wurden nicht ergänzt. Zusätzlich war das Mapping Profilname/Profil-ID fragil.
+
+    **Fix:**
+    - fehlende Flip-Einträge werden jetzt in Profil-`extensions.json` angelegt
+    - Profilname-Mapping robust über Profil-ID
+    - Profile werden auch im „already installed“-Pfad aktualisiert
+
+3. **Extension Runtime-Check shell-anfällig**  
+    In `flip-client.ts` lief `isAvailable()` über Shell-`exec(...)` statt argument-safe `execFile(...)`.
+
+    **Fix:** `isAvailable()` verwendet jetzt `execFile(...)`.
+
+4. **Versionierungs-Disziplin korrekt erzwungen**  
+    Pre-commit Hook blockierte zurecht Extension-Codeänderung ohne Version-Bump.
+
+    **Fix:** Extension-Version auf **0.3.13** erhöht und Go-Konstante synchronisiert.
+
+### Verbleibende Risiken vor Brain-Konsolidierung
+
+1. **`new`-Flow unvollständig:**  
+    In `internal/commands/new.go` ist „add existing brain“ weiterhin als TODO markiert.
+
+2. **Migration `depth` nur teilweise implementiert:**  
+    In `internal/migration/planner.go` ist `depth > 0` aktuell als Warnung/Placeholder geführt, ohne echte Link-Expansion traversal.
+
+3. **Post-Migration Health-Check rudimentär:**  
+    `internal/migration/executor.go` nutzt nur Basic Checks (kein vollwertiger Health-Pipeline-Run wegen Circular-Dependency-Hinweis).
+
+### Empfehlung für nächste Iteration (Konsolidierung)
+
+1. `new.go`: vollständiger „existing brain import/add“-Flow (inkl. Validation + dedup + workspace assignment)
+2. `planner.go`: echte Link-Expansion für `depth` (BFS/DFS, Cycle-Guard)
+3. `executor.go`: Health-Check entkoppeln (Interface/Adapter), damit echter Checker nach Migration ausführbar ist
+4. Regression Suite ergänzen: cross-dialect migration fixtures (Logseq/Obsidian/Dendron/Foam/Flip)
+
+---
+
 ## SIGN-OFF
 
 **Initial Review:** Claude Sonnet 4.5  
