@@ -62,7 +62,7 @@ Use --fix to automatically repair issues where possible:
 - Format issues: Normalized (trailing whitespace, line endings)
 
 Examples:
-  flip brain health                    # Check current brain
+  flip brain health                    # Select brain from workspace
   flip brain health ~/my-vault         # Check specific brain
   flip brain health --json             # Output JSON for scripting
   flip brain health --fix              # Check and repair issues
@@ -72,7 +72,19 @@ Examples:
 			if len(args) > 0 {
 				brainPath = args[0]
 			} else {
-				brainPath = "."
+				// No path provided - select brain from workspace
+				ws, err := getActiveWorkspace()
+				if err != nil {
+					return fmt.Errorf("failed to get active workspace: %w", err)
+				}
+				if len(ws.Brains) == 0 {
+					return fmt.Errorf("no brains found in workspace '%s'", ws.Name)
+				}
+				selectedBrain, err := confirmOrSelectBrain(ws)
+				if err != nil {
+					return fmt.Errorf("brain selection failed: %w", err)
+				}
+				brainPath = selectedBrain.Path
 			}
 			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
 		},
@@ -107,7 +119,7 @@ Use --fix to automatically repair issues where possible:
 - Format issues: Normalized (trailing whitespace, line endings)
 
 Examples:
-  flip brain check health              # Check current brain
+  flip brain check health              # Select brain from workspace
   flip brain check health ~/my-vault   # Check specific brain
   flip brain check health --json       # Output JSON for scripting
   flip brain check health --fix        # Check and repair issues
@@ -117,7 +129,19 @@ Examples:
 			if len(args) > 0 {
 				brainPath = args[0]
 			} else {
-				brainPath = "."
+				// No path provided - select brain from workspace
+				ws, err := getActiveWorkspace()
+				if err != nil {
+					return fmt.Errorf("failed to get active workspace: %w", err)
+				}
+				if len(ws.Brains) == 0 {
+					return fmt.Errorf("no brains found in workspace '%s'", ws.Name)
+				}
+				selectedBrain, err := confirmOrSelectBrain(ws)
+				if err != nil {
+					return fmt.Errorf("brain selection failed: %w", err)
+				}
+				brainPath = selectedBrain.Path
 			}
 			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
 		},

@@ -206,6 +206,12 @@ func (p *Planner) addFullBrain(plan *MigrationPlan) error {
 				TargetPath: p.computeTargetNotePath(rel),
 				Type:       classifyNote(rel, p.sourceStructure),
 			})
+		case isDefinitionsYAML(rel):
+			plan.Items = append(plan.Items, PlanItem{
+				SourcePath: rel,
+				TargetPath: rel,
+				Type:       "definition",
+			})
 		case isAssetExt(filepath.Ext(lower)):
 			plan.Items = append(plan.Items, PlanItem{
 				SourcePath: rel,
@@ -317,4 +323,12 @@ func isAssetExt(ext string) bool {
 		return true
 	}
 	return false
+}
+
+func isDefinitionsYAML(relPath string) bool {
+	clean := filepath.ToSlash(strings.ToLower(relPath))
+	if !strings.HasPrefix(clean, "definitions/") {
+		return false
+	}
+	return strings.HasSuffix(clean, ".yaml") || strings.HasSuffix(clean, ".yml")
 }

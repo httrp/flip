@@ -106,8 +106,10 @@ func (e *Executor) ExecuteWithProgress(progressCallback ProgressCallback) (*Exec
 
 		var err error
 		switch item.Type {
-		case "note", "journal", "definition":
+		case "note", "journal":
 			err = e.migrateNote(item)
+		case "definition":
+			err = e.migrateDefinition(item)
 		case "asset":
 			err = e.migrateAsset(item)
 		default:
@@ -217,6 +219,26 @@ func (e *Executor) migrateAsset(item PlanItem) error {
 	// Copy
 	if _, err := io.Copy(dst, src); err != nil {
 		return fmt.Errorf("failed to copy asset: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Executor) migrateDefinition(item PlanItem) error {
+	sourcePath := filepath.Join(e.plan.SourceBrainPath, item.SourcePath)
+	targetPath := filepath.Join(e.plan.TargetBrainPath, item.TargetPath)
+
+	content, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("failed to read definition: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create definition dir: %w", err)
+	}
+
+	if err := os.WriteFile(targetPath, content, 0o644); err != nil {
+		return fmt.Errorf("failed to write definition: %w", err)
 	}
 
 	return nil

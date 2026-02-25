@@ -37,6 +37,8 @@ func NewBrainCommand() *cobra.Command {
 	cmd.AddCommand(newBrainCheckCommand())
 	// Health check as top-level command (alias for 'check health')
 	cmd.AddCommand(newBrainHealthTopLevelCommand())
+	// Restore orphaned files
+	cmd.AddCommand(newBrainRestoreCommand())
 	// Git integration commands
 	cmd.AddCommand(newBrainGitStatusCommand())
 	cmd.AddCommand(newBrainGitLogCommand())

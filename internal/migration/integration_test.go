@@ -188,6 +188,51 @@ func TestConflictDetection(t *testing.T) {
 	}
 }
 
+func TestFullMigrationIncludesDefinitions(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	mkNote(t, filepath.Join(src, "pages", "alpha.md"), "# Alpha")
+	defsContent := "organizations:\n  WORK:\n    name: Work\n"
+	mkNote(t, filepath.Join(src, "definitions", "organizations.yaml"), defsContent)
+
+	sourceStruct := GetBrainStructure(health.BrainTypeLogseq)
+	targetStruct := GetBrainStructure(health.BrainTypeFlip)
+	planner := NewPlanner(src, dst, sourceStruct, targetStruct)
+
+	plan, err := planner.BuildPlan(ModeFull, "", nil, 0)
+	if err != nil {
+		t.Fatalf("BuildPlan: %v", err)
+	}
+
+	foundDefinition := false
+	for _, item := range plan.Items {
+		if item.Type == "definition" && item.SourcePath == filepath.Join("definitions", "organizations.yaml") {
+			foundDefinition = true
+			break
+		}
+	}
+	if !foundDefinition {
+		t.Fatalf("expected organizations.yaml to be included as definition item")
+	}
+
+	executor := NewExecutor(plan, sourceStruct, targetStruct)
+	_, err = executor.Execute()
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	migratedPath := filepath.Join(dst, "definitions", "organizations.yaml")
+	migrated, err := os.ReadFile(migratedPath)
+	if err != nil {
+		t.Fatalf("definitions file not migrated: %v", err)
+	}
+
+	if string(migrated) != defsContent {
+		t.Fatalf("definitions content changed during migration")
+	}
+}
+
 // Helper to create note with directories
 func mkNote(t *testing.T, path, content string) {
 	t.Helper()

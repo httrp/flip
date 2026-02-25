@@ -39,7 +39,7 @@ export async function createMeetingNote(): Promise<void> {
 
   // Step 2: Organization from definitions (optional)
   let organization: string | undefined;
-  const defsResult = await client.listDefinitions();
+  const defsResult = await client.listDefinitions(brain);
   const orgItems: { label: string; description?: string; value: string }[] = [
     { label: '$(circle-slash) Ohne Organisation', description: 'überspringen', value: '__none__' },
     { label: '$(add) Neue Organisation', description: 'manuell eingeben', value: '__new__' },
@@ -82,6 +82,7 @@ export async function createMeetingNote(): Promise<void> {
     const addResult = await client.addOrganization({
       abbreviation: organization,
       name: newOrgName?.trim() || undefined,
+      brain,
     });
     if (addResult.success) {
       vscode.window.showInformationMessage(`Organisation [${organization}] angelegt`);

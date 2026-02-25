@@ -508,6 +508,20 @@ func saveBrainDefinitions(defs *TaskDefinitions) error {
 		}
 	}
 
+	// Save projects.yaml in brain format
+	if len(defs.Projects) > 0 {
+		if err := saveBrainProjects(filepath.Join(defsDir, "projects.yaml"), defs.Projects); err != nil {
+			return fmt.Errorf("failed to save projects: %w", err)
+		}
+	}
+
+	// Save contexts.yaml in brain format
+	if len(defs.Contexts) > 0 {
+		if err := saveBrainContexts(filepath.Join(defsDir, "contexts.yaml"), defs.Contexts); err != nil {
+			return fmt.Errorf("failed to save contexts: %w", err)
+		}
+	}
+
 	// Invalidate cache after successful save
 	invalidateDefinitionsCache()
 
@@ -553,6 +567,56 @@ func saveBrainOrganizations(path string, orgs []OrganizationDef) error {
 
 	brainOrgs := BrainOrganizations{Organizations: orgsMap}
 	data, err := yaml.Marshal(brainOrgs)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+func saveBrainProjects(path string, projects []ProjectDef) error {
+	projectsMap := make(map[string]BrainProjectDef)
+	for _, p := range projects {
+		projectsMap[p.Abbreviation] = BrainProjectDef{
+			Name:         p.Name,
+			Organization: p.Organization,
+			Type:         p.Type,
+			Status:       p.Status,
+			Description:  p.Description,
+			Color:        p.Color,
+		}
+	}
+
+	brainProjects := BrainProjects{Projects: projectsMap}
+	data, err := yaml.Marshal(brainProjects)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+func saveBrainContexts(path string, contexts []ContextDef) error {
+	contextsMap := make(map[string]map[string]BrainContextDef)
+	for _, c := range contexts {
+		orgKey := strings.TrimSpace(c.Organization)
+		if orgKey == "" {
+			orgKey = "general"
+		}
+
+		if _, ok := contextsMap[orgKey]; !ok {
+			contextsMap[orgKey] = make(map[string]BrainContextDef)
+		}
+
+		contextsMap[orgKey][c.Abbreviation] = BrainContextDef{
+			Name:        c.Name,
+			Status:      c.Status,
+			Description: c.Description,
+		}
+	}
+
+	brainContexts := BrainContexts{Contexts: contextsMap}
+	data, err := yaml.Marshal(brainContexts)
 	if err != nil {
 		return err
 	}

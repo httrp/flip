@@ -305,7 +305,7 @@ func runCreateJournalNonInteractive(opts JournalOptions) error {
 		action = "opened"
 	} else {
 		// Create new journal
-		content := generateJournalContent(targetDate, detection.Type)
+		content := generateJournalContent(targetDate, detection.Type, activeBrain.Name)
 		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			if JSONOutput {
 				OutputJSONError("journal", err)
@@ -446,7 +446,7 @@ func runCreateJournal() error {
 	fmt.Printf("   Location: %s\n\n", journalDir)
 
 	// Generate content
-	content := generateJournalContent(targetDate, detection.Type)
+	content := generateJournalContent(targetDate, detection.Type, activeBrain.Name)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -502,7 +502,7 @@ func generateJournalFilename(date time.Time, brainType brain.BrainType) string {
 // getJournalDirectory is now in content_common.go
 
 // generateJournalContent creates journal entry content
-func generateJournalContent(date time.Time, brainType brain.BrainType) string {
+func generateJournalContent(date time.Time, brainType brain.BrainType, brainName string) string {
 	dateStr := date.Format("2006-01-02")
 	weekday := date.Format("Monday")
 
@@ -513,30 +513,34 @@ func generateJournalContent(date time.Time, brainType brain.BrainType) string {
 		if !JSONOutput {
 			fmt.Printf("Warning: Could not load template, using default (%v)\n", err)
 		}
-		return generateDefaultJournalContent(date, brainType)
+		return generateDefaultJournalContent(date, brainType, brainName)
 	}
 
 	// Prepare template variables
 	vars := map[string]string{
-		"date":    dateStr,
-		"weekday": weekday,
-		"id":      uuid.New().String(), // Proper UUID for Dendron compatibility
-		"updated": fmt.Sprintf("%d", time.Now().Unix()),
-		"created": fmt.Sprintf("%d", time.Now().Unix()),
+		"date":      dateStr,
+		"weekday":   weekday,
+		"brain":     brainName,
+		"brain_name": brainName,
+		"id":        uuid.New().String(), // Proper UUID for Dendron compatibility
+		"updated":   fmt.Sprintf("%d", time.Now().Unix()),
+		"created":   fmt.Sprintf("%d", time.Now().Unix()),
 	}
 
-	return templates.Render(tmpl, vars)
+	rendered := templates.Render(tmpl, vars)
+	return ensureJournalMetadata(rendered, brainType, brainName)
 }
 
 // generateDefaultJournalContent provides fallback templates when template files don't exist
-func generateDefaultJournalContent(date time.Time, brainType brain.BrainType) string {
+func generateDefaultJournalContent(date time.Time, brainType brain.BrainType, brainName string) string {
 	dateStr := date.Format("2006-01-02")
 	weekday := date.Format("Monday")
 	timeStr := time.Now().Format("15:04")
 
 	switch brainType {
 	case brain.BrainTypeLogseq:
-		return fmt.Sprintf(`- %s, %s
+		return fmt.Sprintf(`- brain:: %s
+- %s, %s
 
 ## Morning
 
@@ -552,12 +556,13 @@ func generateDefaultJournalContent(date time.Time, brainType brain.BrainType) st
 ## Grateful For
 - 
 
-`, weekday, dateStr)
+`, brainName, weekday, dateStr)
 
 	case brain.BrainTypeObsidian:
 		return fmt.Sprintf(`---
 date: %s
 day: %s
+brain: %s
 tags: [daily-note, journal]
 ---
 
@@ -577,7 +582,7 @@ tags: [daily-note, journal]
 ## Grateful For
 - 
 
-`, dateStr, weekday, weekday, dateStr)
+`, dateStr, weekday, brainName, weekday, dateStr)
 
 	case brain.BrainTypeDendron:
 		return fmt.Sprintf(`---
@@ -587,6 +592,7 @@ desc: 'Daily journal entry'
 updated: %d
 created: %d
 date: %s
+brain: %s
 ---
 
 # Journal - %s (%s)
@@ -605,12 +611,13 @@ date: %s
 ## Grateful For
 - 
 
-`, uuid.New().String(), dateStr, time.Now().Unix(), time.Now().Unix(), dateStr, dateStr, weekday)
+`, uuid.New().String(), dateStr, time.Now().Unix(), time.Now().Unix(), dateStr, brainName, dateStr, weekday)
 
 	case brain.BrainTypeFoam:
 		return fmt.Sprintf(`---
 date: %s
 day: %s
+brain: %s
 tags: [daily]
 ---
 
@@ -630,12 +637,13 @@ tags: [daily]
 ## Grateful For
 - 
 
-`, dateStr, weekday, weekday, dateStr)
+`, dateStr, weekday, brainName, weekday, dateStr)
 
 	case brain.BrainTypeFlip:
 		return fmt.Sprintf(`---
 date: %s
 day: %s
+brain: %s
 type: journal
 tags: [daily, journal]
 created: %s
@@ -657,12 +665,13 @@ created: %s
 ## Grateful For
 - 
 
-`, dateStr, weekday, timeStr, weekday, dateStr)
+`, dateStr, weekday, brainName, timeStr, weekday, dateStr)
 
 	default:
 		return fmt.Sprintf(`---
 date: %s
 day: %s
+brain: %s
 type: journal
 ---
 
@@ -682,6 +691,15 @@ type: journal
 ## Grateful For
 - 
 
-`, dateStr, weekday, weekday, dateStr)
+`, dateStr, weekday, brainName, weekday, dateStr)
+	}
+}
+
+func ensureJournalMetadata(content string, brainType brain.BrainType, brainName string) string {
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		return ensureLogseqProperty(content, "brain", brainName)
+	default:
+		return ensureYAMLFrontmatterField(content, "brain", brainName)
 	}
 }

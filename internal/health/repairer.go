@@ -774,6 +774,16 @@ func (r *Repairer) repairMissingMetadata(brainPath string, issue Issue) error {
 
 	// Try to get creation date from git history, fallback to file mtime
 	createdAt := r.getFileCreationTime(fullPath, brainPath)
+	brainName := filepath.Base(brainPath)
+
+	if isJournalPath(issue.File) {
+		switch r.brainType {
+		case BrainTypeLogseq:
+			return r.addLogseqJournalMetadata(fullPath, contentStr, title, createdAt, brainName)
+		default:
+			return r.addYAMLJournalMetadata(fullPath, contentStr, title, createdAt, brainName)
+		}
+	}
 
 	switch r.brainType {
 	case BrainTypeLogseq:
@@ -789,6 +799,91 @@ func (r *Repairer) repairMissingMetadata(brainPath string, issue Issue) error {
 		// Default to YAML frontmatter
 		return r.addYAMLFrontmatter(fullPath, contentStr, title, createdAt)
 	}
+}
+
+func (r *Repairer) addLogseqJournalMetadata(fullPath, content, title string, createdAt time.Time, brainName string) error {
+	hasTitle := strings.Contains(content, "title::")
+	hasCreatedAt := strings.Contains(content, "created-at::")
+	hasBrain := strings.Contains(content, "brain::")
+
+	if hasTitle && hasCreatedAt && hasBrain {
+		return nil
+	}
+
+	createdMs := createdAt.UnixMilli()
+
+	var props []string
+	if !hasTitle {
+		props = append(props, fmt.Sprintf("title:: %s", title))
+	}
+	if !hasCreatedAt {
+		props = append(props, fmt.Sprintf("created-at:: %d", createdMs))
+	}
+	if !hasBrain {
+		props = append(props, fmt.Sprintf("brain:: %s", brainName))
+	}
+
+	if len(props) == 0 {
+		return nil
+	}
+
+	propBlock := strings.Join(props, "\n") + "\n"
+
+	var newContent string
+	if strings.TrimSpace(content) == "" {
+		newContent = propBlock
+	} else {
+		if strings.HasPrefix(content, "- ") {
+			newContent = "- " + strings.Join(props, "\n  ") + "\n" + content
+		} else {
+			newContent = propBlock + "\n" + content
+		}
+	}
+
+	return os.WriteFile(fullPath, []byte(newContent), 0644)
+}
+
+func (r *Repairer) addYAMLJournalMetadata(fullPath, content, title string, createdAt time.Time, brainName string) error {
+	dateStr := createdAt.Format("2006-01-02")
+
+	if strings.HasPrefix(content, "---") {
+		endIdx := strings.Index(content[3:], "---")
+		if endIdx == -1 {
+			return fmt.Errorf("malformed frontmatter: no closing ---")
+		}
+
+		frontmatter := content[3 : endIdx+3]
+		rest := content[endIdx+6:]
+
+		hasTitle := strings.Contains(frontmatter, "title:")
+		hasCreated := strings.Contains(frontmatter, "created:") || strings.Contains(frontmatter, "date:")
+		hasBrain := strings.Contains(frontmatter, "brain:")
+
+		if hasTitle && hasCreated && hasBrain {
+			return nil
+		}
+
+		var additions []string
+		if !hasTitle {
+			additions = append(additions, fmt.Sprintf("title: %s", title))
+		}
+		if !hasCreated {
+			additions = append(additions, fmt.Sprintf("created: %s", dateStr))
+		}
+		if !hasBrain {
+			additions = append(additions, fmt.Sprintf("brain: %s", brainName))
+		}
+
+		newFrontmatter := strings.TrimRight(frontmatter, "\n") + "\n" + strings.Join(additions, "\n") + "\n"
+		newContent := "---" + newFrontmatter + "---" + rest
+
+		return os.WriteFile(fullPath, []byte(newContent), 0644)
+	}
+
+	frontmatter := fmt.Sprintf("---\ntitle: %s\ncreated: %s\nbrain: %s\n---\n\n", title, dateStr, brainName)
+	newContent := frontmatter + content
+
+	return os.WriteFile(fullPath, []byte(newContent), 0644)
 }
 
 // addLogseqMetadata adds Logseq-style properties to a file

@@ -1006,14 +1006,14 @@ func (c *Checker) checkFilenameConvention(relPath string) *Issue {
 func (c *Checker) checkMissingMetadata(relPath string) []Issue {
 	var issues []Issue
 
-	// Skip journal files - they usually don't need metadata
-	if strings.Contains(relPath, "journal") || strings.Contains(relPath, "journals") {
-		return issues
-	}
-
 	// Skip template files
 	if strings.Contains(relPath, "template") {
 		return issues
+	}
+
+	// Journal files: check for minimum journal metadata (brain field)
+	if isJournalPath(relPath) {
+		return c.checkJournalMetadata(relPath)
 	}
 
 	fullPath := filepath.Join(c.brainPath, relPath)
@@ -1108,6 +1108,71 @@ func (c *Checker) checkMissingMetadata(relPath string) []Issue {
 	}
 
 	return issues
+}
+
+func (c *Checker) checkJournalMetadata(relPath string) []Issue {
+	var issues []Issue
+
+	fullPath := filepath.Join(c.brainPath, relPath)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return issues
+	}
+
+	contentStr := strings.TrimSpace(string(content))
+	if contentStr == "" {
+		return issues
+	}
+
+	switch c.brainType {
+	case BrainTypeLogseq:
+		if !strings.Contains(contentStr, "brain::") {
+			issues = append(issues, Issue{
+				Type:     IssueTypeMissingMetadata,
+				Severity: SeverityInfo,
+				File:     relPath,
+				Message:  "Journal missing metadata field: brain::",
+				Details:  "Add journal property: brain:: <brain-name>",
+			})
+		}
+
+	case BrainTypeFlip, BrainTypeFoam, BrainTypeObsidian:
+		hasFrontmatter := strings.HasPrefix(contentStr, "---")
+		if !hasFrontmatter {
+			issues = append(issues, Issue{
+				Type:     IssueTypeMissingMetadata,
+				Severity: SeverityInfo,
+				File:     relPath,
+				Message:  "Journal missing YAML frontmatter",
+				Details:  "Add frontmatter with at least: brain: <brain-name>",
+			})
+			return issues
+		}
+
+		endIdx := strings.Index(contentStr[3:], "---")
+		if endIdx > 0 {
+			frontmatter := contentStr[3 : endIdx+3]
+			if !strings.Contains(frontmatter, "brain:") {
+				issues = append(issues, Issue{
+					Type:     IssueTypeMissingMetadata,
+					Severity: SeverityInfo,
+					File:     relPath,
+					Message:  "Journal frontmatter missing field: brain",
+					Details:  "Add brain: <brain-name> to journal frontmatter",
+				})
+			}
+		}
+	}
+
+	return issues
+}
+
+func isJournalPath(relPath string) bool {
+	normalized := strings.ToLower(filepath.ToSlash(relPath))
+	return strings.HasPrefix(normalized, "journal/") ||
+		strings.HasPrefix(normalized, "journals/") ||
+		strings.Contains(normalized, "/journal/") ||
+		strings.Contains(normalized, "/journals/")
 }
 
 // fileNameToTitle converts a kebab-case filename to a readable title

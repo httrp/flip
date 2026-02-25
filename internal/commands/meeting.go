@@ -694,7 +694,17 @@ func generateMeetingContent(title, participants, organization, project, context,
 		"created":      fmt.Sprintf("%d", now.Unix()),
 	}
 
-	return templates.Render(tmpl, vars)
+	rendered := templates.Render(tmpl, vars)
+	return ensureMeetingMetadata(rendered, brainType, duration)
+}
+
+func ensureMeetingMetadata(content string, brainType brain.BrainType, duration string) string {
+	switch brainType {
+	case brain.BrainTypeLogseq:
+		return ensureLogseqProperty(content, "duration", duration)
+	default:
+		return ensureYAMLFrontmatterField(content, "duration", duration)
+	}
 }
 
 // generateDefaultMeetingContent provides fallback templates when template files don't exist

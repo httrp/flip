@@ -307,3 +307,48 @@ func sanitizeFilename(title string) string {
 
 	return safeName
 }
+
+func ensureYAMLFrontmatterField(content, key, value string) string {
+	if strings.TrimSpace(value) == "" || strings.TrimSpace(key) == "" {
+		return content
+	}
+
+	fieldPrefix := key + ":"
+	if strings.HasPrefix(content, "---\n") {
+		rest := content[4:]
+		endIdx := strings.Index(rest, "\n---")
+		if endIdx >= 0 {
+			frontmatter := rest[:endIdx]
+			for _, line := range strings.Split(frontmatter, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), fieldPrefix) {
+					return content
+				}
+			}
+
+			newFrontmatter := frontmatter
+			if strings.TrimSpace(newFrontmatter) != "" {
+				newFrontmatter += "\n"
+			}
+			newFrontmatter += fieldPrefix + " " + value
+
+			return "---\n" + newFrontmatter + rest[endIdx:]
+		}
+	}
+
+	return "---\n" + fieldPrefix + " " + value + "\n---\n\n" + content
+}
+
+func ensureLogseqProperty(content, key, value string) string {
+	if strings.TrimSpace(value) == "" || strings.TrimSpace(key) == "" {
+		return content
+	}
+
+	propPrefix := "- " + key + "::"
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), propPrefix) {
+			return content
+		}
+	}
+
+	return propPrefix + " " + value + "\n" + content
+}

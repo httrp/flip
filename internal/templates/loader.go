@@ -119,6 +119,7 @@ tags: []
 	TemplateTypeMeeting: `---
 title: {{title}}
 date: {{date}}
+duration: {{duration}}
 type: meeting
 tags: [meeting]
 ---
@@ -135,7 +136,14 @@ tags: [meeting]
 
 `,
 
-	TemplateTypeJournal: `# {{date}} - {{weekday}}
+	TemplateTypeJournal: `---
+date: {{date}}
+day: {{weekday}}
+brain: {{brain_name}}
+type: journal
+---
+
+# {{date}} - {{weekday}}
 
 ## Activities
 
@@ -178,6 +186,7 @@ tags: []
 	TemplateTypeMeeting: `---
 title: {{title}}
 date: {{date}}
+duration: {{duration}}
 type: meeting
 tags:
   - meeting
@@ -195,7 +204,14 @@ tags:
 
 `,
 
-	TemplateTypeJournal: `# {{date}} - {{weekday}}
+	TemplateTypeJournal: `---
+date: {{date}}
+day: {{weekday}}
+brain: {{brain_name}}
+type: journal
+---
+
+# {{date}} - {{weekday}}
 
 ## Activities
 
@@ -236,6 +252,7 @@ var logseqDefaults = map[TemplateType]string{
 
 	TemplateTypeMeeting: `- title:: {{title}}
 - date:: {{date}}
+- duration:: {{duration}}
 - type:: meeting
 - tags:: meeting
 
@@ -248,7 +265,8 @@ var logseqDefaults = map[TemplateType]string{
 		- TODO 
 `,
 
-	TemplateTypeJournal: `- # {{date}}
+	TemplateTypeJournal: `- brain:: {{brain_name}}
+- # {{date}}
 	- ## Activities
 		- 
 	- ## Meeting-Notes
@@ -290,6 +308,7 @@ id: {{id}}
 title: {{title}}
 created: {{created}}
 updated: {{updated}}
+duration: {{duration}}
 type: meeting
 ---
 
@@ -310,6 +329,7 @@ id: {{id}}
 title: {{date}}
 created: {{created}}
 updated: {{updated}}
+brain: {{brain_name}}
 ---
 
 # {{date}} - {{weekday}}
@@ -356,6 +376,7 @@ tags: []
 	TemplateTypeMeeting: `---
 title: {{title}}
 date: {{date}}
+duration: {{duration}}
 type: meeting
 tags:
   - meeting
@@ -373,7 +394,14 @@ tags:
 
 `,
 
-	TemplateTypeJournal: `# {{date}} - {{weekday}}
+	TemplateTypeJournal: `---
+date: {{date}}
+day: {{weekday}}
+brain: {{brain_name}}
+type: journal
+---
+
+# {{date}} - {{weekday}}
 
 ## Activities
 

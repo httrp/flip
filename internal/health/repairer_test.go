@@ -466,3 +466,98 @@ func TestRepairMissingMetadataYAML(t *testing.T) {
 		t.Errorf("Original content should be preserved, got: %s", repairedStr)
 	}
 }
+
+func TestRepairMissingMetadataJournalYAMLBackfillsBrain(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "journals"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := "journals/2025-01-01.md"
+	content := "---\ntitle: 2025-01-01\ncreated: 2025-01-01\n---\n\nJournal content\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityInfo,
+		File:     testFile,
+		Message:  "Journal frontmatter missing field: brain",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repairedStr := string(repairedContent)
+	if !strings.Contains(repairedStr, "brain: ") {
+		t.Fatalf("Expected brain field in repaired journal frontmatter, got: %s", repairedStr)
+	}
+}
+
+func TestRepairMissingMetadataJournalLogseqBackfillsBrain(t *testing.T) {
+	tempDir := t.TempDir()
+
+	pagesDir := filepath.Join(tempDir, "pages")
+	journalsDir := filepath.Join(tempDir, "journals")
+	logseqDir := filepath.Join(tempDir, "logseq")
+	if err := os.MkdirAll(pagesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(journalsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(logseqDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := "journals/2025_01_01.md"
+	content := "title:: 2025-01-01\ncreated-at:: 1735689600000\n\n- journal content\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityInfo,
+		File:     testFile,
+		Message:  "Journal missing metadata field: brain::",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repairedStr := string(repairedContent)
+	if !strings.Contains(repairedStr, "brain:: ") {
+		t.Fatalf("Expected brain:: property in repaired Logseq journal, got: %s", repairedStr)
+	}
+}

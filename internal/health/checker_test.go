@@ -1,6 +1,8 @@
 package health
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -101,5 +103,38 @@ func TestCheckResult(t *testing.T) {
 	}
 	if result.BrainInfo.Type != BrainTypeFlip {
 		t.Errorf("BrainInfo type mismatch")
+	}
+}
+
+func TestCheckMissingMetadataJournalBrain(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "journals"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	journalFile := "journals/2025-01-01.md"
+	content := "---\ntitle: 2025-01-01\ncreated: 2025-01-01\n---\n\n# Journal\n"
+	if err := os.WriteFile(filepath.Join(tempDir, journalFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	checker := &Checker{brainPath: tempDir, brainType: BrainTypeFlip}
+	issues := checker.checkMissingMetadata(journalFile)
+
+	if len(issues) != 1 {
+		t.Fatalf("Expected 1 issue, got %d", len(issues))
+	}
+
+	if issues[0].Type != IssueTypeMissingMetadata {
+		t.Fatalf("Expected issue type %s, got %s", IssueTypeMissingMetadata, issues[0].Type)
+	}
+
+	if issues[0].File != journalFile {
+		t.Fatalf("Expected issue file %s, got %s", journalFile, issues[0].File)
 	}
 }
