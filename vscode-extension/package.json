@@ -60,6 +60,10 @@
         "title": "Flip: Brain Health Check"
       },
       {
+        "command": "flip.brainRestore",
+        "title": "Flip: Restore Orphaned Files"
+      },
+      {
         "command": "flip.mediaNormalize",
         "title": "Flip: Normalize Media"
       },

@@ -13,6 +13,7 @@ import { insertLink, addCurrentFileToJournal } from './commands/insert-link';
 import { addParticipantsCommand } from './commands/add-participants';
 import { journalSyncCheck } from './commands/journal-sync';
 import { brainHealthCheck } from './commands/brain-health';
+import { brainRestore } from './commands/brain-restore';
 import { mediaNormalize } from './commands/media-normalize';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
@@ -61,6 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Brain health
     vscode.commands.registerCommand('flip.brainHealth', brainHealthCheck),
+    vscode.commands.registerCommand('flip.brainRestore', brainRestore),
     
     // Brain management
     vscode.commands.registerCommand('flip.manageBrains', manageBrains),
