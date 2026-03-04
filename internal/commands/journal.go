@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -695,7 +696,36 @@ type: journal
 	}
 }
 
+// normalizeJournalTitle fixes malformed journal titles (e.g., "2026 01 13" -> "2026-01-13")
+func normalizeJournalTitle(content string) string {
+	lines := strings.Split(content, "\n")
+	var result []string
+	
+	for _, line := range lines {
+		// Check if this is a title line with space-separated date (e.g., "title: 2026 01 13")
+		if strings.HasPrefix(line, "title:") {
+			// Try to match "YYYY MM DD" pattern (4 digits, space, 2 digits, space, 2 digits)
+			titleValue := strings.TrimPrefix(line, "title:")
+			titleValue = strings.TrimSpace(titleValue)
+			
+			// Match space-separated date pattern like "2026 01 13"
+			re := regexp.MustCompile(`^(\d{4})\s+(\d{2})\s+(\d{2})$`)
+			if matches := re.FindStringSubmatch(titleValue); matches != nil {
+				// Replace with hyphenated format: "2026-01-13"
+				normalizedTitle := fmt.Sprintf("%s-%s-%s", matches[1], matches[2], matches[3])
+				line = fmt.Sprintf("title: %s", normalizedTitle)
+			}
+		}
+		result = append(result, line)
+	}
+	
+	return strings.Join(result, "\n")
+}
+
 func ensureJournalMetadata(content string, brainType brain.BrainType, brainName string) string {
+	// First normalize any malformed titles
+	content = normalizeJournalTitle(content)
+	
 	switch brainType {
 	case brain.BrainTypeLogseq:
 		return ensureLogseqProperty(content, "brain", brainName)
