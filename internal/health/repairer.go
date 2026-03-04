@@ -110,6 +110,13 @@ func (r *Repairer) registerActions() {
 		Description: "Add missing metadata (title, created-at) to files",
 		Apply:       r.repairMissingMetadata,
 	}
+
+	// Malformed journal title - fix space-separated dates to hyphenated format
+	r.actions[IssueTypeMalformedTitle] = RepairAction{
+		IssueType:   IssueTypeMalformedTitle,
+		Description: "Fix journal titles from space-separated to hyphenated format (YYYY MM DD -> YYYY-MM-DD)",
+		Apply:       r.repairMalformedTitle,
+	}
 }
 
 // CanRepair checks if an issue type can be repaired
@@ -1009,4 +1016,37 @@ func getGitCreationTime(repoPath, relPath string) time.Time {
 	// For now, return zero time to indicate we should use file mtime
 	// TODO: Implement proper git history lookup
 	return time.Time{}
+}
+// repairMalformedTitle fixes journal titles from space-separated to hyphenated format
+func (r *Repairer) repairMalformedTitle(brainPath string, issue Issue) error {
+	filePath := filepath.Join(brainPath, issue.File)
+
+	// Read the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Pattern to match malformed titles: "title: YYYY MM DD"
+	pattern := regexp.MustCompile(`(title:\s*)(\d{4})\s+(\d{2})\s+(\d{2})`)
+
+	// Replace with hyphenated format
+	fixedContent := pattern.ReplaceAllString(string(content), "${1}${2}-${3}-${4}")
+
+	// Don't write if nothing changed
+	if fixedContent == string(content) {
+		return nil
+	}
+
+	// In dry-run mode, just check if it would work
+	if r.dryRun {
+		return nil
+	}
+
+	// Write back the fixed content
+	if err := os.WriteFile(filePath, []byte(fixedContent), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }

@@ -34,6 +34,7 @@ const (
 	IssueTypeWrongMediaFilename IssueType = "wrong-media-filename"
 	IssueTypeWrongMediaLocation IssueType = "wrong-media-location"
 	IssueTypeMissingMetadata    IssueType = "missing-metadata"
+	IssueTypeMalformedTitle     IssueType = "malformed-title"
 )
 
 // Severity indicates how critical an issue is
@@ -147,6 +148,12 @@ func (c *Checker) Check() (*CheckResult, error) {
 	if c.brainInfo.Type == "flip" || c.brainInfo.Type == "flip-brain" {
 		journalLinkIssues := c.checkPotentialMissingJournalLinks()
 		result.Issues = append(result.Issues, journalLinkIssues...)
+	}
+
+	// Step 3.8: Check for malformed journal titles (space-separated dates)
+	if c.brainInfo.Type == "flip" || c.brainInfo.Type == "flip-brain" {
+		titleIssues := c.checkJournalTitles()
+		result.Issues = append(result.Issues, titleIssues...)
 	}
 
 	// Calculate stats
@@ -1395,6 +1402,57 @@ func (c *Checker) checkPotentialMissingJournalLinks() []Issue {
 			issues = append(issues, issue)
 		}
 	}
+
+	return issues
+}
+// checkJournalTitles checks for malformed journal titles (space-separated dates like "2026 01 13")
+func (c *Checker) checkJournalTitles() []Issue {
+	issues := make([]Issue, 0)
+	journalDir := filepath.Join(c.brainPath, "journal")
+
+	// If no journal directory exists, skip
+	if _, err := os.Stat(journalDir); err != nil {
+		return issues
+	}
+
+	// Pattern to match malformed titles: "YYYY MM DD" (space-separated dates)
+	malformedPattern := regexp.MustCompile(`title:\s*(\d{4})\s+(\d{2})\s+(\d{2})(?:\s|$)`)
+
+	// Walk through all files in journal directory
+	filepath.WalkDir(journalDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+
+		// Only check markdown files
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			return nil
+		}
+
+		// Read file
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		// Check for malformed title
+		if matches := malformedPattern.FindStringSubmatch(string(content)); matches != nil {
+			relPath, _ := filepath.Rel(c.brainPath, path)
+			correctTitle := fmt.Sprintf("%s-%s-%s", matches[1], matches[2], matches[3])
+			malformedTitle := fmt.Sprintf("%s %s %s", matches[1], matches[2], matches[3])
+
+			issue := Issue{
+				Type:     IssueTypeMalformedTitle,
+				Severity: SeverityWarning,
+				File:     relPath,
+				Message:  fmt.Sprintf("Journal title has incorrect format: '%s'", malformedTitle),
+				Details:  fmt.Sprintf("Change 'title: %s' to 'title: %s' (use hyphens not spaces, ISO 8601 format)", malformedTitle, correctTitle),
+			}
+			issues = append(issues, issue)
+		}
+
+		return nil
+	})
 
 	return issues
 }
