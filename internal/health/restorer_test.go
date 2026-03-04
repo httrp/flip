@@ -82,9 +82,15 @@ func TestRestorer_RestoreSingleFile(t *testing.T) {
 	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
 	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
 
-	// Create orphaned file
+	// Create orphaned file with created date in frontmatter
 	orphanedFile := filepath.Join(tempDir, ".orphaned", "notes", "test-note.md")
-	os.WriteFile(orphanedFile, []byte("# Test Note\nContent here"), 0644)
+	fileContent := `---
+created: 2026-03-04
+---
+
+# Test Note
+Content here`
+	os.WriteFile(orphanedFile, []byte(fileContent), 0644)
 
 	// Create journal
 	journalFile := filepath.Join(tempDir, "journal", "2026-03-04.md")
@@ -99,12 +105,10 @@ func TestRestorer_RestoreSingleFile(t *testing.T) {
 	}
 
 	// Create orphaned file info
-	date, _ := time.Parse("2006-01-02", "2026-03-04")
 	fileInfo := &health.OrphanedFileInfo{
 		Path:         "notes/test-note.md",
 		Category:     "notes",
 		Filename:     "test-note.md",
-		Date:         &date,
 		TargetPath:   "notes/test-note.md",
 		JournalMatch: "journal/2026-03-04.md",
 	}
@@ -127,7 +131,7 @@ func TestRestorer_RestoreSingleFile(t *testing.T) {
 		t.Error("Orphaned file should be removed")
 	}
 
-	// Check journal was updated
+	// Check journal was updated with link
 	journalContent, _ := os.ReadFile(journalFile)
 	if !contains(string(journalContent), "[[test-note]]") {
 		t.Error("Journal should contain link to restored file")
@@ -166,6 +170,98 @@ func TestRestorer_DateExtraction(t *testing.T) {
 			} else if fileInfo.Date.Format("2006-01-02") != tc.expectDate {
 				t.Errorf("Expected date %s, got %s", tc.expectDate, fileInfo.Date.Format("2006-01-02"))
 			}
+		}
+	}
+}
+
+// TestRestorer_CreatedDateExtraction tests extracting created date from metadata
+func TestRestorer_CreatedDateExtraction(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create .orphaned and notes directories
+	os.MkdirAll(filepath.Join(tempDir, ".orphaned", "notes"), 0755)
+
+	// Create file with created date in frontmatter
+	fileWithCreated := filepath.Join(tempDir, ".orphaned", "notes", "note-with-created.md")
+	fileContent := `---
+created: 2025-12-15
+title: Test Note
+---
+
+# Content`
+	os.WriteFile(fileWithCreated, []byte(fileContent), 0644)
+
+	// Create .flip.yaml
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("type: flip\nname: test-brain\n"), 0644)
+
+	restorer, err := health.NewRestorer(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create restorer: %v", err)
+	}
+
+	// Parse the file
+	fileInfo := restorer.ParseOrphanedFile("notes/note-with-created.md")
+
+	// Should have extracted created date from frontmatter
+	if fileInfo.CreatedDate == nil {
+		t.Error("CreatedDate should be extracted from frontmatter")
+	} else if fileInfo.CreatedDate.Format("2006-01-02") != "2025-12-15" {
+		t.Errorf("Expected created date 2025-12-15, got %s", fileInfo.CreatedDate.Format("2006-01-02"))
+	}
+}
+
+// TestRestorer_AutoCreateJournal tests automatic journal creation during restore
+func TestRestorer_AutoCreateJournal(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create directories
+	os.MkdirAll(filepath.Join(tempDir, ".orphaned", "notes"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	// Create orphaned file with created date
+	orphanedFile := filepath.Join(tempDir, ".orphaned", "notes", "restored-note.md")
+	fileContent := `---
+created: 2026-02-15
+---
+
+# Research Note`
+	os.WriteFile(orphanedFile, []byte(fileContent), 0644)
+
+	// Create .flip.yaml
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("type: flip\nname: test-brain\n"), 0644)
+
+	restorer, err := health.NewRestorer(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create restorer: %v", err)
+	}
+
+	// Create file info
+	createdDate, _ := time.Parse("2006-01-02", "2026-02-15")
+	fileInfo := &health.OrphanedFileInfo{
+		Path:         "notes/restored-note.md",
+		Category:     "notes",
+		Filename:     "restored-note.md",
+		CreatedDate:  &createdDate,
+		TargetPath:   "notes/restored-note.md",
+		JournalMatch: "journal/2026-02-15.md",
+	}
+
+	// Restore file (should create journal automatically)
+	result := restorer.RestoreSingleFile(fileInfo, true)
+
+	if !result.Success {
+		t.Errorf("Restore should be successful: %s", result.Error)
+	}
+
+	// Check that journal was created
+	journalPath := filepath.Join(tempDir, "journal", "2026-02-15.md")
+	if _, err := os.Stat(journalPath); err != nil {
+		t.Errorf("Journal should be created automatically: %v", err)
+	} else {
+		// Check that link was added to journal
+		journalContent, _ := os.ReadFile(journalPath)
+		if !contains(string(journalContent), "[[restored-note]]") {
+			t.Error("Journal should contain link to restored file")
 		}
 	}
 }

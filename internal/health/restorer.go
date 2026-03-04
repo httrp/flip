@@ -16,6 +16,7 @@ type OrphanedFileInfo struct {
 	Category       string    // meetings, notes, tasks, etc.
 	Filename       string    // just the filename
 	Date           *time.Time // extracted from filename if available (e.g., 2026-03-04)
+	CreatedDate    *time.Time // extracted from file metadata if available
 	TargetPath     string    // where it should be restored to
 	JournalMatch   string    // matching journal file if date found
 }
@@ -120,14 +121,29 @@ func (r *Restorer) ParseOrphanedFile(relPath string) *OrphanedFileInfo {
 		}
 	}
 
+	// Extract created date from file metadata if available
+	srcPath := filepath.Join(r.brainPath, ".orphaned", relPath)
+	if createdDate := r.extractCreatedDate(srcPath); createdDate != nil {
+		info.CreatedDate = createdDate
+	}
+
 	// Determine target path (restore to original location)
 	info.TargetPath = filepath.Join(info.Category, info.Filename)
 
-	// Check if matching journal exists
-	if info.Date != nil {
-		journalName := info.Date.Format("2006-01-02") + ".md"
+	// Determine which date to use for journal linking (prefer created date if available)
+	linkDate := info.Date
+	if info.CreatedDate != nil {
+		linkDate = info.CreatedDate
+	}
+
+	// Check if matching journal exists or will need to be created
+	if linkDate != nil {
+		journalName := linkDate.Format("2006-01-02") + ".md"
 		journalPath := filepath.Join(r.brainPath, "journal", journalName)
 		if _, err := os.Stat(journalPath); err == nil {
+			info.JournalMatch = filepath.Join("journal", journalName)
+		} else {
+			// Journal doesn't exist yet, but we'll create it
 			info.JournalMatch = filepath.Join("journal", journalName)
 		}
 	}
@@ -164,9 +180,22 @@ func (r *Restorer) RestoreSingleFile(file *OrphanedFileInfo, linkToJournal bool)
 	result.Success = true
 	result.Message = fmt.Sprintf("Restored to %s", file.TargetPath)
 
-	// Link to journal if requested and match found
-	if linkToJournal && file.JournalMatch != "" {
-		linkedEntry, err := r.linkToJournal(targetPath, file.JournalMatch)
+	// Determine which date to use for journal linking
+	journalDate := file.CreatedDate
+	if journalDate == nil && file.Date != nil {
+		journalDate = file.Date
+	}
+	if journalDate == nil {
+		// Use today as fallback
+		now := time.Now()
+		journalDate = &now
+	}
+
+	// Always link to journal (create it if needed)
+	if linkToJournal {
+		journalName := journalDate.Format("2006-01-02") + ".md"
+		journalRelPath := filepath.Join("journal", journalName)
+		linkedEntry, err := r.linkToJournal(targetPath, journalRelPath)
 		if err != nil {
 			result.Message += fmt.Sprintf(" (Warning: could not link to journal: %v)", err)
 		} else {
@@ -181,11 +210,31 @@ func (r *Restorer) RestoreSingleFile(file *OrphanedFileInfo, linkToJournal bool)
 // linkToJournal adds a link to the restored file in the journal entry
 func (r *Restorer) linkToJournal(restoredPath string, journalPath string) (string, error) {
 	fullJournalPath := filepath.Join(r.brainPath, journalPath)
+	journalDir := filepath.Dir(fullJournalPath)
 
-	// Read journal content
-	content, err := os.ReadFile(fullJournalPath)
-	if err != nil {
-		return "", err
+	// Create journal directory if needed
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create journal directory: %w", err)
+	}
+
+	// Create journal file if it doesn't exist
+	var content []byte
+	if _, err := os.Stat(fullJournalPath); err != nil {
+		if os.IsNotExist(err) {
+			// Create new journal file with frontmatter and date as heading
+			dateStr := strings.TrimSuffix(filepath.Base(fullJournalPath), ".md")
+			frontmatter := fmt.Sprintf("---\ndate: %s\n---\n\n# %s\n\n", dateStr, dateStr)
+			content = []byte(frontmatter)
+		} else {
+			return "", err
+		}
+	} else {
+		// Read existing journal content
+		var readErr error
+		content, readErr = os.ReadFile(fullJournalPath)
+		if readErr != nil {
+			return "", readErr
+		}
 	}
 
 	// Get relative path from brain root for the link
@@ -245,6 +294,66 @@ func (r *Restorer) linkToJournal(restoredPath string, journalPath string) (strin
 	}
 
 	return journalPath, nil
+}
+
+// extractCreatedDate tries to extract the created date from file metadata
+func (r *Restorer) extractCreatedDate(filePath string) *time.Time {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+
+	fileContent := string(content)
+
+	// Try to extract from YAML frontmatter
+	if strings.HasPrefix(fileContent, "---") {
+		endIdx := strings.Index(fileContent[3:], "---")
+		if endIdx > 0 {
+			frontmatter := fileContent[3 : 3+endIdx]
+			
+			// Look for created or date field
+			for _, line := range strings.Split(frontmatter, "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "created:") || strings.HasPrefix(line, "date:") {
+					dateStr := strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+					// Remove quotes if present
+					dateStr = strings.Trim(dateStr, "\"'")
+					// Parse date (try YYYY-MM-DD format)
+					if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+						return &t
+					}
+					// Try other date formats
+					formats := []string{
+						"2006-01-02T15:04:05Z07:00",
+						"2006-01-02 15:04:05",
+						"2006-01-02",
+					}
+					for _, format := range formats {
+						if t, err := time.Parse(format, dateStr); err == nil {
+							return &t
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Try to extract from Logseq properties format (property:: value)
+	if strings.Contains(fileContent, "created::") {
+		for _, line := range strings.Split(fileContent, "\n") {
+			if strings.HasPrefix(line, "created::") {
+				dateStr := strings.TrimPrefix(line, "created::")
+				dateStr = strings.TrimSpace(dateStr)
+				// Parse Logseq timestamp format (usually milliseconds)
+				// Convert to YYYY-MM-DD if possible
+				if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+					return &t
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // RestoreMultipleFiles restores multiple orphaned files
