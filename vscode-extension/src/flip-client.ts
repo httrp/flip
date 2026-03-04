@@ -26,6 +26,11 @@ function findFlipExecutable(): string {
   const binaryName = isWindows ? 'flip.exe' : 'flip';
   
   const searchPaths = [
+    // Development: find flip in workspace folders
+    ...(vscode.workspace.workspaceFolders?.flatMap(folder => [
+      path.join(folder.uri.fsPath, 'flip'),
+      path.join(folder.uri.fsPath, 'flip', 'flip'),
+    ]) || []),
     // Go bin directory (most common for go install)
     path.join(homeDir, 'go', 'bin', binaryName),
     // Local bin
@@ -536,17 +541,17 @@ export class FlipClient {
 
       // Try to parse stdout if it exists (even if command failed)
       if (stdout && stdout.trim() !== '') {
-        try {
-          const result = JSON.parse(stdout);
-          return result as FlipResult<T>;
-        } catch (parseError) {
-          // If stdout isn't valid JSON, return it as error
-          return {
-            success: false,
-            command: args[0],
-            error: stdout.trim() || stderr?.trim() || 'Invalid JSON response'
-          };
+        const parsed = this.parseJsonFromOutput<T>(stdout);
+        if (parsed) {
+          return parsed;
         }
+
+        // If stdout isn't valid JSON, return it as error
+        return {
+          success: false,
+          command: args[0],
+          error: stdout.trim() || stderr?.trim() || 'Invalid JSON response'
+        };
       }
 
       // No stdout - check stderr for error message
@@ -596,6 +601,35 @@ export class FlipClient {
         command: args[0],
         error: error.message || 'Unknown error'
       };
+    }
+  }
+
+  /**
+   * Parses Flip JSON output and tolerates extra log lines around JSON.
+   */
+  private parseJsonFromOutput<T>(output: string): FlipResult<T> | null {
+    const raw = output.trim();
+    if (!raw) return null;
+
+    // Fast path: clean JSON
+    try {
+      return JSON.parse(raw) as FlipResult<T>;
+    } catch {
+      // Continue with tolerant parsing below
+    }
+
+    // Tolerant path: strip any pre/post log lines and parse the JSON object block
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      return null;
+    }
+
+    const jsonCandidate = raw.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(jsonCandidate) as FlipResult<T>;
+    } catch {
+      return null;
     }
   }
 
