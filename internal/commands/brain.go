@@ -39,6 +39,8 @@ func NewBrainCommand() *cobra.Command {
 	cmd.AddCommand(newBrainHealthTopLevelCommand())
 	// Restore orphaned files
 	cmd.AddCommand(newBrainRestoreCommand())
+	// Relocate brain to new location
+	cmd.AddCommand(newBrainRelocateCommand())
 	// Git integration commands
 	cmd.AddCommand(newBrainGitStatusCommand())
 	cmd.AddCommand(newBrainGitLogCommand())

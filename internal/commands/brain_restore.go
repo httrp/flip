@@ -67,7 +67,7 @@ func runBrainRestore(autoRestore bool) error {
 	}
 
 	// List orphaned files
-	fmt.Println("🔍 Scanning for orphaned files...\n")
+	fmt.Println("🔍 Scanning for orphaned files...")
 	orphanedFiles, err := restorer.ListOrphanedFiles()
 	if err != nil {
 		return fmt.Errorf("failed to list orphaned files: %w", err)
@@ -90,7 +90,7 @@ func runBrainRestore(autoRestore bool) error {
 }
 
 func restoreAllFiles(restorer *health.Restorer, files []*health.OrphanedFileInfo) error {
-	fmt.Println("🔄 Restoring all orphaned files with journal linking...\n")
+	fmt.Println("🔄 Restoring all orphaned files with journal linking...")
 
 	results := restorer.RestoreMultipleFiles(files, true) // link to journal automatically
 
