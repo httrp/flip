@@ -618,6 +618,27 @@ export class FlipClient {
       // Continue with tolerant parsing below
     }
 
+    // Preferred tolerant path: find a JSON object that starts at some '{' and parse to end.
+    // This avoids false starts from git output like: rename {a => b}/file.md
+    const startIndices: number[] = [];
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i] === '{') {
+        startIndices.push(i);
+      }
+    }
+
+    for (const start of startIndices) {
+      const candidate = raw.slice(start).trim();
+      if (!candidate.startsWith('{')) {
+        continue;
+      }
+      try {
+        return JSON.parse(candidate) as FlipResult<T>;
+      } catch {
+        // Try next possible start
+      }
+    }
+
     // Tolerant path: strip any pre/post log lines and parse the JSON object block
     const firstBrace = raw.indexOf('{');
     const lastBrace = raw.lastIndexOf('}');
