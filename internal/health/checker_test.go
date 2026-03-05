@@ -226,3 +226,108 @@ func TestCheckNoteMetadataMissingBrainFlip(t *testing.T) {
 		t.Errorf("Expected brain in missing fields message, got: %s", issues[0].Message)
 	}
 }
+
+// ============================================================================
+// LOGSEQ ARTIFACT DETECTION TESTS
+// ============================================================================
+
+func TestCheckLogseqArtifacts(t *testing.T) {
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	tests := []struct {
+		name       string
+		content    string
+		wantIssues int
+	}{
+		{
+			name: "Collapsed property in body",
+			content: `---
+title: Test
+---
+
+Some text
+- collapsed:: true
+More text
+`,
+			wantIssues: 1,
+		},
+		{
+			name: "Video embed",
+			content: `---
+title: Test
+---
+
+{{video https://www.youtube.com/watch?v=abc}}
+`,
+			wantIssues: 1,
+		},
+		{
+			name: "Query block",
+			content: `---
+title: Test
+---
+
+{{query (and (task TODO))}}
+`,
+			wantIssues: 1,
+		},
+		{
+			name: "Task marker",
+			content: `---
+title: Test
+---
+
+- TODO Buy groceries
+- DONE Write tests
+`,
+			wantIssues: 1,
+		},
+		{
+			name: "Clean file - no issues",
+			content: `---
+title: Test
+---
+
+- [ ] Buy groceries
+- [x] Write tests
+Regular content
+`,
+			wantIssues: 0,
+		},
+		{
+			name: "Multiple artifact types",
+			content: `---
+title: Test
+---
+
+- collapsed:: true
+- TODO Buy groceries
+{{video https://example.com/video}}
+`,
+			wantIssues: 3,
+		},
+	}
+
+	checker := &Checker{brainPath: tempDir, brainType: BrainTypeFlip}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			noteFile := "notes/" + strings.ReplaceAll(tt.name, " ", "-") + ".md"
+			os.WriteFile(filepath.Join(tempDir, noteFile), []byte(tt.content), 0644)
+
+			issues := checker.checkLogseqArtifacts(noteFile)
+			if len(issues) != tt.wantIssues {
+				t.Errorf("checkLogseqArtifacts(%s): got %d issues, want %d.\nIssues: %+v",
+					tt.name, len(issues), tt.wantIssues, issues)
+			}
+		})
+	}
+}
+
+func TestIssueTypeLogseqArtifactConstant(t *testing.T) {
+	if IssueTypeLogseqArtifact != "logseq-artifact" {
+		t.Errorf("IssueTypeLogseqArtifact = %q, want %q", IssueTypeLogseqArtifact, "logseq-artifact")
+	}
+}

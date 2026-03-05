@@ -247,3 +247,70 @@ func TestApplyConflictStrategyOverwrite(t *testing.T) {
 		t.Errorf("target-exists conflicts should be cleared with overwrite strategy, got %d", len(plan.Conflicts))
 	}
 }
+
+// ============================================================================
+// CLASSIFY NOTE + ROUTING TESTS
+// ============================================================================
+
+func TestClassifyNote_MeetingAndExercise(t *testing.T) {
+	srcStruct := GetBrainStructure(health.BrainTypeLogseq)
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		// Logseq has no dedicated meetings/exercises dirs, so these are "note"
+		// (routing to the right target dir happens in computeTargetNotePath)
+		{"pages/meeting-2025-01-15-standup.md", "note"},
+		{"pages/exercise-pushups.md", "note"},
+		{"pages/regular-note.md", "note"},
+		{"journals/2025_01_15.md", "journal"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			result := classifyNote(tt.path, srcStruct)
+			if result != tt.expected {
+				t.Errorf("classifyNote(%q) = %q, want %q", tt.path, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestComputeTargetNotePath_MeetingRouting(t *testing.T) {
+	planner := &Planner{
+		sourceStructure: GetBrainStructure(health.BrainTypeLogseq),
+		targetStructure: GetBrainStructure(health.BrainTypeFlip),
+		transformer:     NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip),
+	}
+
+	// Meeting file from Logseq pages/ should go to meetings/
+	result := planner.computeTargetNotePath("pages/meeting-2025-01-15-standup.md")
+	if result != "meetings/meeting-2025-01-15-standup.md" {
+		t.Errorf("meeting routing: got %q, want %q", result, "meetings/meeting-2025-01-15-standup.md")
+	}
+
+	// Exercise file from Logseq pages/ should go to exercises/
+	result = planner.computeTargetNotePath("pages/exercise-pushups.md")
+	if result != "exercises/exercise-pushups.md" {
+		t.Errorf("exercise routing: got %q, want %q", result, "exercises/exercise-pushups.md")
+	}
+
+	// Regular note should go to notes/
+	result = planner.computeTargetNotePath("pages/my-note.md")
+	if result != "notes/my-note.md" {
+		t.Errorf("note routing: got %q, want %q", result, "notes/my-note.md")
+	}
+}
+
+func TestExercisesDirInBrainStructure(t *testing.T) {
+	flipStruct := GetBrainStructure(health.BrainTypeFlip)
+	if flipStruct.ExercisesDir != "exercises" {
+		t.Errorf("Flip ExercisesDir = %q, want %q", flipStruct.ExercisesDir, "exercises")
+	}
+
+	logseqStruct := GetBrainStructure(health.BrainTypeLogseq)
+	if logseqStruct.ExercisesDir != "" {
+		t.Errorf("Logseq ExercisesDir should be empty, got %q", logseqStruct.ExercisesDir)
+	}
+}

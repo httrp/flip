@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -369,8 +370,11 @@ func (t *Transformer) logseqToYAML(content string) string {
 	var bodyLines []string
 	inProperties := true
 
-	// Property bullet pattern: key:: value
-	propRegex := regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9_-]*)::(.*)$`)
+	// Property patterns:
+	// Bare: key:: value
+	// Bullet: - key:: value (with optional leading whitespace/indent)
+	barePropRegex := regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9_-]*)::(.*)$`)
+	bulletPropRegex := regexp.MustCompile(`^\s*-\s+([a-zA-Z][a-zA-Z0-9_-]*)::(.*)$`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -381,14 +385,22 @@ func (t *Transformer) logseqToYAML(content string) string {
 			continue
 		}
 
-		// Check for property bullet
-		if matches := propRegex.FindStringSubmatch(line); matches != nil {
+		// Check for bullet-style property (- key:: value) — most common in Logseq
+		if matches := bulletPropRegex.FindStringSubmatch(line); matches != nil {
+			key := matches[1]
+			value := strings.TrimSpace(matches[2])
+			properties = append(properties, Property{Key: key, Value: value})
+		} else if matches := barePropRegex.FindStringSubmatch(line); matches != nil {
+			// Bare property (key:: value)
 			key := matches[1]
 			value := strings.TrimSpace(matches[2])
 			properties = append(properties, Property{Key: key, Value: value})
 		} else if strings.TrimSpace(line) == "" && len(properties) > 0 {
 			// Empty line after properties - switch to body mode
 			inProperties = false
+		} else if strings.TrimSpace(line) == "-" {
+			// Bare bullet "-" — skip in property block
+			continue
 		} else if len(properties) == 0 && strings.TrimSpace(line) == "" {
 			// Skip leading empty lines
 			continue
@@ -404,15 +416,40 @@ func (t *Transformer) logseqToYAML(content string) string {
 		return content
 	}
 
+	// Filter out UI-only / spaced-repetition properties
+	discardProps := map[string]bool{
+		"collapsed": true, "heading": true, "background-color": true,
+		"card-last-interval": true, "card-repeats": true,
+		"card-ease-factor": true, "card-next-schedule": true,
+		"card-last-reviewed": true, "card-last-score": true,
+	}
+
+	var cleanProps []Property
+	for _, prop := range properties {
+		key := strings.ToLower(prop.Key)
+		if discardProps[key] {
+			continue
+		}
+		// Normalize created-at epoch to date
+		if key == "created-at" && len(prop.Value) > 10 {
+			if ts, err := strconv.ParseInt(prop.Value, 10, 64); err == nil {
+				dt := time.Unix(ts/1000, 0)
+				cleanProps = append(cleanProps, Property{Key: "created", Value: dt.Format("2006-01-02")})
+				continue
+			}
+		}
+		cleanProps = append(cleanProps, prop)
+	}
+
 	// Sort properties for consistent output
-	sort.Slice(properties, func(i, j int) bool {
-		return properties[i].Key < properties[j].Key
+	sort.Slice(cleanProps, func(i, j int) bool {
+		return cleanProps[i].Key < cleanProps[j].Key
 	})
 
 	// Build YAML frontmatter
 	var result strings.Builder
 	result.WriteString("---\n")
-	for _, prop := range properties {
+	for _, prop := range cleanProps {
 		result.WriteString(prop.Key)
 		result.WriteString(": ")
 		result.WriteString(t.formatYAMLValue(prop.Value))
@@ -631,4 +668,123 @@ func (t *Transformer) TransformProperties(properties map[string]string) string {
 	}
 
 	return result.String()
+}
+
+// ============================================================================
+// POST-MIGRATION CONTENT CLEANUP
+// ============================================================================
+// Cleans up Logseq-specific artifacts in content that was migrated to a
+// non-Logseq brain (Flip, Obsidian, etc).
+
+// CleanupLogseqArtifacts removes Logseq-specific formatting from migrated content.
+// This should be called AFTER frontmatter conversion (TransformContent) to catch
+// any Logseq properties that remained in the body.
+func (t *Transformer) CleanupLogseqArtifacts(content string) string {
+	if t.sourceType != health.BrainTypeLogseq {
+		return content
+	}
+
+	content = t.cleanupBodyLogseqProps(content)
+	content = t.cleanupVideoEmbeds(content)
+	content = t.cleanupQueryEmbeds(content)
+	content = t.cleanupUIArtifacts(content)
+	content = t.cleanupTaskMarkers(content)
+
+	return content
+}
+
+// cleanupBodyLogseqProps removes any remaining Logseq `- key:: value` or `key:: value`
+// properties that ended up in the body (e.g., duplicates of frontmatter, or deeply
+// indented properties).
+func (t *Transformer) cleanupBodyLogseqProps(content string) string {
+	// Split into frontmatter and body
+	fm, body, hasFM := splitFrontmatterBody(content)
+
+	if body == "" {
+		return content
+	}
+
+	// Logseq discard properties (UI state, spaced repetition, etc.)
+	discardProps := regexp.MustCompile(
+		`(?m)^\s*-?\s*(collapsed|background-color|card-last-interval|card-repeats|` +
+			`card-ease-factor|card-next-schedule|card-last-reviewed|card-last-score|heading)::\s*.*$\n?`)
+
+	body = discardProps.ReplaceAllString(body, "")
+
+	if hasFM {
+		return fm + body
+	}
+	return body
+}
+
+// cleanupVideoEmbeds converts `{{video URL}}` to markdown links
+func (t *Transformer) cleanupVideoEmbeds(content string) string {
+	re := regexp.MustCompile(`\{\{video\s+(https?://[^\s}]+)\s*\}\}`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		url := sub[1]
+		if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+			return "[YouTube Video](" + url + ")"
+		}
+		return "[Video](" + url + ")"
+	})
+}
+
+// cleanupQueryEmbeds removes `{{query ...}}` Logseq dynamic queries
+func (t *Transformer) cleanupQueryEmbeds(content string) string {
+	re := regexp.MustCompile(`\{\{query\s+[^}]*\}\}`)
+	content = re.ReplaceAllString(content, "")
+	// Clean up empty bullet lines left behind
+	emptyBullet := regexp.MustCompile(`(?m)^\s*-\s*$\n?`)
+	return emptyBullet.ReplaceAllString(content, "")
+}
+
+// cleanupUIArtifacts removes Logseq UI-only properties from body
+func (t *Transformer) cleanupUIArtifacts(content string) string {
+	// Already handled by cleanupBodyLogseqProps, but this catches
+	// any inline occurrences too
+	re := regexp.MustCompile(`(?m)^\s*-?\s*collapsed::\s*true\s*$\n?`)
+	return re.ReplaceAllString(content, "")
+}
+
+// cleanupTaskMarkers converts Logseq task markers to standard checkboxes
+// - TODO text → - [ ] text
+// - DONE text → - [x] text
+// - DOING/NOW text → - [ ] text
+// - LATER text → - [ ] text
+// - CANCELLED text → - [~] text
+func (t *Transformer) cleanupTaskMarkers(content string) string {
+	re := regexp.MustCompile(`(?m)^(\s*)-\s+(TODO|DONE|DOING|LATER|NOW|WAITING|CANCELLED|IN-PROGRESS)\s+(.*)`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		if len(sub) < 4 {
+			return match
+		}
+		indent, marker, text := sub[1], sub[2], sub[3]
+		switch marker {
+		case "DONE":
+			return indent + "- [x] " + text
+		case "CANCELLED":
+			return indent + "- [~] " + text
+		default:
+			return indent + "- [ ] " + text
+		}
+	})
+}
+
+// splitFrontmatterBody splits content into frontmatter (including delimiters) and body.
+// Returns (frontmatter, body, hasFrontmatter).
+func splitFrontmatterBody(content string) (string, string, bool) {
+	if !strings.HasPrefix(content, "---\n") {
+		return "", content, false
+	}
+	endIdx := strings.Index(content[4:], "\n---")
+	if endIdx == -1 {
+		return "", content, false
+	}
+	fmEnd := 4 + endIdx + 4 // past \n---
+	return content[:fmEnd], content[fmEnd:], true
 }

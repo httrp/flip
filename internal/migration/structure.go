@@ -17,6 +17,7 @@ type BrainStructure struct {
 	NotesDir       string // Where notes are stored (can be empty for flat structure)
 	JournalDir     string // Where journal entries go
 	MeetingsDir    string // Where meetings go (Flip-specific)
+	ExercisesDir   string // Where exercises go (Flip-specific)
 	TasksDir       string // Where tasks are stored
 	AssetsDir      string // Default assets location
 	TemplatesDir   string // Where templates live
@@ -73,6 +74,7 @@ func GetBrainStructure(brainType health.BrainType) *BrainStructure {
 			NotesDir:           "notes",
 			JournalDir:         "journal",
 			MeetingsDir:        "meetings",
+			ExercisesDir:       "exercises",
 			TasksDir:           "tasks",
 			AssetsDir:          "assets",
 			TemplatesDir:       "templates",

@@ -391,3 +391,233 @@ func TestGetFullTransformationSummary(t *testing.T) {
 		t.Logf("Summary: %s", summary)
 	}
 }
+
+// ============================================================================
+// LOGSEQ BULLET PROPERTY TESTS
+// ============================================================================
+
+func TestTransformContent_LogseqBulletPropsToYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "Bullet property format",
+			input: `- title:: My Note
+- tags:: project
+
+Content here.`,
+			expected: `---
+tags: project
+title: My Note
+---
+
+Content here.`,
+		},
+		{
+			name: "Mixed bullet and bare properties",
+			input: `title:: My Note
+- tags:: project
+date:: 2025-01-15
+
+Content here.`,
+			expected: `---
+date: 2025-01-15
+tags: project
+title: My Note
+---
+
+Content here.`,
+		},
+		{
+			name: "Discards collapsed and card properties",
+			input: `title:: Keep This
+collapsed:: true
+card-last-interval:: 4
+card-repeats:: 1
+background-color:: red
+
+Content here.`,
+			expected: `---
+title: Keep This
+---
+
+Content here.`,
+		},
+		{
+			name: "Converts created-at epoch to date",
+			input: `title:: Note
+created-at:: 1703030400000
+
+Content.`,
+			expected: `---
+created: 2023-12-20
+title: Note
+---
+
+Content.`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transformer := NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip)
+			result := transformer.TransformContent(tt.input)
+			if result != tt.expected {
+				t.Errorf("TransformContent() =\n%q\nwant:\n%q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// CLEANUP LOGSEQ ARTIFACTS TESTS
+// ============================================================================
+
+func TestCleanupLogseqArtifacts(t *testing.T) {
+	transformer := NewTransformer(health.BrainTypeLogseq, health.BrainTypeFlip)
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "Removes collapsed props from body",
+			input: `---
+title: Test
+---
+
+Some text
+- collapsed:: true
+More text`,
+			expected: `---
+title: Test
+---
+
+Some text
+More text`,
+		},
+		{
+			name: "Converts video embeds",
+			input: `---
+title: Test
+---
+
+Check this: {{video https://www.youtube.com/watch?v=abc123}}`,
+			expected: `---
+title: Test
+---
+
+Check this: [YouTube Video](https://www.youtube.com/watch?v=abc123)`,
+		},
+		{
+			name: "Removes query blocks",
+			input: `---
+title: Test
+---
+
+Content
+- {{query (and (task TODO) (page "project"))}}
+More content`,
+			expected: `---
+title: Test
+---
+
+Content
+More content`,
+		},
+		{
+			name: "Converts task markers",
+			input: `---
+title: Test
+---
+
+- TODO Buy groceries
+- DONE Write tests
+- LATER Read book
+- CANCELLED Old task`,
+			expected: `---
+title: Test
+---
+
+- [ ] Buy groceries
+- [x] Write tests
+- [ ] Read book
+- [~] Old task`,
+		},
+		{
+			name: "Non-logseq source returns unchanged",
+			input: `---
+title: Test
+---
+
+- collapsed:: true
+{{video https://example.com}}`,
+			expected: `---
+title: Test
+---
+
+- collapsed:: true
+{{video https://example.com}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result string
+			if tt.name == "Non-logseq source returns unchanged" {
+				flipTransformer := NewTransformer(health.BrainTypeFlip, health.BrainTypeFlip)
+				result = flipTransformer.CleanupLogseqArtifacts(tt.input)
+			} else {
+				result = transformer.CleanupLogseqArtifacts(tt.input)
+			}
+			if result != tt.expected {
+				t.Errorf("CleanupLogseqArtifacts() =\n%q\nwant:\n%q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSplitFrontmatterBody(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		wantFM string
+		wantB  string
+		wantOK bool
+	}{
+		{
+			name:   "With frontmatter",
+			input:  "---\ntitle: Test\n---\nBody here",
+			wantFM: "---\ntitle: Test\n---",
+			wantB:  "\nBody here",
+			wantOK: true,
+		},
+		{
+			name:   "No frontmatter",
+			input:  "# Heading\nContent",
+			wantFM: "",
+			wantB:  "# Heading\nContent",
+			wantOK: false,
+		},
+		{
+			name:   "Unclosed frontmatter",
+			input:  "---\ntitle: Test\nBody without closing",
+			wantFM: "",
+			wantB:  "---\ntitle: Test\nBody without closing",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fm, body, ok := splitFrontmatterBody(tt.input)
+			if fm != tt.wantFM || body != tt.wantB || ok != tt.wantOK {
+				t.Errorf("splitFrontmatterBody(%q) = (%q, %q, %v), want (%q, %q, %v)",
+					tt.input, fm, body, ok, tt.wantFM, tt.wantB, tt.wantOK)
+			}
+		})
+	}
+}

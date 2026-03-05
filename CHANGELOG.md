@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Logseq Artifact Cleanup** (migration): Post-migration cleanup chain `CleanupLogseqArtifacts()`
+  - Removes Logseq UI properties from body (collapsed, background-color, card-*, heading)
+  - Converts `{{video URL}}` embeds to markdown links
+  - Removes `{{query ...}}` dynamic query blocks
+  - Converts Logseq task markers (TODO/DONE/LATER/CANCELLED) to standard checkboxes
+- **Exercises Directory Support**: `ExercisesDir` field in `BrainStructure` (set to `exercises` for Flip brains)
+- **Meeting/Exercise Routing**: Files prefixed `meeting-` or `exercise-` are automatically routed to `meetings/` or `exercises/` directories during migration, even when the source brain has no dedicated directories
+- **Logseq Artifact Detection** (health check): New `IssueTypeLogseqArtifact` detects leftover Logseq syntax in body (properties, video/query embeds, task markers)
+- **Logseq Artifact Repair** (health repair): Auto-fixes detected Logseq artifacts — extracts meaningful properties to frontmatter, converts embeds, cleans task markers
+
+### Fixed
+- **Logseq Bullet Properties**: `logseqToYAML()` now correctly handles Logseq's `- key:: value` bullet format (previously only matched bare `key:: value`)
+- **Logseq Discard Properties**: Filters out UI-only and spaced-repetition properties (collapsed, card-*, background-color, heading) during migration
+- **Logseq `created-at` Epoch**: Converts millisecond timestamps to `YYYY-MM-DD` date format during YAML conversion
+- **Query Regex**: Fixed `{{query ...}}` regex to handle nested parentheses
+
+### Added (previous)
 - **Feature Module System**: Toggle features via environment variables (`FLIP_FEATURE_<NAME>=0/1`)
   - Core features: `core`, `git`, `health` (always enabled)
   - Optional features: `tasks`, `exercises`, `templates`, `vscode`, `definitions`, `meetings`, `migration`

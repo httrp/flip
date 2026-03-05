@@ -366,6 +366,21 @@ func (p *Planner) computeTargetNotePath(sourceRel string) string {
 	// Determine target directory based on note type
 	targetDir := p.mapSourceDirToTarget(dir)
 
+	// If the source doesn't have dedicated meeting/exercise directories but the
+	// target does, route files based on filename prefix. This handles Logseq/Dendron
+	// brains where meetings and exercises live alongside regular notes.
+	lowerBase := strings.ToLower(newFilename)
+	if p.sourceStructure.MeetingsDir == "" && p.targetStructure.MeetingsDir != "" {
+		if strings.HasPrefix(lowerBase, "meeting-") || strings.HasPrefix(lowerBase, "meeting_") {
+			targetDir = p.targetStructure.MeetingsDir
+		}
+	}
+	if p.sourceStructure.ExercisesDir == "" && p.targetStructure.ExercisesDir != "" {
+		if strings.HasPrefix(lowerBase, "exercise-") || strings.HasPrefix(lowerBase, "exercise_") {
+			targetDir = p.targetStructure.ExercisesDir
+		}
+	}
+
 	if targetDir != "" && targetDir != "." {
 		return filepath.Join(targetDir, newFilename)
 	}
@@ -402,6 +417,15 @@ func (p *Planner) mapSourceDirToTarget(sourceDir string) string {
 		return sourceDir
 	}
 
+	// Handle exercises directory mapping
+	if p.sourceStructure.ExercisesDir != "" &&
+		(sourceDir == p.sourceStructure.ExercisesDir || strings.HasPrefix(sourceDir, p.sourceStructure.ExercisesDir+"/")) {
+		if p.targetStructure.ExercisesDir != "" {
+			return strings.Replace(sourceDir, p.sourceStructure.ExercisesDir, p.targetStructure.ExercisesDir, 1)
+		}
+		return sourceDir
+	}
+
 	// Keep original directory if no mapping applies
 	if p.targetStructure.NotesDir != "" && sourceDir == "." {
 		return p.targetStructure.NotesDir
@@ -416,6 +440,21 @@ func classifyNote(rel string, sourceStruct *BrainStructure) string {
 	}
 	if sourceStruct.JournalDir != "" && strings.HasPrefix(rel, sourceStruct.JournalDir+"/") {
 		return "journal"
+	}
+	if sourceStruct.MeetingsDir != "" && strings.HasPrefix(rel, sourceStruct.MeetingsDir+"/") {
+		return "note" // meetings are notes for migration purposes
+	}
+	if sourceStruct.ExercisesDir != "" && strings.HasPrefix(rel, sourceStruct.ExercisesDir+"/") {
+		return "note" // exercises are notes for migration purposes
+	}
+	// Detect meetings/exercises by filename pattern even when source brain
+	// doesn't have dedicated directories (e.g., Logseq stores everything in pages/)
+	base := strings.ToLower(filepath.Base(rel))
+	if strings.HasPrefix(base, "meeting-") || strings.HasPrefix(base, "meeting_") {
+		return "note" // will be routed by mapSourceDirToTarget via filename detection
+	}
+	if strings.HasPrefix(base, "exercise-") || strings.HasPrefix(base, "exercise_") {
+		return "note" // same
 	}
 	return "note"
 }

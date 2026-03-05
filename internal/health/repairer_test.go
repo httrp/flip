@@ -778,3 +778,250 @@ func TestReplaceLinkTargetMarkdown(t *testing.T) {
 		t.Errorf("replaceLinkTarget markdown should update target\ngot: %s", result)
 	}
 }
+
+// ============================================================================
+// LOGSEQ ARTIFACT REPAIR TESTS
+// ============================================================================
+
+func TestRepairLogseqArtifact(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create .flip.yaml to make it a Flip brain
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	content := `---
+title: Test Note
+---
+
+Some content
+- collapsed:: true
+- background-color:: red
+- TODO Buy groceries
+- DONE Write tests
+{{video https://www.youtube.com/watch?v=abc123}}
+- {{query (and (task TODO) (page "project"))}}
+More content
+`
+	testFile := "notes/test-note.md"
+	os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644)
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeLogseqArtifact,
+		Severity: SeverityWarning,
+		File:     testFile,
+		Message:  "Logseq artifact found",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	newContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(newContent)
+
+	// collapsed and background-color should be removed
+	if strings.Contains(s, "collapsed::") {
+		t.Error("collapsed:: should be removed")
+	}
+	if strings.Contains(s, "background-color::") {
+		t.Error("background-color:: should be removed")
+	}
+
+	// Task markers should be converted
+	if strings.Contains(s, "TODO Buy") {
+		t.Error("TODO should be converted to checkbox")
+	}
+	if !strings.Contains(s, "- [ ] Buy groceries") {
+		t.Error("Expected '- [ ] Buy groceries' checkbox")
+	}
+	if !strings.Contains(s, "- [x] Write tests") {
+		t.Error("Expected '- [x] Write tests' checkbox")
+	}
+
+	// Video embed should be converted
+	if strings.Contains(s, "{{video") {
+		t.Error("{{video}} should be converted")
+	}
+	if !strings.Contains(s, "[YouTube Video]") {
+		t.Error("Expected YouTube Video markdown link")
+	}
+
+	// Query should be removed
+	if strings.Contains(s, "{{query") {
+		t.Error("{{query}} should be removed")
+	}
+}
+
+func TestRepairLogseqArtifact_ExtractsMeaningfulProps(t *testing.T) {
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	content := `---
+title: Existing Title
+---
+
+- tags:: important, work
+- author:: John Doe
+More content
+`
+	testFile := "notes/props-note.md"
+	os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644)
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeLogseqArtifact,
+		Severity: SeverityWarning,
+		File:     testFile,
+		Message:  "Logseq artifact found",
+	}
+
+	repairer.RepairIssues([]Issue{issue})
+
+	newContent, _ := os.ReadFile(filepath.Join(tempDir, testFile))
+	s := string(newContent)
+
+	// tags and author should be merged into frontmatter
+	if strings.Contains(s, "- tags::") {
+		t.Error("tags:: should be removed from body")
+	}
+	if !strings.Contains(s, "tags: important, work") {
+		t.Error("tags should be in frontmatter")
+	}
+	if !strings.Contains(s, "author: John Doe") {
+		t.Error("author should be in frontmatter")
+	}
+}
+
+func TestRepairLogseqArtifact_DryRun(t *testing.T) {
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	content := `---
+title: Test
+---
+
+- collapsed:: true
+`
+	testFile := "notes/dry-run.md"
+	os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644)
+
+	repairer, err := NewRepairer(tempDir, true) // dry-run mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeLogseqArtifact,
+		Severity: SeverityWarning,
+		File:     testFile,
+		Message:  "Logseq artifact found",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Dry-run should succeed: %+v", results)
+	}
+	if !strings.Contains(results[0].Message, "DRY-RUN") {
+		t.Error("Expected DRY-RUN message")
+	}
+
+	// File should be unchanged
+	newContent, _ := os.ReadFile(filepath.Join(tempDir, testFile))
+	if string(newContent) != content {
+		t.Error("File should not be modified in dry-run mode")
+	}
+}
+
+func TestCleanLogseqTaskMarkers(t *testing.T) {
+	r := &Repairer{}
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "TODO to checkbox",
+			input:    "- TODO Buy groceries",
+			expected: "- [ ] Buy groceries",
+		},
+		{
+			name:     "DONE to checked",
+			input:    "- DONE Write tests",
+			expected: "- [x] Write tests",
+		},
+		{
+			name:     "CANCELLED to cancelled",
+			input:    "- CANCELLED Old task",
+			expected: "- [~] Old task",
+		},
+		{
+			name:     "LATER to unchecked",
+			input:    "- LATER Read book",
+			expected: "- [ ] Read book",
+		},
+		{
+			name:     "Indented marker",
+			input:    "  - TODO Subtask",
+			expected: "  - [ ] Subtask",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := r.cleanLogseqTaskMarkers(tt.input)
+			if result != tt.expected {
+				t.Errorf("cleanLogseqTaskMarkers(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCleanLogseqVideoEmbeds(t *testing.T) {
+	r := &Repairer{}
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "YouTube embed",
+			input:    "{{video https://www.youtube.com/watch?v=abc}}",
+			expected: "[YouTube Video](https://www.youtube.com/watch?v=abc)",
+		},
+		{
+			name:     "youtu.be embed",
+			input:    "{{video https://youtu.be/abc}}",
+			expected: "[YouTube Video](https://youtu.be/abc)",
+		},
+		{
+			name:     "Non-youtube embed",
+			input:    "{{video https://vimeo.com/12345}}",
+			expected: "[Video](https://vimeo.com/12345)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := r.cleanLogseqVideoEmbeds(tt.input)
+			if result != tt.expected {
+				t.Errorf("cleanLogseqVideoEmbeds(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}

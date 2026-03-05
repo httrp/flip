@@ -35,6 +35,7 @@ const (
 	IssueTypeWrongMediaLocation IssueType = "wrong-media-location"
 	IssueTypeMissingMetadata    IssueType = "missing-metadata"
 	IssueTypeMalformedTitle     IssueType = "malformed-title"
+	IssueTypeLogseqArtifact     IssueType = "logseq-artifact"
 )
 
 // Severity indicates how critical an issue is
@@ -154,6 +155,14 @@ func (c *Checker) Check() (*CheckResult, error) {
 	if c.brainInfo.Type == "flip" || c.brainInfo.Type == "flip-brain" {
 		titleIssues := c.checkJournalTitles()
 		result.Issues = append(result.Issues, titleIssues...)
+	}
+
+	// Step 3.9: Check for Logseq migration artifacts in content
+	if c.brainInfo.Type == "flip" || c.brainInfo.Type == "flip-brain" {
+		for _, mdFile := range c.markdownFiles {
+			artifactIssues := c.checkLogseqArtifacts(mdFile)
+			result.Issues = append(result.Issues, artifactIssues...)
+		}
 	}
 
 	// Calculate stats
@@ -1477,6 +1486,99 @@ func (c *Checker) checkJournalTitles() []Issue {
 
 		return nil
 	})
+
+	return issues
+}
+
+// checkLogseqArtifacts detects Logseq-specific formatting artifacts that were
+// not properly converted during migration. These indicate incomplete Logseq→Flip
+// migration and can be auto-repaired.
+func (c *Checker) checkLogseqArtifacts(relPath string) []Issue {
+	absPath := filepath.Join(c.brainPath, relPath)
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil
+	}
+
+	var issues []Issue
+	text := string(content)
+
+	// Skip if this file is inside definitions/ or templates/
+	if strings.HasPrefix(relPath, "definitions/") || strings.HasPrefix(relPath, "templates/") {
+		return nil
+	}
+
+	// Determine the body portion (after YAML frontmatter)
+	body := text
+	if strings.HasPrefix(text, "---\n") {
+		if idx := strings.Index(text[4:], "\n---"); idx >= 0 {
+			body = text[4+idx+4:]
+		}
+	}
+
+	// 1. Check for Logseq property bullets (- key:: value) in body
+	propPattern := regexp.MustCompile(`(?m)^\s*-\s+[a-zA-Z][a-zA-Z0-9_-]*::\s+`)
+	if propMatches := propPattern.FindAllString(body, -1); len(propMatches) > 0 {
+		// Exclude known inline content patterns (code blocks, etc.)
+		realProps := 0
+		for _, m := range propMatches {
+			key := strings.TrimSpace(strings.Split(m, "::")[0])
+			key = strings.TrimPrefix(key, "- ")
+			key = strings.TrimSpace(key)
+			lkey := strings.ToLower(key)
+			// Focus on definite Logseq-specific properties
+			if lkey == "collapsed" || lkey == "created-at" || lkey == "background-color" ||
+				strings.HasPrefix(lkey, "card-") || lkey == "title" || lkey == "created" ||
+				lkey == "author" || lkey == "tags" || lkey == "type" || lkey == "date" {
+				realProps++
+			}
+		}
+		if realProps > 0 {
+			issues = append(issues, Issue{
+				Type:     IssueTypeLogseqArtifact,
+				Severity: SeverityWarning,
+				File:     relPath,
+				Message:  fmt.Sprintf("Logseq property bullets in body (%d instances)", realProps),
+				Details:  "Logseq-style '- key:: value' properties found in content body; should be in YAML frontmatter",
+			})
+		}
+	}
+
+	// 2. Check for {{video ...}} embeds
+	videoPattern := regexp.MustCompile(`\{\{video\s+https?://`)
+	if videoMatches := videoPattern.FindAllString(body, -1); len(videoMatches) > 0 {
+		issues = append(issues, Issue{
+			Type:     IssueTypeLogseqArtifact,
+			Severity: SeverityWarning,
+			File:     relPath,
+			Message:  fmt.Sprintf("Logseq video embeds ({{video ...}}) found (%d)", len(videoMatches)),
+			Details:  "Convert to standard markdown links: [Video](URL)",
+		})
+	}
+
+	// 3. Check for {{query ...}} embeds
+	queryPattern := regexp.MustCompile(`\{\{query\s+`)
+	if queryMatches := queryPattern.FindAllString(body, -1); len(queryMatches) > 0 {
+		issues = append(issues, Issue{
+			Type:     IssueTypeLogseqArtifact,
+			Severity: SeverityInfo,
+			File:     relPath,
+			Message:  fmt.Sprintf("Logseq dynamic queries found (%d)", len(queryMatches)),
+			Details:  "{{query ...}} blocks are Logseq-specific and non-functional outside Logseq",
+		})
+	}
+
+	// 4. Check for Logseq task markers
+	taskPattern := regexp.MustCompile(`(?m)^\s*-\s+(TODO|DONE|DOING|LATER|NOW|WAITING|CANCELLED)\s+`)
+	if taskMatches := taskPattern.FindAllString(body, -1); len(taskMatches) > 0 {
+		issues = append(issues, Issue{
+			Type:     IssueTypeLogseqArtifact,
+			Severity: SeverityInfo,
+			File:     relPath,
+			Message:  fmt.Sprintf("Logseq task markers found (%d)", len(taskMatches)),
+			Details:  "Convert TODO/DONE to standard checkboxes: - [ ] / - [x]",
+		})
+	}
 
 	return issues
 }

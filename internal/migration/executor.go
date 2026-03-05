@@ -181,6 +181,9 @@ func (e *Executor) migrateNote(item PlanItem) error {
 	// Transform content conventions between brain types (e.g. frontmatter styles)
 	updatedContent = e.transformer.TransformContent(updatedContent)
 
+	// Clean up source-specific artifacts (Logseq video embeds, task markers, etc.)
+	updatedContent = e.transformer.CleanupLogseqArtifacts(updatedContent)
+
 	// Create target directory
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create target dir: %w", err)

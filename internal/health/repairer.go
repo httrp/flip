@@ -117,6 +117,13 @@ func (r *Repairer) registerActions() {
 		Description: "Fix journal titles from space-separated to hyphenated format (YYYY MM DD -> YYYY-MM-DD)",
 		Apply:       r.repairMalformedTitle,
 	}
+
+	// Logseq artifacts - clean up leftover Logseq syntax in body
+	r.actions[IssueTypeLogseqArtifact] = RepairAction{
+		IssueType:   IssueTypeLogseqArtifact,
+		Description: "Remove Logseq artifacts (properties in body, {{video}}, {{query}}, task markers)",
+		Apply:       r.repairLogseqArtifact,
+	}
 }
 
 // CanRepair checks if an issue type can be repaired
@@ -1206,4 +1213,152 @@ func (r *Repairer) repairMalformedTitle(brainPath string, issue Issue) error {
 	}
 
 	return nil
+}
+
+// repairLogseqArtifact cleans up leftover Logseq syntax from file bodies:
+// - Removes/extracts `- key:: value` and `key:: value` property lines
+// - Converts `{{video URL}}` to markdown links
+// - Removes `{{query ...}}` blocks
+// - Converts Logseq task markers (TODO/DONE/LATER/etc.) to standard checkboxes
+func (r *Repairer) repairLogseqArtifact(brainPath string, issue Issue) error {
+	if issue.File == "" {
+		return fmt.Errorf("issue missing file information")
+	}
+
+	fullPath := filepath.Join(brainPath, issue.File)
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	result := r.cleanLogseqArtifacts(string(content))
+
+	if result == string(content) {
+		return nil // nothing to change
+	}
+
+	return os.WriteFile(fullPath, []byte(result), 0644)
+}
+
+// cleanLogseqArtifacts applies all Logseq artifact cleanup steps to content.
+func (r *Repairer) cleanLogseqArtifacts(content string) string {
+	content = r.cleanLogseqBodyProps(content)
+	content = r.cleanLogseqVideoEmbeds(content)
+	content = r.cleanLogseqQueryEmbeds(content)
+	content = r.cleanLogseqTaskMarkers(content)
+	return content
+}
+
+// cleanLogseqBodyProps removes Logseq property lines from the body.
+// Discards UI-only properties (collapsed, background-color, card-*, heading).
+// Extracts meaningful properties (title, tags, type, date, author, created-at)
+// and merges them into existing YAML frontmatter if present.
+func (r *Repairer) cleanLogseqBodyProps(content string) string {
+	fm, body, hasFM := splitRepairFrontmatter(content)
+	if body == "" {
+		return content
+	}
+
+	// Properties we silently discard (UI state, spaced repetition)
+	discardRe := regexp.MustCompile(
+		`(?m)^\s*-?\s*(collapsed|background-color|card-last-interval|card-repeats|` +
+			`card-ease-factor|card-next-schedule|card-last-reviewed|card-last-score|heading)::\s*.*$\n?`)
+	body = discardRe.ReplaceAllString(body, "")
+
+	// Meaningful properties to extract and merge into frontmatter
+	meaningfulRe := regexp.MustCompile(`(?m)^\s*-?\s*(title|tags|type|date|author|created-at|created|brain)::\s*(.*)$`)
+	extracted := make(map[string]string)
+	body = meaningfulRe.ReplaceAllStringFunc(body, func(match string) string {
+		sub := meaningfulRe.FindStringSubmatch(match)
+		if len(sub) >= 3 {
+			key := strings.TrimSpace(sub[1])
+			val := strings.TrimSpace(sub[2])
+			if val != "" {
+				extracted[key] = val
+			}
+		}
+		return ""
+	})
+
+	// Merge extracted props into frontmatter
+	if len(extracted) > 0 && hasFM {
+		for key, val := range extracted {
+			yamlKey := strings.ReplaceAll(key, "-", "_") // created-at → created_at
+			// Only add if not already in frontmatter
+			if !strings.Contains(fm, yamlKey+":") {
+				// Insert before closing ---
+				insertPoint := strings.LastIndex(fm, "\n---")
+				if insertPoint >= 0 {
+					fm = fm[:insertPoint] + "\n" + yamlKey + ": " + val + fm[insertPoint:]
+				}
+			}
+		}
+	}
+
+	// Clean up multiple blank lines left behind
+	multiBlank := regexp.MustCompile(`\n{3,}`)
+	body = multiBlank.ReplaceAllString(body, "\n\n")
+
+	if hasFM {
+		return fm + body
+	}
+	return body
+}
+
+// cleanLogseqVideoEmbeds converts {{video URL}} to markdown links
+func (r *Repairer) cleanLogseqVideoEmbeds(content string) string {
+	re := regexp.MustCompile(`\{\{video\s+(https?://[^\s}]+)\s*\}\}`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		url := sub[1]
+		if strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be") {
+			return "[YouTube Video](" + url + ")"
+		}
+		return "[Video](" + url + ")"
+	})
+}
+
+// cleanLogseqQueryEmbeds removes {{query ...}} Logseq dynamic queries
+func (r *Repairer) cleanLogseqQueryEmbeds(content string) string {
+	re := regexp.MustCompile(`\{\{query\s+[^}]*\}\}`)
+	content = re.ReplaceAllString(content, "")
+	// Clean up empty bullet lines left behind
+	emptyBullet := regexp.MustCompile(`(?m)^\s*-\s*$\n?`)
+	return emptyBullet.ReplaceAllString(content, "")
+}
+
+// cleanLogseqTaskMarkers converts Logseq task markers to standard checkboxes
+func (r *Repairer) cleanLogseqTaskMarkers(content string) string {
+	re := regexp.MustCompile(`(?m)^(\s*)-\s+(TODO|DONE|DOING|LATER|NOW|WAITING|CANCELLED|IN-PROGRESS)\s+(.*)`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		if len(sub) < 4 {
+			return match
+		}
+		indent, marker, text := sub[1], sub[2], sub[3]
+		switch marker {
+		case "DONE":
+			return indent + "- [x] " + text
+		case "CANCELLED":
+			return indent + "- [~] " + text
+		default:
+			return indent + "- [ ] " + text
+		}
+	})
+}
+
+// splitRepairFrontmatter splits content into frontmatter (including delimiters) and body.
+func splitRepairFrontmatter(content string) (string, string, bool) {
+	if !strings.HasPrefix(content, "---\n") {
+		return "", content, false
+	}
+	endIdx := strings.Index(content[4:], "\n---")
+	if endIdx == -1 {
+		return "", content, false
+	}
+	fmEnd := 4 + endIdx + 4 // past \n---
+	return content[:fmEnd], content[fmEnd:], true
 }
