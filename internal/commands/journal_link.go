@@ -233,40 +233,42 @@ func appendLinkToJournalSection(journalPath, linkText, section string) error {
 		section = getSectionForLink(linkText)
 	}
 
+	// Check if link already exists (prevent duplicates)
+	if strings.Contains(fileContent, linkText) {
+		return nil
+	}
+
 	// Try to find the target section
 	if idx := strings.Index(fileContent, section); idx != -1 {
 		// Found target section, insert after it
 		insertPos := idx + len(section)
 
-		// Skip to end of line
+		// Skip to end of line (in case of trailing text)
 		for insertPos < len(fileContent) && fileContent[insertPos] != '\n' {
 			insertPos++
 		}
-		// Move past one newline
-		if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
-			insertPos++
-		}
-		// Skip empty line if present
+
+		// Move to start of next line
 		if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
 			insertPos++
 		}
 
-		// Build new content with link
+		// Now we're at the start of the line after section header
+		// Insert link with consistent formatting
 		newContent := fileContent[:insertPos] + linkText + "\n" + fileContent[insertPos:]
 
 		return os.WriteFile(journalPath, []byte(newContent), 0644)
 	}
 
-	// Fallback to Activities section
+	// Fallback to Activities section (if original section wasn't found)
 	if section != "## Activities" {
 		if idx := strings.Index(fileContent, "## Activities"); idx != -1 {
 			insertPos := idx + len("## Activities")
+			// Skip to end of line
 			for insertPos < len(fileContent) && fileContent[insertPos] != '\n' {
 				insertPos++
 			}
-			if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
-				insertPos++
-			}
+			// Move to start of next line
 			if insertPos < len(fileContent) && fileContent[insertPos] == '\n' {
 				insertPos++
 			}
@@ -275,8 +277,11 @@ func appendLinkToJournalSection(journalPath, linkText, section string) error {
 		}
 	}
 
-	// Ultimate fallback: append to end
-	fileContent += "\n" + linkText + "\n"
+	// Ultimate fallback: append to end with consistent formatting
+	if !strings.HasSuffix(fileContent, "\n") {
+		fileContent += "\n"
+	}
+	fileContent += linkText + "\n"
 	return os.WriteFile(journalPath, []byte(fileContent), 0644)
 }
 
