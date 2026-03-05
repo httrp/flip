@@ -628,20 +628,23 @@ tags: []
 `
 
 	default:
-		// Default flip template - Metadata-rich, Content-minimal
+		// Default flip template - matches the runtime template format ({{key}} placeholders)
 		return `---
-title: "Journal {{.Date}}"
-date: {{.Date}}
+date: {{date}}
+day: {{weekday}}
+brain: {{brain_name}}
 type: journal
-mood: 
-energy: 
-weather: 
-tags: []
-highlights: []
-gratitude: []
 ---
 
-# {{.Date}}
+# {{date}} - {{weekday}}
+
+## Activities
+
+## Meeting-Notes
+
+## New Tasks
+
+## Exercises
 
 `
 	}
@@ -680,22 +683,27 @@ follow_up:
 `
 
 	default:
-		// Default flip template - Metadata-rich, Content-minimal
+		// Default flip template - matches runtime {{key}} placeholder format
 		return `---
-title: "{{.Title}}"
-date: {{.Date}}
+title: {{title}}
+date: {{date}}
 type: meeting
 attendees: []
-organization: {{.Organization}}
+organization: {{organization}}
 project: 
 location: 
-tags: []
-decisions: []
-action_items: []
-follow_up: 
+tags: [meeting]
 ---
 
-# {{.Title}}
+# {{title}}
+
+## Participants
+
+{{participants}}
+
+## Notes
+
+## Action Items
 
 `
 	}
@@ -730,17 +738,14 @@ related: []
 `
 
 	default:
-		// Default flip template - Metadata-rich, Content-minimal
+		// Default flip template - matches runtime {{key}} placeholder format
 		return `---
-title: "{{.Title}}"
-date: {{.Date}}
-type: note
-status: active
+title: {{title}}
+created: {{date}}
 tags: []
-related: []
 ---
 
-# {{.Title}}
+# {{title}}
 
 `
 	}

@@ -43,6 +43,7 @@ func newBrainHealthTopLevelCommand() *cobra.Command {
 	var jsonOutput bool
 	var fix bool
 	var dryRun bool
+	var repairTypes []string
 
 	cmd := &cobra.Command{
 		Use:   "health [path]",
@@ -86,13 +87,14 @@ Examples:
 				}
 				brainPath = selectedBrain.Path
 			}
-			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
+			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun, repairTypes)
 		},
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repairs without applying them (use with --fix)")
+	cmd.Flags().StringSliceVar(&repairTypes, "types", nil, "Only repair these issue types (e.g., missing-metadata,format)")
 
 	return cmd
 }
@@ -102,6 +104,7 @@ func newBrainHealthCommand() *cobra.Command {
 	var jsonOutput bool
 	var fix bool
 	var dryRun bool
+	var repairTypes []string
 
 	cmd := &cobra.Command{
 		Use:   "health [path]",
@@ -143,13 +146,14 @@ Examples:
 				}
 				brainPath = selectedBrain.Path
 			}
-			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun)
+			return runBrainHealthCheck(brainPath, jsonOutput, fix, dryRun, repairTypes)
 		},
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	cmd.Flags().BoolVarP(&fix, "fix", "f", false, "Automatically fix issues where possible")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repairs without applying them (use with --fix)")
+	cmd.Flags().StringSliceVar(&repairTypes, "types", nil, "Only repair these issue types (e.g., missing-metadata,format)")
 
 	return cmd
 }
@@ -482,7 +486,15 @@ defaults:
 	return issues
 }
 
-func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
+func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool, repairTypes ...[]string) error {
+	// Flatten repairTypes (variadic for backward compat)
+	var typeFilter map[string]bool
+	if len(repairTypes) > 0 && len(repairTypes[0]) > 0 {
+		typeFilter = make(map[string]bool)
+		for _, t := range repairTypes[0] {
+			typeFilter[t] = true
+		}
+	}
 	// Get absolute path
 	absPath := brainPath
 	if brainPath == "." {
@@ -519,7 +531,7 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 		resp := &healthJSONResponse{Result: result}
 
 		if fix && len(result.Issues) > 0 {
-			repairPayload, err := performRepairs(absPath, result.Issues, dryRun)
+			repairPayload, err := performRepairs(absPath, result.Issues, dryRun, typeFilter)
 			if err != nil {
 				return err
 			}
@@ -570,11 +582,15 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 		}
 		fmt.Println()
 
-		// Filter to repairable issues
+		// Filter to repairable issues (optionally filtered by --types)
 		repairableIssues := make([]health.Issue, 0)
 		notRepairableCount := 0
 		for _, issue := range result.Issues {
 			if repairer.CanRepair(issue.Type) {
+				// If type filter is set, only include matching types
+				if typeFilter != nil && !typeFilter[string(issue.Type)] {
+					continue
+				}
 				repairableIssues = append(repairableIssues, issue)
 			} else {
 				notRepairableCount++
@@ -645,7 +661,7 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool) error {
 }
 
 // performRepairs runs repair actions without printing, returning structured data for JSON mode
-func performRepairs(brainPath string, issues []health.Issue, dryRun bool) (*healthJSONRepairPayload, error) {
+func performRepairs(brainPath string, issues []health.Issue, dryRun bool, typeFilter map[string]bool) (*healthJSONRepairPayload, error) {
 	repairer, err := health.NewRepairer(brainPath, dryRun)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repairer: %w", err)
@@ -655,6 +671,10 @@ func performRepairs(brainPath string, issues []health.Issue, dryRun bool) (*heal
 	notRepairableCount := 0
 	for _, issue := range issues {
 		if repairer.CanRepair(issue.Type) {
+			// If type filter is set, only include matching types
+			if typeFilter != nil && !typeFilter[string(issue.Type)] {
+				continue
+			}
 			repairableIssues = append(repairableIssues, issue)
 		} else {
 			notRepairableCount++

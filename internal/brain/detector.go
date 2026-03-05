@@ -67,7 +67,7 @@ func (d *Detector) DetectBrainType(path string) (*DetectionResult, error) {
 	// Check for existing brain systems
 	// Priority order: More specific systems first (with strong structural markers)
 	// then general systems, then Flip (which should only be primary if no other system detected)
-	
+
 	if d.isObsidianVault(path, result) {
 		result.Type = BrainTypeObsidian
 		result.Description = "Obsidian Vault detected"

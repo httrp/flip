@@ -479,7 +479,7 @@ func TestRepairMissingMetadataJournalYAMLBackfillsBrain(t *testing.T) {
 	}
 
 	testFile := "journals/2025-01-01.md"
-	content := "---\ntitle: 2025-01-01\ncreated: 2025-01-01\n---\n\nJournal content\n"
+	content := "---\ntitle: 2025-01-01\n---\n\nJournal content\n"
 	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,125 @@ func TestRepairMissingMetadataJournalYAMLBackfillsBrain(t *testing.T) {
 		Type:     IssueTypeMissingMetadata,
 		Severity: SeverityInfo,
 		File:     testFile,
-		Message:  "Journal frontmatter missing field: brain",
+		Message:  "Journal frontmatter missing fields: date, day, brain, type",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repairedStr := string(repairedContent)
+	// Should derive date from filename
+	if !strings.Contains(repairedStr, "date: 2025-01-01") {
+		t.Errorf("Expected date: 2025-01-01 in repaired journal, got: %s", repairedStr)
+	}
+	// Should derive weekday from date
+	if !strings.Contains(repairedStr, "day: Wednesday") {
+		t.Errorf("Expected day: Wednesday in repaired journal, got: %s", repairedStr)
+	}
+	// Should add brain name (from directory basename)
+	if !strings.Contains(repairedStr, "brain: ") {
+		t.Errorf("Expected brain field in repaired journal, got: %s", repairedStr)
+	}
+	// Should add type
+	if !strings.Contains(repairedStr, "type: journal") {
+		t.Errorf("Expected type: journal in repaired journal, got: %s", repairedStr)
+	}
+}
+
+func TestRepairJournalMetadataNoFrontmatter(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "journal"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := "journal/2025-06-15.md"
+	content := "# 2025-06-15\n\nSome notes\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityWarning,
+		File:     testFile,
+		Message:  "Journal missing YAML frontmatter",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	repairedContent, err := os.ReadFile(filepath.Join(tempDir, testFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repairedStr := string(repairedContent)
+
+	// Should create complete frontmatter from scratch
+	if !strings.HasPrefix(repairedStr, "---\n") {
+		t.Errorf("Expected frontmatter to start with ---, got: %s", repairedStr[:20])
+	}
+	if !strings.Contains(repairedStr, "date: 2025-06-15") {
+		t.Errorf("Expected date from filename, got: %s", repairedStr)
+	}
+	if !strings.Contains(repairedStr, "day: Sunday") {
+		t.Errorf("Expected day: Sunday (2025-06-15), got: %s", repairedStr)
+	}
+	if !strings.Contains(repairedStr, "type: journal") {
+		t.Errorf("Expected type: journal, got: %s", repairedStr)
+	}
+	// Original content should be preserved
+	if !strings.Contains(repairedStr, "# 2025-06-15") {
+		t.Errorf("Expected original content preserved, got: %s", repairedStr)
+	}
+}
+
+func TestRepairNoteMetadataAddsBrainForFlip(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "notes"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := "notes/test-note.md"
+	content := "---\ntitle: Test Note\ncreated: 2025-01-01\n---\n\n# Test Note\n"
+	if err := os.WriteFile(filepath.Join(tempDir, testFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeMissingMetadata,
+		Severity: SeverityInfo,
+		File:     testFile,
+		Message:  "Frontmatter missing fields: brain",
 	}
 
 	results := repairer.RepairIssues([]Issue{issue})
@@ -508,7 +626,11 @@ func TestRepairMissingMetadataJournalYAMLBackfillsBrain(t *testing.T) {
 
 	repairedStr := string(repairedContent)
 	if !strings.Contains(repairedStr, "brain: ") {
-		t.Fatalf("Expected brain field in repaired journal frontmatter, got: %s", repairedStr)
+		t.Errorf("Expected brain field in repaired note, got: %s", repairedStr)
+	}
+	// Should still have existing fields
+	if !strings.Contains(repairedStr, "title: Test Note") {
+		t.Errorf("Expected title preserved, got: %s", repairedStr)
 	}
 }
 

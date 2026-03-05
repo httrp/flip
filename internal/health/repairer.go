@@ -272,9 +272,9 @@ func (r *Repairer) resolveTarget(brainPath, target string) string {
 	if dateRe.MatchString(dateTarget) {
 		// Try common journal patterns: YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
 		variants := []string{
-			dateTarget,                                          // 2024-05-13
-			strings.ReplaceAll(dateTarget, "-", "_"),            // 2024_05_13
-			strings.ReplaceAll(dateTarget, "-", "."),            // 2024.05.13
+			dateTarget,                               // 2024-05-13
+			strings.ReplaceAll(dateTarget, "-", "_"), // 2024_05_13
+			strings.ReplaceAll(dateTarget, "-", "."), // 2024.05.13
 		}
 		for _, c := range allNotes {
 			for _, v := range variants {
@@ -979,7 +979,15 @@ func (r *Repairer) addLogseqJournalMetadata(fullPath, content, title string, cre
 }
 
 func (r *Repairer) addYAMLJournalMetadata(fullPath, content, title string, createdAt time.Time, brainName string) error {
-	dateStr := createdAt.Format("2006-01-02")
+	// Try to derive journal date from filename (YYYY-MM-DD.md)
+	basename := filepath.Base(fullPath)
+	nameWithoutExt := strings.TrimSuffix(basename, ".md")
+	journalDate := createdAt // fallback
+	if parsed, err := time.Parse("2006-01-02", nameWithoutExt); err == nil {
+		journalDate = parsed
+	}
+	dateStr := journalDate.Format("2006-01-02")
+	weekday := journalDate.Format("Monday")
 
 	if strings.HasPrefix(content, "---") {
 		endIdx := strings.Index(content[3:], "---")
@@ -990,23 +998,27 @@ func (r *Repairer) addYAMLJournalMetadata(fullPath, content, title string, creat
 		frontmatter := content[3 : endIdx+3]
 		rest := content[endIdx+6:]
 
-		hasTitle := strings.Contains(frontmatter, "title:")
-		hasCreated := strings.Contains(frontmatter, "created:") || strings.Contains(frontmatter, "date:")
+		hasDate := strings.Contains(frontmatter, "date:")
+		hasDay := strings.Contains(frontmatter, "day:")
 		hasBrain := strings.Contains(frontmatter, "brain:")
+		hasType := strings.Contains(frontmatter, "type:")
 
-		if hasTitle && hasCreated && hasBrain {
+		if hasDate && hasDay && hasBrain && hasType {
 			return nil
 		}
 
 		var additions []string
-		if !hasTitle {
-			additions = append(additions, fmt.Sprintf("title: %s", title))
+		if !hasDate {
+			additions = append(additions, fmt.Sprintf("date: %s", dateStr))
 		}
-		if !hasCreated {
-			additions = append(additions, fmt.Sprintf("created: %s", dateStr))
+		if !hasDay {
+			additions = append(additions, fmt.Sprintf("day: %s", weekday))
 		}
 		if !hasBrain {
 			additions = append(additions, fmt.Sprintf("brain: %s", brainName))
+		}
+		if !hasType {
+			additions = append(additions, "type: journal")
 		}
 
 		newFrontmatter := strings.TrimRight(frontmatter, "\n") + "\n" + strings.Join(additions, "\n") + "\n"
@@ -1015,7 +1027,8 @@ func (r *Repairer) addYAMLJournalMetadata(fullPath, content, title string, creat
 		return os.WriteFile(fullPath, []byte(newContent), 0644)
 	}
 
-	frontmatter := fmt.Sprintf("---\ntitle: %s\ncreated: %s\nbrain: %s\n---\n\n", title, dateStr, brainName)
+	// No frontmatter at all - create complete journal frontmatter
+	frontmatter := fmt.Sprintf("---\ndate: %s\nday: %s\nbrain: %s\ntype: journal\n---\n\n", dateStr, weekday, brainName)
 	newContent := frontmatter + content
 
 	return os.WriteFile(fullPath, []byte(newContent), 0644)
@@ -1074,6 +1087,7 @@ func (r *Repairer) addLogseqMetadata(fullPath, content, title string, createdAt 
 func (r *Repairer) addYAMLFrontmatter(fullPath, content, title string, createdAt time.Time) error {
 	// Format date as ISO 8601
 	dateStr := createdAt.Format("2006-01-02")
+	brainName := filepath.Base(r.brainPath)
 
 	if strings.HasPrefix(content, "---") {
 		// Already has frontmatter - update it
@@ -1087,8 +1101,9 @@ func (r *Repairer) addYAMLFrontmatter(fullPath, content, title string, createdAt
 
 		hasTitle := strings.Contains(frontmatter, "title:")
 		hasCreated := strings.Contains(frontmatter, "created:") || strings.Contains(frontmatter, "date:")
+		hasBrain := strings.Contains(frontmatter, "brain:")
 
-		if hasTitle && hasCreated {
+		if hasTitle && hasCreated && (hasBrain || r.brainType != BrainTypeFlip) {
 			return nil // Nothing to do
 		}
 
@@ -1100,6 +1115,14 @@ func (r *Repairer) addYAMLFrontmatter(fullPath, content, title string, createdAt
 		if !hasCreated {
 			additions = append(additions, fmt.Sprintf("created: %s", dateStr))
 		}
+		// For flip brains, also ensure brain: field on notes/meetings
+		if r.brainType == BrainTypeFlip && !hasBrain {
+			additions = append(additions, fmt.Sprintf("brain: %s", brainName))
+		}
+
+		if len(additions) == 0 {
+			return nil
+		}
 
 		// Insert at the end of frontmatter (before closing ---)
 		newFrontmatter := strings.TrimRight(frontmatter, "\n") + "\n" + strings.Join(additions, "\n") + "\n"
@@ -1109,7 +1132,12 @@ func (r *Repairer) addYAMLFrontmatter(fullPath, content, title string, createdAt
 	}
 
 	// No frontmatter - create one
-	frontmatter := fmt.Sprintf("---\ntitle: %s\ncreated: %s\n---\n\n", title, dateStr)
+	var frontmatter string
+	if r.brainType == BrainTypeFlip {
+		frontmatter = fmt.Sprintf("---\ntitle: %s\ncreated: %s\nbrain: %s\n---\n\n", title, dateStr, brainName)
+	} else {
+		frontmatter = fmt.Sprintf("---\ntitle: %s\ncreated: %s\n---\n\n", title, dateStr)
+	}
 	newContent := frontmatter + content
 
 	return os.WriteFile(fullPath, []byte(newContent), 0644)

@@ -3,6 +3,7 @@ package health
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -134,7 +135,94 @@ func TestCheckMissingMetadataJournalBrain(t *testing.T) {
 		t.Fatalf("Expected issue type %s, got %s", IssueTypeMissingMetadata, issues[0].Type)
 	}
 
-	if issues[0].File != journalFile {
-		t.Fatalf("Expected issue file %s, got %s", journalFile, issues[0].File)
+	// Should report all missing fields: brain, date, day, type
+	msg := issues[0].Message
+	for _, field := range []string{"brain", "date", "day", "type"} {
+		if !strings.Contains(msg, field) {
+			t.Errorf("Expected missing field %q in message, got: %s", field, msg)
+		}
+	}
+}
+
+func TestCheckJournalMetadataAllFieldsPresent(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "journal"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	journalFile := "journal/2025-01-01.md"
+	content := "---\ndate: 2025-01-01\nday: Wednesday\nbrain: testbrain\ntype: journal\n---\n\n# 2025-01-01\n"
+	if err := os.WriteFile(filepath.Join(tempDir, journalFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	checker := &Checker{brainPath: tempDir, brainType: BrainTypeFlip}
+	issues := checker.checkMissingMetadata(journalFile)
+
+	if len(issues) != 0 {
+		t.Fatalf("Expected 0 issues for complete journal metadata, got %d: %v", len(issues), issues)
+	}
+}
+
+func TestCheckJournalMetadataNoFrontmatter(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "journal"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	journalFile := "journal/2025-01-01.md"
+	content := "# 2025-01-01\n\nSome content\n"
+	if err := os.WriteFile(filepath.Join(tempDir, journalFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	checker := &Checker{brainPath: tempDir, brainType: BrainTypeFlip}
+	issues := checker.checkMissingMetadata(journalFile)
+
+	if len(issues) != 1 {
+		t.Fatalf("Expected 1 issue for missing frontmatter, got %d", len(issues))
+	}
+
+	if issues[0].Severity != SeverityWarning {
+		t.Errorf("Expected severity warning for missing frontmatter, got %s", issues[0].Severity)
+	}
+}
+
+func TestCheckNoteMetadataMissingBrainFlip(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "notes"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	noteFile := "notes/test-note.md"
+	content := "---\ntitle: Test Note\ncreated: 2025-01-01\n---\n\n# Test Note\n"
+	if err := os.WriteFile(filepath.Join(tempDir, noteFile), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	checker := &Checker{brainPath: tempDir, brainType: BrainTypeFlip}
+	issues := checker.checkMissingMetadata(noteFile)
+
+	if len(issues) != 1 {
+		t.Fatalf("Expected 1 issue for missing brain field, got %d", len(issues))
+	}
+
+	if !strings.Contains(issues[0].Message, "brain") {
+		t.Errorf("Expected brain in missing fields message, got: %s", issues[0].Message)
 	}
 }

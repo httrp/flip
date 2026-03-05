@@ -1101,13 +1101,20 @@ func (c *Checker) checkMissingMetadata(relPath string) []Issue {
 					missing = append(missing, "created")
 				}
 
+				// For flip brains, notes and meetings should also have brain:
+				if c.brainType == BrainTypeFlip {
+					if !strings.Contains(frontmatter, "brain:") {
+						missing = append(missing, "brain")
+					}
+				}
+
 				if len(missing) > 0 {
 					issues = append(issues, Issue{
 						Type:     IssueTypeMissingMetadata,
 						Severity: SeverityInfo,
 						File:     relPath,
 						Message:  fmt.Sprintf("Frontmatter missing fields: %s", strings.Join(missing, ", ")),
-						Details:  "Add missing metadata fields to frontmatter",
+						Details:  "Repair will add missing metadata fields to frontmatter",
 					})
 				}
 			}
@@ -1148,10 +1155,10 @@ func (c *Checker) checkJournalMetadata(relPath string) []Issue {
 		if !hasFrontmatter {
 			issues = append(issues, Issue{
 				Type:     IssueTypeMissingMetadata,
-				Severity: SeverityInfo,
+				Severity: SeverityWarning,
 				File:     relPath,
 				Message:  "Journal missing YAML frontmatter",
-				Details:  "Add frontmatter with at least: brain: <brain-name>",
+				Details:  "Add frontmatter with: date, day, brain, type fields",
 			})
 			return issues
 		}
@@ -1159,13 +1166,29 @@ func (c *Checker) checkJournalMetadata(relPath string) []Issue {
 		endIdx := strings.Index(contentStr[3:], "---")
 		if endIdx > 0 {
 			frontmatter := contentStr[3 : endIdx+3]
+
+			// Check all required journal metadata fields
+			var missing []string
 			if !strings.Contains(frontmatter, "brain:") {
+				missing = append(missing, "brain")
+			}
+			if !strings.Contains(frontmatter, "date:") {
+				missing = append(missing, "date")
+			}
+			if !strings.Contains(frontmatter, "day:") {
+				missing = append(missing, "day")
+			}
+			if !strings.Contains(frontmatter, "type:") {
+				missing = append(missing, "type")
+			}
+
+			if len(missing) > 0 {
 				issues = append(issues, Issue{
 					Type:     IssueTypeMissingMetadata,
 					Severity: SeverityInfo,
 					File:     relPath,
-					Message:  "Journal frontmatter missing field: brain",
-					Details:  "Add brain: <brain-name> to journal frontmatter",
+					Message:  fmt.Sprintf("Journal frontmatter missing fields: %s", strings.Join(missing, ", ")),
+					Details:  "Repair will add missing journal metadata from filename and brain config",
 				})
 			}
 		}
