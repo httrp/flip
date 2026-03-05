@@ -111,8 +111,8 @@ brain: test
 // TestAppendLinkDetectsSection tests that the correct section is determined by emoji
 func TestAppendLinkDetectsSection(t *testing.T) {
 	tests := []struct {
-		linkText     string
-		expectedSec  string
+		linkText    string
+		expectedSec string
 	}{
 		{"🤝 [Meeting](../meetings/test.md)", "## Meeting-Notes"},
 		{"📋 [Task](../tasks/test.md)", "## New Tasks"},

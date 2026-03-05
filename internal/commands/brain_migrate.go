@@ -23,6 +23,8 @@ func brainMigrateCmd() *cobra.Command {
 	var output string
 	var execute bool
 	var jsonOut bool
+	var skipConflicts bool
+	var overwrite bool
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -54,6 +56,13 @@ func brainMigrateCmd() *cobra.Command {
 			plan, err := planner.BuildPlan(mMode, note, folders, depth)
 			if err != nil {
 				return err
+			}
+
+			// Apply conflict resolution strategy
+			if skipConflicts {
+				migration.ApplyConflictStrategy(plan, migration.ConflictSkip)
+			} else if overwrite {
+				migration.ApplyConflictStrategy(plan, migration.ConflictOverwrite)
 			}
 
 			if jsonOut {
@@ -156,6 +165,8 @@ func brainMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&execute, "execute", false, "Execute migration (apply) instead of dry-run")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output JSON plan to stdout")
 	cmd.Flags().StringVar(&output, "out", "", "Write JSON plan to file")
+	cmd.Flags().BoolVar(&skipConflicts, "skip-conflicts", false, "Skip items where target already exists")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite existing target files on conflict")
 
 	return cmd
 }

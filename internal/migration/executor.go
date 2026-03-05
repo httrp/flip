@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -263,14 +265,10 @@ func (e *Executor) GetLog() *ExecutionLog {
 
 // runHealthCheck performs a health check on the migrated brain
 func (e *Executor) runHealthCheck() (*HealthCheckReport, error) {
-	// Create a health checker for the target brain
-	// Note: We can't import health here due to circular dependency
-	// So we'll keep it simple for now
 	report := &HealthCheckReport{
 		Issues: make([]string, 0),
 	}
 
-	// Basic checks we can do without circular import:
 	// 1. Check if target brain directory exists
 	if _, err := os.Stat(e.plan.TargetBrainPath); os.IsNotExist(err) {
 		report.Issues = append(report.Issues, "Target brain directory does not exist")
@@ -282,7 +280,7 @@ func (e *Executor) runHealthCheck() (*HealthCheckReport, error) {
 		report.Issues = append(report.Issues, "No files were written during migration")
 	}
 
-	// 3. Verify written files exist
+	// 3. Verify written files exist on disk
 	missingFiles := 0
 	for _, item := range e.log.ItemsWritten {
 		itemPath := filepath.Join(e.plan.TargetBrainPath, item)
@@ -294,8 +292,63 @@ func (e *Executor) runHealthCheck() (*HealthCheckReport, error) {
 		report.Issues = append(report.Issues, fmt.Sprintf("%d written files are missing", missingFiles))
 	}
 
+	// 4. Build an index of all migrated markdown files for link checking
+	mdFiles := make(map[string]bool) // lowercase basename (no ext) → true
+	for _, item := range e.log.ItemsWritten {
+		if strings.HasSuffix(strings.ToLower(item), ".md") {
+			base := strings.TrimSuffix(strings.ToLower(filepath.Base(item)), ".md")
+			mdFiles[base] = true
+		}
+	}
+
+	// 5. Scan migrated files for broken internal links and leftover BROKEN markers
+	brokenLinkCount := 0
+	brokenMarkerCount := 0
+	for _, item := range e.log.ItemsWritten {
+		if !strings.HasSuffix(strings.ToLower(item), ".md") {
+			continue
+		}
+		itemPath := filepath.Join(e.plan.TargetBrainPath, item)
+		content, err := os.ReadFile(itemPath)
+		if err != nil {
+			continue
+		}
+
+		text := string(content)
+
+		// Count BROKEN markers from previous repairs
+		brokenMarkerCount += strings.Count(text, "<!-- BROKEN")
+
+		// Check wikilinks: [[target]]
+		for _, m := range wikiLinkRe.FindAllStringSubmatch(text, -1) {
+			if len(m) < 2 {
+				continue
+			}
+			target := strings.ToLower(m[1])
+			// Strip alias
+			if idx := strings.Index(target, "|"); idx > 0 {
+				target = target[:idx]
+			}
+			if !mdFiles[target] {
+				brokenLinkCount++
+			}
+		}
+	}
+
+	if brokenLinkCount > 0 {
+		report.Issues = append(report.Issues,
+			fmt.Sprintf("%d broken internal links detected in migrated files", brokenLinkCount))
+	}
+	if brokenMarkerCount > 0 {
+		report.Issues = append(report.Issues,
+			fmt.Sprintf("%d BROKEN markers found in migrated files (from prior repairs)", brokenMarkerCount))
+	}
+
 	return report, nil
 }
+
+// wikiLinkRe matches [[target]] or [[target|alias]] (not embeds ![[...]])
+var wikiLinkRe = regexp.MustCompile(`(?:^|[^!])\[\[([^\]]+)\]\]`)
 
 // HealthCheckReport summarizes post-migration health
 type HealthCheckReport struct {

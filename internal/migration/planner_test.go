@@ -3,6 +3,7 @@ package migration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/httrp/flip/internal/health"
@@ -108,5 +109,141 @@ func TestDetectConflictsOnTarget(t *testing.T) {
 	}
 	if len(plan.Conflicts) == 0 {
 		t.Fatalf("expected conflicts due to same target path, found none")
+	}
+}
+
+func TestAddFullBrainIncludesOrphaned(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	// Create a .orphaned directory with content
+	writeFile(t, filepath.Join(src, "notes", "visible.md"), "# Visible\n")
+	writeFile(t, filepath.Join(src, ".orphaned", "pages", "recovered.md"), "# Recovered\n")
+	// Other hidden dirs should still be skipped
+	writeFile(t, filepath.Join(src, ".git", "config"), "gitconfig")
+
+	p := NewPlanner(src, dst, GetBrainStructure(health.BrainTypeFlip), GetBrainStructure(health.BrainTypeFlip))
+	plan, err := p.BuildPlan(ModeFull, "", nil, 0)
+	if err != nil {
+		t.Fatalf("BuildPlan: %v", err)
+	}
+
+	foundOrphaned := false
+	for _, item := range plan.Items {
+		if item.SourcePath == filepath.Join(".orphaned", "pages", "recovered.md") {
+			foundOrphaned = true
+		}
+		// Ensure .git content is NOT in the plan
+		if item.SourcePath == filepath.Join(".git", "config") {
+			t.Fatalf(".git content should not be included in plan")
+		}
+	}
+	if !foundOrphaned {
+		t.Errorf("expected .orphaned/pages/recovered.md to be in plan, but it was not")
+	}
+}
+
+func TestBoilerplateFilesSkipped(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	writeFile(t, filepath.Join(src, "README.md"), "# Source README\n")
+	writeFile(t, filepath.Join(src, "WELCOME.md"), "# Welcome\n")
+	writeFile(t, filepath.Join(src, "notes", "real-note.md"), "# Real content\n")
+
+	p := NewPlanner(src, dst, GetBrainStructure(health.BrainTypeFlip), GetBrainStructure(health.BrainTypeFlip))
+	plan, err := p.BuildPlan(ModeFull, "", nil, 0)
+	if err != nil {
+		t.Fatalf("BuildPlan: %v", err)
+	}
+
+	skippedCount := 0
+	for _, item := range plan.Items {
+		if item.Skipped && item.SourcePath == "README.md" {
+			skippedCount++
+		}
+		if item.Skipped && item.SourcePath == "WELCOME.md" {
+			skippedCount++
+		}
+	}
+	if skippedCount != 2 {
+		t.Errorf("expected README.md and WELCOME.md to be skipped, got %d skipped", skippedCount)
+	}
+
+	// Real note should NOT be skipped
+	for _, item := range plan.Items {
+		if item.SourcePath == filepath.Join("notes", "real-note.md") && item.Skipped {
+			t.Errorf("real-note.md should not be skipped")
+		}
+	}
+}
+
+func TestDetectTargetConflicts(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	// Source has a note
+	writeFile(t, filepath.Join(src, "notes", "existing.md"), "# From Source\n")
+	// Target already has the same file
+	writeFile(t, filepath.Join(dst, "notes", "existing.md"), "# Already Here\n")
+
+	p := NewPlanner(src, dst, GetBrainStructure(health.BrainTypeFlip), GetBrainStructure(health.BrainTypeFlip))
+	plan, err := p.BuildPlan(ModeFull, "", nil, 0)
+	if err != nil {
+		t.Fatalf("BuildPlan: %v", err)
+	}
+
+	foundTargetConflict := false
+	for _, c := range plan.Conflicts {
+		if strings.Contains(c, "target already exists") {
+			foundTargetConflict = true
+			break
+		}
+	}
+	if !foundTargetConflict {
+		t.Errorf("expected 'target already exists' conflict, got: %v", plan.Conflicts)
+	}
+}
+
+func TestApplyConflictStrategySkip(t *testing.T) {
+	plan := &MigrationPlan{
+		Items: []PlanItem{
+			{SourcePath: "a.md", TargetPath: "notes/a.md", Type: "note", Reason: "target already exists"},
+			{SourcePath: "b.md", TargetPath: "notes/b.md", Type: "note"},
+		},
+		Conflicts: []string{"target already exists: notes/a.md (from a.md)"},
+	}
+
+	ApplyConflictStrategy(plan, ConflictSkip)
+
+	if !plan.Items[0].Skipped {
+		t.Error("item with 'target already exists' should be skipped")
+	}
+	if plan.Items[1].Skipped {
+		t.Error("item without conflict should not be skipped")
+	}
+	if len(plan.Conflicts) != 0 {
+		t.Errorf("conflicts for target-exists should be cleared with skip strategy, got %d", len(plan.Conflicts))
+	}
+}
+
+func TestApplyConflictStrategyOverwrite(t *testing.T) {
+	plan := &MigrationPlan{
+		Items: []PlanItem{
+			{SourcePath: "a.md", TargetPath: "notes/a.md", Type: "note", Reason: "target already exists"},
+		},
+		Conflicts: []string{"target already exists: notes/a.md (from a.md)"},
+	}
+
+	ApplyConflictStrategy(plan, ConflictOverwrite)
+
+	if plan.Items[0].Skipped {
+		t.Error("overwrite strategy should not skip items")
+	}
+	if plan.Items[0].Reason != "will overwrite existing target" {
+		t.Errorf("reason should be updated, got: %s", plan.Items[0].Reason)
+	}
+	if len(plan.Conflicts) != 0 {
+		t.Errorf("target-exists conflicts should be cleared with overwrite strategy, got %d", len(plan.Conflicts))
 	}
 }

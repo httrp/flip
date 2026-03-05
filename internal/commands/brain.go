@@ -83,25 +83,35 @@ func newBrainListCommand() *cobra.Command {
 }
 
 func newBrainRemoveCommand() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
 		Use:   "remove [name]",
 		Short: "Remove a brain from the active workspace (files stay intact)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBrainRemove(args[0])
+			return runBrainRemove(args[0], jsonOutput)
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	return cmd
 }
 
 func newBrainSetDefaultCommand() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
 		Use:   "set-default [name]",
 		Short: "Set the default brain in active workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBrainSetDefault(args[0])
+			return runBrainSetDefault(args[0], jsonOutput)
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	return cmd
 }
 
 // Implementation functions
@@ -248,7 +258,7 @@ func runBrainList() error {
 	return nil
 }
 
-func runBrainRemove(name string) error {
+func runBrainRemove(name string, skipConfirm ...bool) error {
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		return err
@@ -259,19 +269,21 @@ func runBrainRemove(name string) error {
 		return err
 	}
 
-	// Confirmation prompt
-	fmt.Printf("\n⚠️  Are you sure you want to remove brain '%s'?\n", name)
-	fmt.Println("   This will remove the brain from flip's configuration.")
-	fmt.Println("   Your files will NOT be deleted.")
-	fmt.Printf("\n? Continue? (yes/no) [default: no]: ")
+	// Confirmation prompt (skip if already confirmed by caller, e.g. menu)
+	if len(skipConfirm) == 0 || !skipConfirm[0] {
+		fmt.Printf("\n⚠️  Are you sure you want to remove brain '%s'?\n", name)
+		fmt.Println("   This will remove the brain from flip's configuration.")
+		fmt.Println("   Your files will NOT be deleted.")
+		fmt.Printf("\n? Continue? (yes/no) [default: no]: ")
 
-	var confirm string
-	fmt.Scanln(&confirm)
-	confirm = strings.TrimSpace(strings.ToLower(confirm))
+		var confirm string
+		fmt.Scanln(&confirm)
+		confirm = strings.TrimSpace(strings.ToLower(confirm))
 
-	if confirm != "yes" && confirm != "y" {
-		fmt.Println("\n✓ Cancelled")
-		return nil
+		if confirm != "yes" && confirm != "y" {
+			fmt.Println("\n✓ Cancelled")
+			return nil
+		}
 	}
 
 	// Find and remove brain
@@ -318,7 +330,7 @@ func runBrainRemove(name string) error {
 	return nil
 }
 
-func runBrainSetDefault(name string) error {
+func runBrainSetDefault(name string, jsonOutput bool) error {
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		return err
@@ -354,7 +366,12 @@ func runBrainSetDefault(name string) error {
 		return err
 	}
 
-	fmt.Printf("%s '%s' set as default brain in workspace '%s'\n", IconDefault, name, ws.Name)
+	if jsonOutput {
+		fmt.Printf(`{"success":true,"command":"brain set-default","data":{"name":"%s","workspace":"%s"}}`, name, ws.Name)
+		fmt.Println()
+	} else {
+		fmt.Printf("%s '%s' set as default brain in workspace '%s'\n", IconDefault, name, ws.Name)
+	}
 	return nil
 }
 

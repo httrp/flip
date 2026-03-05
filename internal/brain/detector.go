@@ -121,7 +121,15 @@ func (d *Detector) isDirectoryEmpty(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return len(entries) == 0, nil
+
+	// A directory is considered "empty" if it has no entries,
+	// or if it only contains hidden files/folders (e.g. .git/)
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (d *Detector) isObsidianVault(path string, result *DetectionResult) bool {

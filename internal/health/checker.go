@@ -1405,6 +1405,7 @@ func (c *Checker) checkPotentialMissingJournalLinks() []Issue {
 
 	return issues
 }
+
 // checkJournalTitles checks for malformed journal titles (space-separated dates like "2026 01 13")
 func (c *Checker) checkJournalTitles() []Issue {
 	issues := make([]Issue, 0)

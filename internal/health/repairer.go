@@ -184,7 +184,9 @@ func (r *Repairer) repairSingleIssue(issue Issue) RepairResult {
 // REPAIR IMPLEMENTATIONS
 // ============================================================================
 
-// repairBrokenLink comments out or removes a broken link
+// repairBrokenLink attempts to resolve a broken link. It first tries to find a
+// matching file via fuzzy search or date-based journal lookup. Only if no
+// resolution is found does it comment out the link.
 func (r *Repairer) repairBrokenLink(brainPath string, issue Issue) error {
 	if issue.File == "" || issue.Line == 0 {
 		return fmt.Errorf("issue missing file or line information")
@@ -201,27 +203,137 @@ func (r *Repairer) repairBrokenLink(brainPath string, issue Issue) error {
 		return fmt.Errorf("line %d out of range (file has %d lines)", issue.Line, len(lines))
 	}
 
-	// Get the problematic line (1-indexed)
 	lineIdx := issue.Line - 1
 	line := lines[lineIdx]
 
-	// Strategy: Comment out the broken link by wrapping it
-	// For wikilinks: [[broken]] → ~~[[broken]]~~ (BROKEN LINK)
-	// For markdown links: [text](broken.md) → ~~[text](broken.md)~~ (BROKEN LINK)
-
-	// Try to find the specific link pattern
 	brokenTarget := extractLinkTarget(issue.Message)
 	if brokenTarget == "" {
-		// Fallback: comment out the entire line
+		// Unable to extract target; comment out the entire line
 		lines[lineIdx] = fmt.Sprintf("<!-- BROKEN LINK: %s -->", line)
+		return os.WriteFile(fullPath, []byte(strings.Join(lines, "\n")), 0644)
+	}
+
+	// Try to resolve the link to an existing file
+	resolved := r.resolveTarget(brainPath, brokenTarget)
+	if resolved != "" {
+		// Replace the broken target with the resolved one
+		lines[lineIdx] = replaceLinkTarget(line, brokenTarget, resolved)
 	} else {
-		// More surgical: just mark the broken link
+		// No resolution found: mark as broken (with idempotent guard)
 		lines[lineIdx] = markBrokenLink(line, brokenTarget)
 	}
 
-	// Write back
 	newContent := strings.Join(lines, "\n")
 	return os.WriteFile(fullPath, []byte(newContent), 0644)
+}
+
+// resolveTarget tries to find a matching file for a broken link target.
+// Resolution strategies (in order):
+//  1. Exact matching (case-insensitive) on basename
+//  2. Date-based journal lookup (if target looks like a date)
+//  3. Fuzzy Levenshtein match (≥70% similarity)
+func (r *Repairer) resolveTarget(brainPath, target string) string {
+	targetLower := strings.ToLower(strings.TrimSuffix(target, ".md"))
+
+	// Build index of all markdown files
+	type candidate struct {
+		base string // basename without .md, lowercase
+		rel  string // path relative to brainPath
+	}
+	var allNotes []candidate
+
+	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			return nil
+		}
+		rel, _ := filepath.Rel(brainPath, path)
+		base := strings.ToLower(strings.TrimSuffix(d.Name(), ".md"))
+		allNotes = append(allNotes, candidate{base: base, rel: rel})
+		return nil
+	})
+
+	// Strategy 1: Exact case-insensitive match on basename
+	for _, c := range allNotes {
+		if c.base == targetLower {
+			return strings.TrimSuffix(filepath.Base(c.rel), ".md")
+		}
+	}
+
+	// Strategy 2: Date-based journal lookup
+	// Targets like "2024-05-13" or "2024_05_13" or "2024.05.13" might be journal entries
+	dateTarget := strings.ReplaceAll(strings.ReplaceAll(targetLower, "_", "-"), ".", "-")
+	dateRe := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	if dateRe.MatchString(dateTarget) {
+		// Try common journal patterns: YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
+		variants := []string{
+			dateTarget,                                          // 2024-05-13
+			strings.ReplaceAll(dateTarget, "-", "_"),            // 2024_05_13
+			strings.ReplaceAll(dateTarget, "-", "."),            // 2024.05.13
+		}
+		for _, c := range allNotes {
+			for _, v := range variants {
+				if c.base == v {
+					return strings.TrimSuffix(filepath.Base(c.rel), ".md")
+				}
+			}
+		}
+	}
+
+	// Strategy 3: Fuzzy Levenshtein match (threshold 70%)
+	bestScore := 0
+	bestMatch := ""
+	for _, c := range allNotes {
+		score := levenshteinSimilarity(targetLower, c.base)
+		// Boost substring matches
+		if strings.Contains(c.base, targetLower) || strings.Contains(targetLower, c.base) {
+			score += 30
+		}
+		if score > bestScore && score >= 70 {
+			bestScore = score
+			bestMatch = strings.TrimSuffix(filepath.Base(c.rel), ".md")
+		}
+	}
+	return bestMatch
+}
+
+// replaceLinkTarget replaces the target in a link while preserving the link format.
+func replaceLinkTarget(line, oldTarget, newTarget string) string {
+	escaped := regexp.QuoteMeta(oldTarget)
+
+	// Wikilink: [[old]] → [[new]] or [[old|alias]] → [[new|alias]]
+	wikiPattern := regexp.MustCompile(`\[\[` + escaped + `(\|[^\]]+)?\]\]`)
+	if wikiPattern.MatchString(line) {
+		return wikiPattern.ReplaceAllStringFunc(line, func(m string) string {
+			// Preserve alias
+			if idx := strings.Index(m, "|"); idx > 0 {
+				alias := m[idx:]
+				return "[[" + newTarget + alias
+			}
+			return "[[" + newTarget + "]]"
+		})
+	}
+
+	// Markdown link: [text](old.md) → [text](new.md)
+	mdPattern := regexp.MustCompile(`\[([^\]]+)\]\(` + escaped + `[^)]*\)`)
+	if mdPattern.MatchString(line) {
+		return mdPattern.ReplaceAllStringFunc(line, func(m string) string {
+			re := regexp.MustCompile(`\[([^\]]+)\]\([^)]*\)`)
+			sub := re.FindStringSubmatch(m)
+			if len(sub) >= 2 {
+				text := sub[1]
+				return "[" + text + "](" + newTarget + ".md)"
+			}
+			return m
+		})
+	}
+
+	return line
 }
 
 // repairOrphanedFile moves an orphaned file to .orphaned folder
@@ -297,16 +409,32 @@ func extractLinkTarget(message string) string {
 	return ""
 }
 
-// markBrokenLink marks a broken link without removing it
+// markBrokenLink marks a broken link without removing it.
+// Guards against double-marking: if the link is already wrapped in ~~...~~ or
+// the line already has a <!-- BROKEN --> comment for this target, skip it.
 func markBrokenLink(line, target string) string {
-	// Wikilink pattern
-	wikiPattern := regexp.MustCompile(`\[\[` + regexp.QuoteMeta(target) + `(\|[^\]]+)?\]\]`)
-	if wikiPattern.MatchString(line) {
-		return wikiPattern.ReplaceAllString(line, `~~[[$0]]~~ <!-- BROKEN -->`)
+	// Already marked? Don't wrap again.
+	if strings.Contains(line, "<!-- BROKEN") {
+		return line
 	}
 
-	// Markdown link pattern
-	mdPattern := regexp.MustCompile(`\[([^\]]+)\]\(` + regexp.QuoteMeta(target) + `[^)]*\)`)
+	escaped := regexp.QuoteMeta(target)
+
+	// Already wrapped in strikethrough? Skip.
+	alreadyMarked := regexp.MustCompile(`~~.*\[\[` + escaped + `.*\]\].*~~`)
+	if alreadyMarked.MatchString(line) {
+		return line
+	}
+
+	// Wikilink pattern: [[target]] or [[target|alias]]
+	// $0 already includes the [[ ]], so replacement is ~~$0~~ (NOT ~~[[$0]]~~)
+	wikiPattern := regexp.MustCompile(`\[\[` + escaped + `(\|[^\]]+)?\]\]`)
+	if wikiPattern.MatchString(line) {
+		return wikiPattern.ReplaceAllString(line, `~~$0~~ <!-- BROKEN -->`)
+	}
+
+	// Markdown link pattern: [text](target.md)
+	mdPattern := regexp.MustCompile(`\[([^\]]+)\]\(` + escaped + `[^)]*\)`)
 	if mdPattern.MatchString(line) {
 		return mdPattern.ReplaceAllString(line, `~~$0~~ <!-- BROKEN -->`)
 	}
@@ -1017,6 +1145,7 @@ func getGitCreationTime(repoPath, relPath string) time.Time {
 	// TODO: Implement proper git history lookup
 	return time.Time{}
 }
+
 // repairMalformedTitle fixes journal titles from space-separated to hyphenated format
 func (r *Repairer) repairMalformedTitle(brainPath string, issue Issue) error {
 	filePath := filepath.Join(brainPath, issue.File)

@@ -561,3 +561,98 @@ func TestRepairMissingMetadataJournalLogseqBackfillsBrain(t *testing.T) {
 		t.Fatalf("Expected brain:: property in repaired Logseq journal, got: %s", repairedStr)
 	}
 }
+
+func TestMarkBrokenLinkIdempotent(t *testing.T) {
+	// markBrokenLink should not double-wrap already-marked links
+	line := `Some text with ~~[[old-target]]~~ <!-- BROKEN --> here`
+	result := markBrokenLink(line, "old-target")
+	if result != line {
+		t.Errorf("markBrokenLink should be idempotent for already-marked links\ngot:      %s\nexpected: %s", result, line)
+	}
+}
+
+func TestMarkBrokenLinkWikilink(t *testing.T) {
+	line := `Check [[my-note]] for details`
+	result := markBrokenLink(line, "my-note")
+	expected := `Check ~~[[my-note]]~~ <!-- BROKEN --> for details`
+	if result != expected {
+		t.Errorf("markBrokenLink wikilink\ngot:      %s\nexpected: %s", result, expected)
+	}
+}
+
+func TestMarkBrokenLinkMarkdownLink(t *testing.T) {
+	line := `Check [my note](my-note.md) for details`
+	result := markBrokenLink(line, "my-note")
+	expected := `Check ~~[my note](my-note.md)~~ <!-- BROKEN --> for details`
+	if result != expected {
+		t.Errorf("markBrokenLink markdown\ngot:      %s\nexpected: %s", result, expected)
+	}
+}
+
+func TestResolveTargetExactMatch(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".flip-brain.yaml"), 0755)
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "my-great-note.md"), []byte("# My Great Note\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "My-Great-Note")
+	if result != "my-great-note" {
+		t.Errorf("resolveTarget exact match: expected 'my-great-note', got '%s'", result)
+	}
+}
+
+func TestResolveTargetJournalDate(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "journal"), 0755)
+	os.WriteFile(filepath.Join(dir, "journal", "2024-05-13.md"), []byte("# 2024-05-13\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+
+	// Logseq-style underscore date should resolve to flip-style dash date
+	result := r.resolveTarget(dir, "2024_05_13")
+	if result != "2024-05-13" {
+		t.Errorf("resolveTarget journal date: expected '2024-05-13', got '%s'", result)
+	}
+}
+
+func TestResolveTargetFuzzy(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "project-alpha.md"), []byte("# Project Alpha\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "project-alfa")
+	if result != "project-alpha" {
+		t.Errorf("resolveTarget fuzzy: expected 'project-alpha', got '%s'", result)
+	}
+}
+
+func TestResolveTargetNoMatch(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "something.md"), []byte("hi\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "completely-unrelated-name")
+	if result != "" {
+		t.Errorf("resolveTarget should return empty for no match, got '%s'", result)
+	}
+}
+
+func TestReplaceLinkTargetWikilink(t *testing.T) {
+	line := `See [[old-name]] for more`
+	result := replaceLinkTarget(line, "old-name", "new-name")
+	expected := `See [[new-name]] for more`
+	if result != expected {
+		t.Errorf("replaceLinkTarget wikilink\ngot:      %s\nexpected: %s", result, expected)
+	}
+}
+
+func TestReplaceLinkTargetMarkdown(t *testing.T) {
+	line := `See [old name](old-name.md) for more`
+	result := replaceLinkTarget(line, "old-name", "new-name")
+	if !strings.Contains(result, "new-name.md") {
+		t.Errorf("replaceLinkTarget markdown should update target\ngot: %s", result)
+	}
+}

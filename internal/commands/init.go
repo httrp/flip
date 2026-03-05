@@ -14,6 +14,8 @@ import (
 func NewInitCommand() *cobra.Command {
 	var template string
 	var force bool
+	var jsonOutput bool
+	var name string
 
 	cmd := &cobra.Command{
 		Use:   "init [directory]",
@@ -26,7 +28,26 @@ func NewInitCommand() *cobra.Command {
 			if len(args) > 0 {
 				// Directory name provided
 				targetPath = args[0]
-				return runDirectoryInit(targetPath, template, force)
+
+				// Non-interactive mode when --json is set
+				if jsonOutput {
+					absPath, err := filepath.Abs(targetPath)
+					if err != nil {
+						return fmt.Errorf("failed to get absolute path: %w", err)
+					}
+					err = runDirectoryInitWithName(targetPath, name, template, true)
+					if err != nil {
+						return err
+					}
+					brainName := name
+					if brainName == "" {
+						brainName = filepath.Base(absPath)
+					}
+					fmt.Printf(`{"success":true,"command":"brain init","data":{"name":"%s","path":"%s"}}`, brainName, absPath)
+					fmt.Println()
+					return nil
+				}
+				return runDirectoryInitWithName(targetPath, name, template, force)
 			} else {
 				// Interactive mode in current directory
 				return runInteractiveInit(template, force)
@@ -36,6 +57,8 @@ func NewInitCommand() *cobra.Command {
 
 	cmd.Flags().StringVarP(&template, "template", "t", "", "Template to use (personal|work|learning)")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force initialization even if directory is not empty")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON (for VS Code integration)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Brain name (skip interactive prompt)")
 
 	return cmd
 }

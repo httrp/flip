@@ -111,10 +111,52 @@ export async function addBrain(): Promise<void> {
 export async function initBrain(): Promise<void> {
   const client = getFlipClient();
 
+  // Ask: init existing directory or create new?
+  const mode = await vscode.window.showQuickPick(
+    [
+      { label: '$(folder-opened) Existierendes Verzeichnis initialisieren', value: 'existing' },
+      { label: '$(new-folder) Neues Brain-Verzeichnis erstellen', value: 'new' },
+    ],
+    { placeHolder: 'Brain erstellen oder bestehendes Verzeichnis initialisieren?' }
+  );
+
+  if (!mode) {
+    return;
+  }
+
+  let targetPath: string | undefined;
+
+  if (mode.value === 'existing') {
+    // Let user pick existing folder
+    const folderUri = await vscode.window.showOpenDialog({
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false,
+      openLabel: 'Verzeichnis als Brain initialisieren',
+    });
+
+    if (!folderUri || folderUri.length === 0) {
+      return;
+    }
+    targetPath = folderUri[0].fsPath;
+  } else {
+    // Ask for path
+    targetPath = await vscode.window.showInputBox({
+      prompt: 'Pfad für das neue Brain',
+      placeHolder: 'z.B. ~/universe/pr/my-brain',
+    });
+  }
+
+  if (!targetPath) {
+    return;
+  }
+
   // Get brain name
+  const defaultName = targetPath.split('/').pop() || 'brain';
   const name = await vscode.window.showInputBox({
-    prompt: 'Name des neuen Brain',
-    placeHolder: 'z.B. "Mein Brain"',
+    prompt: 'Name des Brain',
+    value: defaultName,
+    placeHolder: 'z.B. "pinky"',
     validateInput: (value) => {
       if (!value || value.trim() === '') {
         return 'Name ist erforderlich';
@@ -127,42 +169,39 @@ export async function initBrain(): Promise<void> {
     return;
   }
 
-  // Get optional path (default to current workspace)
-  const pathInput = await vscode.window.showInputBox({
-    prompt: 'Pfad für das neue Brain (optional)',
-    placeHolder: 'Leer lassen für aktuellen Workspace',
-  });
-
-  // Ask if should be set as default
-  const setDefault = await vscode.window.showQuickPick(
+  // Ask for template
+  const template = await vscode.window.showQuickPick(
     [
-      { label: 'Ja', description: 'Als Standard-Brain setzen', value: true },
-      { label: 'Nein', value: false },
+      { label: 'Personal', description: 'Persönliches Brain', value: 'personal' },
+      { label: 'Work', description: 'Arbeits-Brain', value: 'work' },
+      { label: 'Learning', description: 'Lern-Brain', value: 'learning' },
     ],
-    { placeHolder: 'Als Standard-Brain setzen?' }
+    { placeHolder: 'Template auswählen' }
   );
 
-  if (setDefault === undefined) {
+  if (!template) {
     return;
   }
 
-  // Call flip brain new command (or 'flip new brain')
+  // Call flip brain init
   const result = await client.runCommand([
     'brain',
-    'new',
+    'init',
+    targetPath,
     '--name',
     name,
-    ...(pathInput ? [pathInput] : []),
-    ...(setDefault ? ['--default'] : []),
+    '--template',
+    template.value,
+    '--force',
   ]);
 
   if (result.success) {
-    vscode.window.showInformationMessage(`Brain erstellt: ${name}`);
+    vscode.window.showInformationMessage(`Brain initialisiert: ${name}`);
     // Refresh client to update brain list
     const { refreshFlipClient } = await import('../flip-client');
     refreshFlipClient();
   } else {
-    vscode.window.showErrorMessage(`Fehler beim Erstellen des Brain: ${result.error}`);
+    vscode.window.showErrorMessage(`Fehler beim Initialisieren des Brain: ${result.error}`);
   }
 }
 

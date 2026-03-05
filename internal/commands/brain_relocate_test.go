@@ -206,7 +206,7 @@ func TestPerformRelocation_HealthCheckIntegration(t *testing.T) {
 	os.WriteFile(filepath.Join(sourceDir, ".flip.yaml"), []byte("type: flip\nname: test\n"), 0644)
 
 	// Create journal entry with date
-	os.WriteFile(filepath.Join(sourceDir, "journal", "2026-03-04.md"), 
+	os.WriteFile(filepath.Join(sourceDir, "journal", "2026-03-04.md"),
 		[]byte("---\ndate: 2026-03-04\n---\n# 2026-03-04\n"), 0644)
 
 	// Relocate

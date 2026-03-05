@@ -12,13 +12,13 @@ import (
 
 // OrphanedFileInfo contains information about an orphaned file
 type OrphanedFileInfo struct {
-	Path           string    // relative path from .orphaned/
-	Category       string    // meetings, notes, tasks, etc.
-	Filename       string    // just the filename
-	Date           *time.Time // extracted from filename if available (e.g., 2026-03-04)
-	CreatedDate    *time.Time // extracted from file metadata if available
-	TargetPath     string    // where it should be restored to
-	JournalMatch   string    // matching journal file if date found
+	Path         string     // relative path from .orphaned/
+	Category     string     // meetings, notes, tasks, etc.
+	Filename     string     // just the filename
+	Date         *time.Time // extracted from filename if available (e.g., 2026-03-04)
+	CreatedDate  *time.Time // extracted from file metadata if available
+	TargetPath   string     // where it should be restored to
+	JournalMatch string     // matching journal file if date found
 }
 
 // RestoreResult contains the result of a restore operation
@@ -310,7 +310,7 @@ func (r *Restorer) extractCreatedDate(filePath string) *time.Time {
 		endIdx := strings.Index(fileContent[3:], "---")
 		if endIdx > 0 {
 			frontmatter := fileContent[3 : 3+endIdx]
-			
+
 			// Look for created or date field
 			for _, line := range strings.Split(frontmatter, "\n") {
 				line = strings.TrimSpace(line)

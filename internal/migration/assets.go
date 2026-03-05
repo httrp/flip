@@ -236,8 +236,11 @@ func extractMarkdownImage(match string) (alt, path string) {
 	end := strings.LastIndex(match, ")")
 
 	if start >= 0 && mid > start && end > mid {
-		alt = match[start+2 : mid] // Skip "!["
-		path = match[mid+2 : end]  // Skip "]("
+		altStart := start + 2 // Skip "!["
+		if altStart <= mid {
+			alt = match[altStart:mid]
+		}
+		path = match[mid+2 : end] // Skip "]("
 	}
 	return
 }

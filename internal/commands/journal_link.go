@@ -141,7 +141,6 @@ func buildJournalLink(opts JournalLinkOptions, dateStr, journalPath string) stri
 	}
 }
 
-
 // getJournalFilePathForDate gets the journal file path for a specific date in a brain
 func getJournalFilePathForDate(b *Brain, date time.Time) string {
 	// Detect brain type
@@ -172,7 +171,6 @@ func getJournalFilePathForDate(b *Brain, date time.Time) string {
 	return filepath.Join(journalDir, filename)
 }
 
-
 // ensureJournalExistsForDate creates journal entry if it doesn't exist for a specific date
 func ensureJournalExistsForDate(journalPath string, date time.Time) error {
 	// Check if file exists
@@ -192,7 +190,6 @@ func ensureJournalExistsForDate(journalPath string, date time.Time) error {
 
 	return os.WriteFile(journalPath, []byte(content), 0644)
 }
-
 
 // createJournalTemplateForDate creates a simple journal template for a specific date
 func createJournalTemplateForDate(date time.Time) string {

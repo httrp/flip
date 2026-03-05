@@ -607,7 +607,7 @@ func runEditBrainMenu() error {
 
 				brainName := ws.Brains[idx].Name
 
-				if err := runBrainSetDefault(brainName); err != nil {
+				if err := runBrainSetDefault(brainName, false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
@@ -682,7 +682,7 @@ func runEditBrainMenu() error {
 					return runInteractiveMenu()
 				}
 
-				if err := runBrainRemove(brainName); err != nil {
+				if err := runBrainRemove(brainName, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
 
