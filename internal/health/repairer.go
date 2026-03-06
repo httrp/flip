@@ -58,7 +58,7 @@ func (r *Repairer) registerActions() {
 	// Broken internal links - remove or comment out
 	r.actions[IssueTypeBrokenLink] = RepairAction{
 		IssueType:   IssueTypeBrokenLink,
-		Description: "Comment out or remove broken internal links",
+		Description: "Resolve broken links to correct paths, or comment out if unresolvable",
 		Apply:       r.repairBrokenLink,
 	}
 
@@ -193,7 +193,7 @@ func (r *Repairer) repairSingleIssue(issue Issue) RepairResult {
 
 // repairBrokenLink attempts to resolve a broken link. It first tries to find a
 // matching file via fuzzy search or date-based journal lookup. Only if no
-// resolution is found does it comment out the link.
+// resolution is found does it mark the link as broken.
 func (r *Repairer) repairBrokenLink(brainPath string, issue Issue) error {
 	if issue.File == "" || issue.Line == 0 {
 		return fmt.Errorf("issue missing file or line information")
@@ -213,45 +213,82 @@ func (r *Repairer) repairBrokenLink(brainPath string, issue Issue) error {
 	lineIdx := issue.Line - 1
 	line := lines[lineIdx]
 
-	brokenTarget := extractLinkTarget(issue.Message)
-	if brokenTarget == "" {
-		// Unable to extract target; comment out the entire line
-		lines[lineIdx] = fmt.Sprintf("<!-- BROKEN LINK: %s -->", line)
-		return os.WriteFile(fullPath, []byte(strings.Join(lines, "\n")), 0644)
-	}
-
-	// Try to resolve the link to an existing file
-	resolved := r.resolveTarget(brainPath, brokenTarget)
-	if resolved != "" {
-		// Replace the broken target with the resolved one
-		lines[lineIdx] = replaceLinkTarget(line, brokenTarget, resolved)
+	// Handle lines already marked as broken from previous repair runs
+	if strings.Contains(line, "<!-- BROKEN LINK:") {
+		// Try to extract and resolve the link inside the comment
+		brokenTarget := extractLinkTarget(issue.Message)
+		if brokenTarget == "" {
+			return nil
+		}
+		resolvedRel := r.resolveTarget(brainPath, brokenTarget)
+		if resolvedRel != "" {
+			// Un-comment the line and fix the link
+			restored := line
+			// Strip outermost <!-- BROKEN LINK: ... --> wrapping (handle nesting)
+			for strings.Contains(restored, "<!-- BROKEN LINK:") {
+				restored = strings.TrimSpace(restored)
+				restored = strings.TrimPrefix(restored, "<!-- BROKEN LINK:")
+				restored = strings.TrimSuffix(restored, "-->")
+				restored = strings.TrimSpace(restored)
+			}
+			// Also strip <!-- BROKEN --> markers
+			restored = strings.ReplaceAll(restored, "<!-- BROKEN -->", "")
+			restored = strings.TrimSpace(restored)
+			newLinkTarget := computeRelativeLink(issue.File, resolvedRel)
+			lines[lineIdx] = replaceLinkTarget(restored, brokenTarget, newLinkTarget)
+		} else {
+			return nil // already commented, can't resolve — leave as is
+		}
 	} else {
-		// No resolution found: mark as broken (with idempotent guard)
-		lines[lineIdx] = markBrokenLink(line, brokenTarget)
+		// Fresh broken link (not yet commented out)
+		brokenTarget := extractLinkTarget(issue.Message)
+		if brokenTarget == "" {
+			return nil // can't extract target — don't destroy the line
+		}
+
+		resolvedRel := r.resolveTarget(brainPath, brokenTarget)
+		if resolvedRel != "" {
+			newLinkTarget := computeRelativeLink(issue.File, resolvedRel)
+			lines[lineIdx] = replaceLinkTarget(line, brokenTarget, newLinkTarget)
+		} else {
+			// No resolution found: mark as broken
+			lines[lineIdx] = markBrokenLink(line, brokenTarget)
+		}
 	}
 
 	newContent := strings.Join(lines, "\n")
+	if newContent == string(content) {
+		return nil // nothing changed
+	}
 	return os.WriteFile(fullPath, []byte(newContent), 0644)
 }
 
 // resolveTarget tries to find a matching file for a broken link target.
+// Returns the relative path from brainPath (e.g., "notes/flip.md") or empty string.
+//
 // Resolution strategies (in order):
-//  1. Exact matching (case-insensitive) on basename
-//  2. Date-based journal lookup (if target looks like a date)
-//  3. Fuzzy Levenshtein match (≥70% similarity)
+//  1. Exact basename match in standard brain directories (notes/, meetings/, exercises/, journal/)
+//  2. Exact case-insensitive basename match anywhere in brain
+//  3. Slug-normalized match (spaces → hyphens, case-insensitive)
+//  4. Date-based journal lookup (if target looks like a date)
+//  5. Fuzzy Levenshtein match (≥75% similarity)
 func (r *Repairer) resolveTarget(brainPath, target string) string {
-	targetLower := strings.ToLower(strings.TrimSuffix(target, ".md"))
+	targetBase := strings.TrimSuffix(filepath.Base(target), ".md")
+	targetLower := strings.ToLower(targetBase)
+	targetSlug := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(targetBase, " ", "-"), "_", "-"))
 
 	// Build index of all markdown files
 	type candidate struct {
 		base string // basename without .md, lowercase
-		rel  string // path relative to brainPath
+		slug string // slug-normalized basename
+		rel  string // path relative to brainPath (e.g., "notes/flip.md")
+		dir  string // first-level directory (e.g., "notes", "journal")
 	}
 	var allNotes []candidate
 
 	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+			if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") && d.Name() != ".orphaned" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -261,83 +298,140 @@ func (r *Repairer) resolveTarget(brainPath, target string) string {
 		}
 		rel, _ := filepath.Rel(brainPath, path)
 		base := strings.ToLower(strings.TrimSuffix(d.Name(), ".md"))
-		allNotes = append(allNotes, candidate{base: base, rel: rel})
+		slug := strings.ReplaceAll(strings.ReplaceAll(base, " ", "-"), "_", "-")
+		topDir := ""
+		relSlash := filepath.ToSlash(rel)
+		parts := strings.SplitN(relSlash, "/", 3)
+		if len(parts) > 1 {
+			topDir = parts[0]
+			// For .orphaned/notes/file.md → use ".orphaned/notes" as dir
+			if topDir == ".orphaned" && len(parts) > 2 {
+				topDir = parts[0] + "/" + parts[1]
+			}
+		}
+		allNotes = append(allNotes, candidate{base: base, slug: slug, rel: rel, dir: topDir})
 		return nil
 	})
 
-	// Strategy 1: Exact case-insensitive match on basename
-	for _, c := range allNotes {
-		if c.base == targetLower {
-			return strings.TrimSuffix(filepath.Base(c.rel), ".md")
+	// Strategy 1: Exact basename match in standard brain directories
+	// Prefer notes > meetings > exercises > journal > root
+	priorityDirs := []string{"notes", "pages", "meetings", "exercises", "journal", ".orphaned/notes", ".orphaned/meetings", ".orphaned/exercises"}
+	for _, dir := range priorityDirs {
+		for _, c := range allNotes {
+			if c.dir == dir && (c.base == targetLower || c.slug == targetSlug) {
+				return c.rel
+			}
 		}
 	}
 
-	// Strategy 2: Date-based journal lookup
-	// Targets like "2024-05-13" or "2024_05_13" or "2024.05.13" might be journal entries
+	// Strategy 2: Exact case-insensitive basename match anywhere
+	for _, c := range allNotes {
+		if c.base == targetLower {
+			return c.rel
+		}
+	}
+
+	// Strategy 3: Slug-normalized match ("Visual Studio Code" == "visual-studio-code")
+	for _, c := range allNotes {
+		if c.slug == targetSlug {
+			return c.rel
+		}
+	}
+
+	// Strategy 4: Date-based journal lookup
 	dateTarget := strings.ReplaceAll(strings.ReplaceAll(targetLower, "_", "-"), ".", "-")
 	dateRe := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	if dateRe.MatchString(dateTarget) {
-		// Try common journal patterns: YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
 		variants := []string{
-			dateTarget,                               // 2024-05-13
-			strings.ReplaceAll(dateTarget, "-", "_"), // 2024_05_13
-			strings.ReplaceAll(dateTarget, "-", "."), // 2024.05.13
+			dateTarget,
+			strings.ReplaceAll(dateTarget, "-", "_"),
+			strings.ReplaceAll(dateTarget, "-", "."),
+			"daily." + strings.ReplaceAll(dateTarget, "-", "."),
 		}
 		for _, c := range allNotes {
 			for _, v := range variants {
 				if c.base == v {
-					return strings.TrimSuffix(filepath.Base(c.rel), ".md")
+					return c.rel
 				}
 			}
 		}
 	}
 
-	// Strategy 3: Fuzzy Levenshtein match (threshold 70%)
+	// Strategy 5: Fuzzy Levenshtein match (threshold 75%)
 	bestScore := 0
 	bestMatch := ""
 	for _, c := range allNotes {
 		score := levenshteinSimilarity(targetLower, c.base)
-		// Boost substring matches
 		if strings.Contains(c.base, targetLower) || strings.Contains(targetLower, c.base) {
 			score += 30
 		}
-		if score > bestScore && score >= 70 {
+		if score > bestScore && score >= 75 {
 			bestScore = score
-			bestMatch = strings.TrimSuffix(filepath.Base(c.rel), ".md")
+			bestMatch = c.rel
 		}
 	}
 	return bestMatch
 }
 
+// computeRelativeLink computes a relative link path from sourceFile to targetFile.
+// Both paths are relative to the brain root.
+// Example: sourceFile="journal/2025-11-05.md", targetFile="notes/flip.md" → "../notes/flip.md"
+func computeRelativeLink(sourceFile, targetFile string) string {
+	sourceDir := filepath.Dir(sourceFile)
+	rel, err := filepath.Rel(sourceDir, targetFile)
+	if err != nil {
+		return targetFile
+	}
+	// Strip .md for wikilinks, keep for markdown
+	return filepath.ToSlash(rel)
+}
+
 // replaceLinkTarget replaces the target in a link while preserving the link format.
+// newTarget is a relative path from source to target (e.g., "../notes/flip.md").
 func replaceLinkTarget(line, oldTarget, newTarget string) string {
 	escaped := regexp.QuoteMeta(oldTarget)
+
+	// Strip .md from newTarget for wikilink format
+	newTargetNoExt := strings.TrimSuffix(strings.TrimSuffix(newTarget, ".md"), ".MD")
+
+	// Ensure newTarget has .md for markdown link format
+	newTargetWithExt := newTarget
+	if !strings.HasSuffix(strings.ToLower(newTargetWithExt), ".md") {
+		newTargetWithExt += ".md"
+	}
 
 	// Wikilink: [[old]] → [[new]] or [[old|alias]] → [[new|alias]]
 	wikiPattern := regexp.MustCompile(`\[\[` + escaped + `(\|[^\]]+)?\]\]`)
 	if wikiPattern.MatchString(line) {
 		return wikiPattern.ReplaceAllStringFunc(line, func(m string) string {
-			// Preserve alias
 			if idx := strings.Index(m, "|"); idx > 0 {
 				alias := m[idx:]
-				return "[[" + newTarget + alias
+				return "[[" + newTargetNoExt + alias
 			}
-			return "[[" + newTarget + "]]"
+			return "[[" + newTargetNoExt + "]]"
 		})
 	}
 
-	// Markdown link: [text](old.md) → [text](new.md)
-	mdPattern := regexp.MustCompile(`\[([^\]]+)\]\(` + escaped + `[^)]*\)`)
-	if mdPattern.MatchString(line) {
-		return mdPattern.ReplaceAllStringFunc(line, func(m string) string {
-			re := regexp.MustCompile(`\[([^\]]+)\]\([^)]*\)`)
-			sub := re.FindStringSubmatch(m)
-			if len(sub) >= 2 {
-				text := sub[1]
-				return "[" + text + "](" + newTarget + ".md)"
-			}
-			return m
-		})
+	// Markdown link: [text](old.md) → [text](new-path.md)
+	// Handle both with and without .md extension in oldTarget
+	escapedNoExt := regexp.QuoteMeta(strings.TrimSuffix(oldTarget, ".md"))
+	mdPatterns := []string{
+		`\[([^\]]+)\]\(` + escaped + `\)`,          // exact match
+		`\[([^\]]+)\]\(` + escapedNoExt + `\.md\)`, // basename.md match
+	}
+	for _, pat := range mdPatterns {
+		mdPattern := regexp.MustCompile(pat)
+		if mdPattern.MatchString(line) {
+			return mdPattern.ReplaceAllStringFunc(line, func(m string) string {
+				re := regexp.MustCompile(`\[([^\]]+)\]\([^)]*\)`)
+				sub := re.FindStringSubmatch(m)
+				if len(sub) >= 2 {
+					text := sub[1]
+					return "[" + text + "](" + newTargetWithExt + ")"
+				}
+				return m
+			})
+		}
 	}
 
 	return line
@@ -398,19 +492,24 @@ func (r *Repairer) repairFormatIssue(brainPath string, issue Issue) error {
 // HELPER FUNCTIONS
 // ============================================================================
 
-// extractLinkTarget extracts the link target from an issue message
+// extractLinkTarget extracts the link target from an issue message.
+// Handles formats from the checker:
+//   - "Broken link: flip.md"
+//   - "Broken wikilink: [[target]]"
+//   - "Link to 'xyz' not found"
 func extractLinkTarget(message string) string {
-	// Try to extract from "Link to 'xyz' not found" pattern
 	patterns := []string{
-		`Link to '([^']+)' not found`,
-		`\[\[([^\]]+)\]\]`,
-		`\[([^\]]+)\]\([^)]+\)`,
+		`Broken wikilink: \[\[([^\]]+)\]\]`,   // wikilink format
+		`Broken link: (.+)`,                      // markdown link format
+		`Link to '([^']+)' not found`,            // legacy format
+		`\[\[([^\]]+)\]\]`,                       // bare wikilink in message
+		`\[([^\]]+)\]\([^)]+\)`,                  // bare markdown link in message
 	}
 
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		if matches := re.FindStringSubmatch(message); len(matches) > 1 {
-			return matches[1]
+			return strings.TrimSpace(matches[1])
 		}
 	}
 	return ""

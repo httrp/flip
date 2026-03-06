@@ -190,13 +190,14 @@ func (c *Checker) indexFiles() error {
 		}
 
 		if d.IsDir() {
-			// Skip hidden and config directories
+			// Skip hidden and config directories (except .orphaned which flip creates)
 			dirName := d.Name()
+			if dirName == ".orphaned" {
+				return nil // allow .orphaned directory
+			}
 			if strings.HasPrefix(dirName, ".") ||
 				dirName == "logseq" ||
-				dirName == "node_modules" ||
-				dirName == ".obsidian" ||
-				dirName == ".trash" {
+				dirName == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -213,8 +214,9 @@ func (c *Checker) indexFiles() error {
 
 		ext := strings.ToLower(filepath.Ext(d.Name()))
 
-		// Track markdown files
-		if ext == ".md" {
+		// Track markdown files (but not in .orphaned — those are only in the index for link validation)
+		isOrphaned := strings.HasPrefix(filepath.ToSlash(relPath), ".orphaned/")
+		if ext == ".md" && !isOrphaned {
 			c.markdownFiles = append(c.markdownFiles, relPath)
 		}
 
@@ -247,6 +249,11 @@ func (c *Checker) checkFileLinks(relPath string) ([]Issue, int, error) {
 	patterns := GetLinkPatterns(c.brainType)
 
 	for lineNum, line := range lines {
+		// Skip lines already commented out by previous repair runs
+		if strings.Contains(line, "<!-- BROKEN") {
+			continue
+		}
+
 		// Check for wrong link formats
 		formatIssues := c.checkLinkFormat(relPath, line, lineNum+1)
 		issues = append(issues, formatIssues...)

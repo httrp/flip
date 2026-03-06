@@ -719,8 +719,9 @@ func TestResolveTargetExactMatch(t *testing.T) {
 
 	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
 	result := r.resolveTarget(dir, "My-Great-Note")
-	if result != "my-great-note" {
-		t.Errorf("resolveTarget exact match: expected 'my-great-note', got '%s'", result)
+	expected := filepath.Join("notes", "my-great-note.md")
+	if result != expected {
+		t.Errorf("resolveTarget exact match: expected %q, got %q", expected, result)
 	}
 }
 
@@ -733,8 +734,9 @@ func TestResolveTargetJournalDate(t *testing.T) {
 
 	// Logseq-style underscore date should resolve to flip-style dash date
 	result := r.resolveTarget(dir, "2024_05_13")
-	if result != "2024-05-13" {
-		t.Errorf("resolveTarget journal date: expected '2024-05-13', got '%s'", result)
+	expected := filepath.Join("journal", "2024-05-13.md")
+	if result != expected {
+		t.Errorf("resolveTarget journal date: expected %q, got %q", expected, result)
 	}
 }
 
@@ -745,8 +747,9 @@ func TestResolveTargetFuzzy(t *testing.T) {
 
 	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
 	result := r.resolveTarget(dir, "project-alfa")
-	if result != "project-alpha" {
-		t.Errorf("resolveTarget fuzzy: expected 'project-alpha', got '%s'", result)
+	expected := filepath.Join("notes", "project-alpha.md")
+	if result != expected {
+		t.Errorf("resolveTarget fuzzy: expected %q, got %q", expected, result)
 	}
 }
 
@@ -759,6 +762,334 @@ func TestResolveTargetNoMatch(t *testing.T) {
 	result := r.resolveTarget(dir, "completely-unrelated-name")
 	if result != "" {
 		t.Errorf("resolveTarget should return empty for no match, got '%s'", result)
+	}
+}
+
+func TestResolveTargetPrioritizesBrainDirs(t *testing.T) {
+	dir := t.TempDir()
+	// Create the same file in notes/ and at root — should prefer notes/
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.MkdirAll(filepath.Join(dir, "meetings"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "my-note.md"), []byte("# Note\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "my-note.md"), []byte("# Root note\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "my-note")
+	expected := filepath.Join("notes", "my-note.md")
+	if result != expected {
+		t.Errorf("resolveTarget should prefer notes/ dir: expected %q, got %q", expected, result)
+	}
+}
+
+func TestResolveTargetSlugNormalized(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "visual-studio-code.md"), []byte("# VS Code\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	// Capitalized with hyphens should match slug
+	result := r.resolveTarget(dir, "Visual-Studio-Code")
+	expected := filepath.Join("notes", "visual-studio-code.md")
+	if result != expected {
+		t.Errorf("resolveTarget slug: expected %q, got %q", expected, result)
+	}
+}
+
+func TestResolveTargetOrphanedDir(t *testing.T) {
+	dir := t.TempDir()
+	// File exists only in .orphaned/notes/
+	os.MkdirAll(filepath.Join(dir, ".orphaned", "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, ".orphaned", "notes", "flip.md"), []byte("# Flip\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "flip")
+	expected := filepath.Join(".orphaned", "notes", "flip.md")
+	if result != expected {
+		t.Errorf("resolveTarget .orphaned: expected %q, got %q", expected, result)
+	}
+}
+
+func TestResolveTargetPrefersNonOrphaned(t *testing.T) {
+	dir := t.TempDir()
+	// File exists in both notes/ and .orphaned/notes/
+	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".orphaned", "notes"), 0755)
+	os.WriteFile(filepath.Join(dir, "notes", "flip.md"), []byte("# Flip\n"), 0644)
+	os.WriteFile(filepath.Join(dir, ".orphaned", "notes", "flip.md"), []byte("# Flip orphaned\n"), 0644)
+
+	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
+	result := r.resolveTarget(dir, "flip")
+	expected := filepath.Join("notes", "flip.md")
+	if result != expected {
+		t.Errorf("resolveTarget should prefer non-orphaned: expected %q, got %q", expected, result)
+	}
+}
+
+func TestComputeRelativeLink(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceFile string
+		targetFile string
+		expected   string
+	}{
+		{
+			name:       "journal to notes",
+			sourceFile: "journal/2025-11-05.md",
+			targetFile: "notes/flip.md",
+			expected:   "../notes/flip.md",
+		},
+		{
+			name:       "same directory",
+			sourceFile: "notes/a.md",
+			targetFile: "notes/b.md",
+			expected:   "b.md",
+		},
+		{
+			name:       "journal to meetings",
+			sourceFile: "journal/2025-11-19.md",
+			targetFile: "meetings/2025-11-19-meeting-standup.md",
+			expected:   "../meetings/2025-11-19-meeting-standup.md",
+		},
+		{
+			name:       "root to notes",
+			sourceFile: "README.md",
+			targetFile: "notes/something.md",
+			expected:   "notes/something.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := computeRelativeLink(tt.sourceFile, tt.targetFile)
+			if result != tt.expected {
+				t.Errorf("computeRelativeLink(%q, %q) = %q, want %q",
+					tt.sourceFile, tt.targetFile, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractLinkTarget(t *testing.T) {
+	tests := []struct {
+		message  string
+		expected string
+	}{
+		{"Broken link: flip.md", "flip.md"},
+		{"Broken link: github-copilot.md", "github-copilot.md"},
+		{"Broken wikilink: [[my-note]]", "my-note"},
+		{"Link to 'old-note' not found", "old-note"},
+		{"Something unrecognized", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.message, func(t *testing.T) {
+			result := extractLinkTarget(tt.message)
+			if result != tt.expected {
+				t.Errorf("extractLinkTarget(%q) = %q, want %q", tt.message, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRepairBrokenLinkSmartResolution(t *testing.T) {
+	// Test the full repair flow: journal file has a link to flip.md,
+	// which actually exists in notes/flip.md
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	// Create the target file
+	os.WriteFile(filepath.Join(tempDir, "notes", "flip.md"), []byte("---\ntitle: Flip\n---\n# Flip\n"), 0644)
+
+	// Create journal file with broken link
+	content := "---\ntitle: 2025-11-05\n---\n\n# 2025-11-05\n\n- [flip](flip.md)\n"
+	os.WriteFile(filepath.Join(tempDir, "journal", "2025-11-05.md"), []byte(content), 0644)
+
+	repairer, err := NewRepairer(tempDir, false)
+	if err != nil {
+		t.Fatalf("Failed to create repairer: %v", err)
+	}
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "journal/2025-11-05.md",
+		Line:     7,
+		Message:  "Broken link: flip.md",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	if len(results) != 1 || !results[0].Success {
+		t.Fatalf("Repair failed: %+v", results)
+	}
+
+	newContent, _ := os.ReadFile(filepath.Join(tempDir, "journal", "2025-11-05.md"))
+	s := string(newContent)
+
+	// Should have been resolved to ../notes/flip.md
+	if !strings.Contains(s, "../notes/flip.md") {
+		t.Errorf("Expected link to be resolved to ../notes/flip.md, got:\n%s", s)
+	}
+
+	// Should NOT contain BROKEN marker
+	if strings.Contains(s, "BROKEN") {
+		t.Errorf("Resolved link should not have BROKEN marker, got:\n%s", s)
+	}
+}
+
+func TestRepairBrokenLinkIdempotent(t *testing.T) {
+	// Running repair twice on same file shouldn't nest BROKEN comments
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	// File with an actually broken link (no resolution possible)
+	content := "---\ntitle: Test\n---\n\n- [gone](gone-forever.md)\n"
+	os.WriteFile(filepath.Join(tempDir, "notes", "test.md"), []byte(content), 0644)
+
+	repairer, _ := NewRepairer(tempDir, false)
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "notes/test.md",
+		Line:     5,
+		Message:  "Broken link: gone-forever.md",
+	}
+
+	// First repair
+	repairer.RepairIssues([]Issue{issue})
+
+	content1, _ := os.ReadFile(filepath.Join(tempDir, "notes", "test.md"))
+
+	// Second repair on same line
+	repairer.RepairIssues([]Issue{issue})
+
+	content2, _ := os.ReadFile(filepath.Join(tempDir, "notes", "test.md"))
+
+	// Content should be identical after second repair (idempotent)
+	if string(content1) != string(content2) {
+		t.Errorf("Repair is not idempotent.\nAfter 1st:\n%s\nAfter 2nd:\n%s",
+			string(content1), string(content2))
+	}
+
+	// Should contain only ONE BROKEN marker
+	brokenCount := strings.Count(string(content2), "BROKEN")
+	if brokenCount > 1 {
+		t.Errorf("Expected at most 1 BROKEN marker, got %d in:\n%s", brokenCount, string(content2))
+	}
+}
+
+func TestRepairBrokenLinkUncomment(t *testing.T) {
+	// When a previously commented-out broken link can now be resolved,
+	// it should be un-commented and fixed
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	// Journal file with a previously commented-out broken link
+	content := "---\ntitle: 2025-11-05\n---\n\n<!-- BROKEN LINK: - [flip](flip.md) -->\n"
+	os.WriteFile(filepath.Join(tempDir, "journal", "2025-11-05.md"), []byte(content), 0644)
+
+	// The target file now exists in notes/
+	os.WriteFile(filepath.Join(tempDir, "notes", "flip.md"), []byte("# Flip\n"), 0644)
+
+	repairer, _ := NewRepairer(tempDir, false)
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "journal/2025-11-05.md",
+		Line:     5,
+		Message:  "Broken link: flip.md",
+	}
+
+	repairer.RepairIssues([]Issue{issue})
+
+	result, _ := os.ReadFile(filepath.Join(tempDir, "journal", "2025-11-05.md"))
+	resultStr := string(result)
+
+	// Should NOT contain BROKEN comment anymore
+	if strings.Contains(resultStr, "<!-- BROKEN") {
+		t.Errorf("Should have un-commented the line, got:\n%s", resultStr)
+	}
+
+	// Should contain the fixed link pointing to ../notes/flip.md
+	if !strings.Contains(resultStr, "../notes/flip.md") {
+		t.Errorf("Should contain resolved link ../notes/flip.md, got:\n%s", resultStr)
+	}
+}
+
+func TestRepairBrokenLinkUncommentNested(t *testing.T) {
+	// Deeply nested BROKEN comments should be unwrapped and fixed
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+
+	// Deeply nested BROKEN comment (from repeated prior repairs)
+	content := "---\ntitle: Test\n---\n\n<!-- BROKEN LINK: <!-- BROKEN LINK: - [flip](flip.md) --> -->\n"
+	os.WriteFile(filepath.Join(tempDir, "journal", "test.md"), []byte(content), 0644)
+	os.WriteFile(filepath.Join(tempDir, "notes", "flip.md"), []byte("# Flip\n"), 0644)
+
+	repairer, _ := NewRepairer(tempDir, false)
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "journal/test.md",
+		Line:     5,
+		Message:  "Broken link: flip.md",
+	}
+
+	repairer.RepairIssues([]Issue{issue})
+
+	result, _ := os.ReadFile(filepath.Join(tempDir, "journal", "test.md"))
+	resultStr := string(result)
+
+	if strings.Contains(resultStr, "<!-- BROKEN") {
+		t.Errorf("Should have un-commented nested line, got:\n%s", resultStr)
+	}
+	if !strings.Contains(resultStr, "../notes/flip.md") {
+		t.Errorf("Should contain resolved link, got:\n%s", resultStr)
+	}
+}
+
+func TestRepairBrokenLinkUncommentOrphaned(t *testing.T) {
+	// When target is in .orphaned/notes/, should resolve and un-comment
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, ".orphaned", "notes"), 0755)
+
+	content := "---\ntitle: 2025-11-25\n---\n\n<!-- BROKEN LINK: - [flip](flip.md) -->\n"
+	os.WriteFile(filepath.Join(tempDir, "journal", "2025-11-25.md"), []byte(content), 0644)
+	os.WriteFile(filepath.Join(tempDir, ".orphaned", "notes", "flip.md"), []byte("# Flip\n"), 0644)
+
+	repairer, _ := NewRepairer(tempDir, false)
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "journal/2025-11-25.md",
+		Line:     5,
+		Message:  "Broken link: flip.md",
+	}
+
+	results := repairer.RepairIssues([]Issue{issue})
+	t.Logf("Repair result: success=%v message=%s", results[0].Success, results[0].Message)
+
+	result, _ := os.ReadFile(filepath.Join(tempDir, "journal", "2025-11-25.md"))
+	resultStr := string(result)
+	t.Logf("File content after repair:\n%s", resultStr)
+
+	if strings.Contains(resultStr, "<!-- BROKEN") {
+		t.Errorf("Should have un-commented the line, got:\n%s", resultStr)
+	}
+	if !strings.Contains(resultStr, ".orphaned/notes/flip.md") {
+		t.Errorf("Should contain resolved link to .orphaned/notes/flip.md, got:\n%s", resultStr)
 	}
 }
 
