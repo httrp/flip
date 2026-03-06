@@ -499,11 +499,11 @@ func (r *Repairer) repairFormatIssue(brainPath string, issue Issue) error {
 //   - "Link to 'xyz' not found"
 func extractLinkTarget(message string) string {
 	patterns := []string{
-		`Broken wikilink: \[\[([^\]]+)\]\]`,   // wikilink format
-		`Broken link: (.+)`,                      // markdown link format
-		`Link to '([^']+)' not found`,            // legacy format
-		`\[\[([^\]]+)\]\]`,                       // bare wikilink in message
-		`\[([^\]]+)\]\([^)]+\)`,                  // bare markdown link in message
+		`Broken wikilink: \[\[([^\]]+)\]\]`, // wikilink format
+		`Broken link: (.+)`,                 // markdown link format
+		`Link to '([^']+)' not found`,       // legacy format
+		`\[\[([^\]]+)\]\]`,                  // bare wikilink in message
+		`\[([^\]]+)\]\([^)]+\)`,             // bare markdown link in message
 	}
 
 	for _, pattern := range patterns {
