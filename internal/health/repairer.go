@@ -288,7 +288,9 @@ func (r *Repairer) resolveTarget(brainPath, target string) string {
 
 	_ = filepath.WalkDir(brainPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") && d.Name() != ".orphaned" {
+			if d != nil && d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+				// Skip all hidden directories including .orphaned —
+				// orphaned files should never be resolution targets
 				return filepath.SkipDir
 			}
 			return nil
@@ -301,13 +303,9 @@ func (r *Repairer) resolveTarget(brainPath, target string) string {
 		slug := strings.ReplaceAll(strings.ReplaceAll(base, " ", "-"), "_", "-")
 		topDir := ""
 		relSlash := filepath.ToSlash(rel)
-		parts := strings.SplitN(relSlash, "/", 3)
+		parts := strings.SplitN(relSlash, "/", 2)
 		if len(parts) > 1 {
 			topDir = parts[0]
-			// For .orphaned/notes/file.md → use ".orphaned/notes" as dir
-			if topDir == ".orphaned" && len(parts) > 2 {
-				topDir = parts[0] + "/" + parts[1]
-			}
 		}
 		allNotes = append(allNotes, candidate{base: base, slug: slug, rel: rel, dir: topDir})
 		return nil
@@ -315,7 +313,7 @@ func (r *Repairer) resolveTarget(brainPath, target string) string {
 
 	// Strategy 1: Exact basename match in standard brain directories
 	// Prefer notes > meetings > exercises > journal > root
-	priorityDirs := []string{"notes", "pages", "meetings", "exercises", "journal", ".orphaned/notes", ".orphaned/meetings", ".orphaned/exercises"}
+	priorityDirs := []string{"notes", "pages", "meetings", "exercises", "journal"}
 	for _, dir := range priorityDirs {
 		for _, c := range allNotes {
 			if c.dir == dir && (c.base == targetLower || c.slug == targetSlug) {
@@ -401,14 +399,17 @@ func replaceLinkTarget(line, oldTarget, newTarget string) string {
 	}
 
 	// Wikilink: [[old]] → [[new]] or [[old|alias]] → [[new|alias]]
+	// Wikilinks use basename-only (no path), e.g., [[my-note]] not [[../notes/my-note]]
 	wikiPattern := regexp.MustCompile(`\[\[` + escaped + `(\|[^\]]+)?\]\]`)
 	if wikiPattern.MatchString(line) {
+		wikiTarget := filepath.Base(newTargetNoExt)
+		wikiTarget = strings.TrimSuffix(wikiTarget, ".md")
 		return wikiPattern.ReplaceAllStringFunc(line, func(m string) string {
 			if idx := strings.Index(m, "|"); idx > 0 {
 				alias := m[idx:]
-				return "[[" + newTargetNoExt + alias
+				return "[[" + wikiTarget + alias
 			}
-			return "[[" + newTargetNoExt + "]]"
+			return "[[" + wikiTarget + "]]"
 		})
 	}
 

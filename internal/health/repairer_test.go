@@ -797,21 +797,20 @@ func TestResolveTargetSlugNormalized(t *testing.T) {
 
 func TestResolveTargetOrphanedDir(t *testing.T) {
 	dir := t.TempDir()
-	// File exists only in .orphaned/notes/
+	// File exists only in .orphaned/notes/ — should NOT resolve to orphaned files
 	os.MkdirAll(filepath.Join(dir, ".orphaned", "notes"), 0755)
 	os.WriteFile(filepath.Join(dir, ".orphaned", "notes", "flip.md"), []byte("# Flip\n"), 0644)
 
 	r := &Repairer{brainPath: dir, brainType: BrainTypeFlip}
 	result := r.resolveTarget(dir, "flip")
-	expected := filepath.Join(".orphaned", "notes", "flip.md")
-	if result != expected {
-		t.Errorf("resolveTarget .orphaned: expected %q, got %q", expected, result)
+	if result != "" {
+		t.Errorf("resolveTarget should NOT resolve to .orphaned: expected empty, got %q", result)
 	}
 }
 
-func TestResolveTargetPrefersNonOrphaned(t *testing.T) {
+func TestResolveTargetIgnoresOrphanedWhenNonOrphanedExists(t *testing.T) {
 	dir := t.TempDir()
-	// File exists in both notes/ and .orphaned/notes/
+	// File exists in both notes/ and .orphaned/notes/ — should resolve to notes/
 	os.MkdirAll(filepath.Join(dir, "notes"), 0755)
 	os.MkdirAll(filepath.Join(dir, ".orphaned", "notes"), 0755)
 	os.WriteFile(filepath.Join(dir, "notes", "flip.md"), []byte("# Flip\n"), 0644)
@@ -1058,7 +1057,7 @@ func TestRepairBrokenLinkUncommentNested(t *testing.T) {
 }
 
 func TestRepairBrokenLinkUncommentOrphaned(t *testing.T) {
-	// When target is in .orphaned/notes/, should resolve and un-comment
+	// When target is ONLY in .orphaned/notes/, should NOT resolve — leave commented
 	tempDir := t.TempDir()
 	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
 	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
@@ -1083,13 +1082,46 @@ func TestRepairBrokenLinkUncommentOrphaned(t *testing.T) {
 
 	result, _ := os.ReadFile(filepath.Join(tempDir, "journal", "2025-11-25.md"))
 	resultStr := string(result)
-	t.Logf("File content after repair:\n%s", resultStr)
+
+	// File only exists in .orphaned — repairer should NOT resolve to it
+	if !strings.Contains(resultStr, "<!-- BROKEN") {
+		t.Errorf("Should stay commented when target only in .orphaned, got:\n%s", resultStr)
+	}
+}
+
+func TestRepairBrokenLinkResolvesFromOrphanedToReal(t *testing.T) {
+	// When a commented-out link's target exists in a real dir, resolve to real dir
+	tempDir := t.TempDir()
+	os.WriteFile(filepath.Join(tempDir, ".flip.yaml"), []byte("version: 1\n"), 0644)
+	os.MkdirAll(filepath.Join(tempDir, "journal"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, "notes"), 0755)
+	os.MkdirAll(filepath.Join(tempDir, ".orphaned", "notes"), 0755)
+
+	content := "---\ntitle: 2025-11-25\n---\n\n<!-- BROKEN LINK: - [flip](flip.md) -->\n"
+	os.WriteFile(filepath.Join(tempDir, "journal", "2025-11-25.md"), []byte(content), 0644)
+	os.WriteFile(filepath.Join(tempDir, "notes", "flip.md"), []byte("# Flip\n"), 0644)
+	os.WriteFile(filepath.Join(tempDir, ".orphaned", "notes", "flip.md"), []byte("# Flip orphaned\n"), 0644)
+
+	repairer, _ := NewRepairer(tempDir, false)
+
+	issue := Issue{
+		Type:     IssueTypeBrokenLink,
+		Severity: SeverityError,
+		File:     "journal/2025-11-25.md",
+		Line:     5,
+		Message:  "Broken link: flip.md",
+	}
+
+	repairer.RepairIssues([]Issue{issue})
+
+	result, _ := os.ReadFile(filepath.Join(tempDir, "journal", "2025-11-25.md"))
+	resultStr := string(result)
 
 	if strings.Contains(resultStr, "<!-- BROKEN") {
 		t.Errorf("Should have un-commented the line, got:\n%s", resultStr)
 	}
-	if !strings.Contains(resultStr, ".orphaned/notes/flip.md") {
-		t.Errorf("Should contain resolved link to .orphaned/notes/flip.md, got:\n%s", resultStr)
+	if !strings.Contains(resultStr, "../notes/flip.md") {
+		t.Errorf("Should resolve to real notes/flip.md, got:\n%s", resultStr)
 	}
 }
 
@@ -1099,6 +1131,25 @@ func TestReplaceLinkTargetWikilink(t *testing.T) {
 	expected := `See [[new-name]] for more`
 	if result != expected {
 		t.Errorf("replaceLinkTarget wikilink\ngot:      %s\nexpected: %s", result, expected)
+	}
+}
+
+func TestReplaceLinkTargetWikilinkUsesBasename(t *testing.T) {
+	// Wikilinks should use basename-only, not relative paths
+	line := `See [[old-name]] for more`
+	result := replaceLinkTarget(line, "old-name", "../notes/new-name.md")
+	expected := `See [[new-name]] for more`
+	if result != expected {
+		t.Errorf("replaceLinkTarget wikilink should use basename only\ngot:      %s\nexpected: %s", result, expected)
+	}
+}
+
+func TestReplaceLinkTargetWikilinkWithAlias(t *testing.T) {
+	line := `See [[old-name|My Alias]] for more`
+	result := replaceLinkTarget(line, "old-name", "../notes/new-name.md")
+	expected := `See [[new-name|My Alias]] for more`
+	if result != expected {
+		t.Errorf("replaceLinkTarget wikilink alias should use basename only\ngot:      %s\nexpected: %s", result, expected)
 	}
 }
 

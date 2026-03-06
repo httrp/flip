@@ -642,7 +642,7 @@ func (c *Checker) findWikilink(target string) string {
 			filepath.Join("journals", baseName+".md"),
 			baseName + ".md",
 		}
-	case BrainTypeObsidian, BrainTypeFlip:
+	case BrainTypeObsidian, BrainTypeFlip, BrainTypeFoam:
 		// Obsidian and Flip wikilinks can reference any file anywhere
 		// We need to search all markdown files (case-insensitive)
 		targetLower := strings.ToLower(baseName)

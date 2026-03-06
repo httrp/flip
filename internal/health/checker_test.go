@@ -331,3 +331,19 @@ func TestIssueTypeLogseqArtifactConstant(t *testing.T) {
 		t.Errorf("IssueTypeLogseqArtifact = %q, want %q", IssueTypeLogseqArtifact, "logseq-artifact")
 	}
 }
+
+func TestFindWikilinkFoamUsesBasenameSearch(t *testing.T) {
+	checker := &Checker{
+		brainType: BrainTypeFoam,
+		allFiles: map[string]bool{
+			"docs/features/note-templates.md": true,
+			"docs/index.md":                  true,
+		},
+	}
+
+	got := checker.findWikilink("note-templates")
+	want := "docs/features/note-templates.md"
+	if got != want {
+		t.Fatalf("findWikilink() for Foam = %q, want %q", got, want)
+	}
+}
