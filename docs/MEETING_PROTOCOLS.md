@@ -73,8 +73,17 @@ flip meeting protocol meetings/2026-01-15-meeting-kickoff-2026.md --output ~/Des
 ```bash
 flip meeting protocol --series "Copilot Jour fixe"
 flip meeting protocol --series "Copilot Jour fixe" --from 2026-01-01 --to 2026-01-31
-flip meeting protocol --series "Copilot Jour fixe" --format pdf
+flip meeting protocol --series "Copilot Jour fixe" --write
+flip meeting protocol --series "Copilot Jour fixe" --sync
 ```
+
+`--write` stores the rolling protocol at the canonical series path:
+
+```text
+meetings/protocols/<series-slug>-rolling-protocol.md
+```
+
+`--sync` updates that canonical file in place, preserves explicitly marked manual sections, and refreshes backlinks from included meeting notes.
 
 ### List Available Series
 ```bash
@@ -207,6 +216,16 @@ AI-generated summary here...
 ## Rolling Protocol Format
 
 ```markdown
+---
+protocol_type: rolling
+series_name: "Copilot Jour fixe"
+generated_at: 2026-01-19T20:00:00Z
+meetings_count: 4
+time_range:
+  from: 2026-01-01
+  to: 2026-01-31
+---
+
 # Rolling Protocol: Copilot Jour fixe
 **Period**: 2026-01-01 to 2026-01-31  
 **Meetings**: 4  
@@ -214,6 +233,20 @@ AI-generated summary here...
 
 ## Overview
 This rolling protocol covers 4 meetings of the "Copilot Jour fixe" series.
+
+## Changes Since Last Meeting
+
+Latest meeting: Session 4 (2026-01-29)
+
+### Information
+- Budget risk was raised
+
+### Decisions
+- Approved Q1 budget increase
+
+### Actions
+- NEW: Hire frontend developer (@mike)
+- DONE: Setup Jira board (@john)
 
 ## Timeline
 
@@ -241,7 +274,12 @@ This rolling protocol covers 4 meetings of the "Copilot Jour fixe" series.
 
 ---
 
-## Action Items Summary
+## Summary
+
+### Information Overview
+- Budget risk was raised (last updated: 2026-01-29, seen 2 times, Session 4)
+
+### Action Items Overview
 
 ### ✅ Completed (1)
 - Setup Jira board (@john, due: 2026-01-10, completed: 2026-01-09)
@@ -256,9 +294,35 @@ This rolling protocol covers 4 meetings of the "Copilot Jour fixe" series.
 1. **2026-01-08**: Adopted 2-week sprint cycle
 2. **2026-01-15**: Approved Q1 budget increase
 
+## Manual Notes
+
+<!-- flip:manual-notes:start -->
+_Add manual notes here. This section is preserved by flip meeting protocol --sync._
+<!-- flip:manual-notes:end -->
+
+## Open Questions
+
+<!-- flip:open-questions:start -->
+_Track unresolved questions here. This section is preserved by flip meeting protocol --sync._
+<!-- flip:open-questions:end -->
+
+## Follow-Ups
+
+<!-- flip:follow-ups:start -->
+_Track stakeholder follow-ups here. This section is preserved by flip meeting protocol --sync._
+<!-- flip:follow-ups:end -->
+
 ---
 *Rolling protocol generated: 2026-01-19 20:00*
 ```
+
+## Sync Semantics
+
+- `flip meeting protocol --series "..." --write` generates the canonical rolling protocol file.
+- `flip meeting protocol --series "..." --sync` regenerates the protocol and preserves content inside the `flip:manual-notes`, `flip:open-questions`, and `flip:follow-ups` markers.
+- The generated analytical sections are canonical output and may be replaced on each sync.
+- Each included meeting note receives or updates a backlink to the canonical rolling protocol in its `Related` section.
+- The preserved sections are intended for hand-maintained narrative context, unresolved questions, and stakeholder follow-up tracking.
 
 ## Implementation Plan
 

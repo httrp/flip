@@ -89,6 +89,7 @@ func NewMeetingCommand() *cobra.Command {
 
 	// Add protocol subcommand
 	cmd.AddCommand(NewMeetingProtocolCommand())
+	cmd.AddCommand(NewMeetingSeriesCommand())
 
 	return cmd
 }
@@ -927,6 +928,9 @@ func findMeetingSeries(brainPath string, brainType brain.BrainType) ([]MeetingSe
 		}
 
 		if d.IsDir() {
+			if d.Name() == "protocols" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
