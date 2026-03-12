@@ -33,6 +33,7 @@ const (
 	FeatureDefinitions Feature = "definitions" // Org/Person definitions
 	FeatureMeetings    Feature = "meetings"    // Meeting notes
 	FeatureMigration   Feature = "migration"   // Brain migration tools
+	FeatureAI          Feature = "ai"          // AI integration (summarize, research)
 )
 
 // featureRegistry holds the enabled state of each feature
@@ -50,6 +51,7 @@ var featureRegistry = map[Feature]bool{
 	FeatureDefinitions: true,
 	FeatureMeetings:    true,
 	FeatureMigration:   true,
+	FeatureAI:          true, // AI enabled by default (zero-config with Ollama)
 }
 
 // coreFeatures cannot be disabled

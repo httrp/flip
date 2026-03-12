@@ -208,6 +208,57 @@
         "clear": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Flip: AI Status",
+      "type": "shell",
+      "command": "flip",
+      "args": ["ai", "status"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: AI Research",
+      "type": "shell",
+      "command": "flip",
+      "args": ["ai", "research"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: AI Summarize",
+      "type": "shell",
+      "command": "flip",
+      "args": ["ai", "summarize"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: AI Improve Note",
+      "type": "shell",
+      "command": "flip",
+      "args": ["ai", "improve", "${file}"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
     }
   ]
 }
