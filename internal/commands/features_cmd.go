@@ -187,6 +187,7 @@ func showFeatureEnableHelp(feature Feature, enable bool) error {
 func RegisterFeatureCommands(rootCmd *cobra.Command) {
 	// Always register core commands
 	rootCmd.AddCommand(NewMenuCommand())
+	rootCmd.AddCommand(NewMenuV2Command()) // New bubbletea-based menu (testing)
 	rootCmd.AddCommand(NewStatusCommand())
 	rootCmd.AddCommand(NewQuickstartCommand())
 	rootCmd.AddCommand(NewIntroCommand())
@@ -230,5 +231,9 @@ func RegisterFeatureCommands(rootCmd *cobra.Command) {
 		rootCmd.AddCommand(NewNoteCommand())
 		rootCmd.AddCommand(NewQuicknoteCommand())
 		rootCmd.AddCommand(NewJournalCommand())
+	}
+
+	if IsEnabled(FeatureAI) {
+		rootCmd.AddCommand(NewAICommand())
 	}
 }

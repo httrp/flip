@@ -337,7 +337,7 @@ func TestFindWikilinkFoamUsesBasenameSearch(t *testing.T) {
 		brainType: BrainTypeFoam,
 		allFiles: map[string]bool{
 			"docs/features/note-templates.md": true,
-			"docs/index.md":                  true,
+			"docs/index.md":                   true,
 		},
 	}
 
