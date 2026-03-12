@@ -73,10 +73,10 @@ func (p *OllamaProvider) IsAvailable(ctx context.Context) bool {
 
 // ollamaRequest is the request body for Ollama API
 type ollamaRequest struct {
-	Model    string           `json:"model"`
-	Messages []ollamaMessage  `json:"messages"`
-	Stream   bool             `json:"stream"`
-	Options  *ollamaOptions   `json:"options,omitempty"`
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+	Options  *ollamaOptions  `json:"options,omitempty"`
 }
 
 type ollamaMessage struct {

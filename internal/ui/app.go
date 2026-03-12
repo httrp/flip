@@ -21,15 +21,15 @@ const (
 
 // AppModel is the root model that manages navigation between views
 type AppModel struct {
-	currentView    ViewType
-	viewStack      []ViewType // For back navigation
-	menu           MenuModel
-	status         string // Status header content
-	quitting       bool
-	width          int
-	height         int
-	execCommand    string // Command to execute after quitting
-	pendingAction  func() error
+	currentView   ViewType
+	viewStack     []ViewType // For back navigation
+	menu          MenuModel
+	status        string // Status header content
+	quitting      bool
+	width         int
+	height        int
+	execCommand   string // Command to execute after quitting
+	pendingAction func() error
 }
 
 // NewAppModel creates a new application model
@@ -228,7 +228,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "browse":
 			m.currentView = ViewBrowseMenu
 			m.menu = m.buildBrowseMenu()
-		// Add more menus as needed
+			// Add more menus as needed
 		}
 		return m, nil
 

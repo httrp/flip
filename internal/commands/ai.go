@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/ai"
+	"github.com/httrp/flip/internal/brain"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -39,10 +40,11 @@ flip uses AI to help you:
   - Improve existing notes
 
 Configuration:
-  FLIP_AI_PROVIDER=ollama|openai|anthropic|azure
+  FLIP_AI_PROVIDER=ollama|openai|anthropic|groq|azure
   OLLAMA_HOST=http://localhost:11434 (for Ollama)
   OPENAI_API_KEY=sk-... (for OpenAI)
-  ANTHROPIC_API_KEY=sk-ant-... (for Anthropic)`,
+  ANTHROPIC_API_KEY=sk-ant-... (for Anthropic)
+  GROQ_API_KEY=gsk_... (for Groq - fast & free)`,
 	}
 
 	cmd.AddCommand(newAISummarizeCommand())
@@ -110,6 +112,9 @@ func runAIStatus() error {
 			fmt.Println("  • Check that OPENAI_API_KEY is set correctly")
 		case "anthropic":
 			fmt.Println("  • Check that ANTHROPIC_API_KEY is set correctly")
+		case "groq":
+			fmt.Println("  • Check that GROQ_API_KEY is set correctly")
+			fmt.Println("  • Get a free key at: https://console.groq.com")
 		}
 	}
 
@@ -157,12 +162,32 @@ Examples:
 }
 
 func runAISummarize(topic string, brainNames []string, outputPath string, stream bool) error {
+	// Get active workspace first
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		return fmt.Errorf("failed to get workspace: %w", err)
+	}
+
+	if len(activeWs.Brains) == 0 {
+		fmt.Println("⚠️  No brains found in active workspace. Please add a brain first.")
+		return nil
+	}
+
+	// STEP 1: Select target brain for output
+	targetBrain, err := confirmOrSelectBrain(activeWs)
+	if err != nil {
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, _ := detector.DetectBrainType(targetBrain.Path)
+
 	// Get topic interactively if not provided
 	if topic == "" {
 		prompt := promptui.Prompt{
 			Label: "What topic do you want to summarize?",
 		}
-		var err error
 		topic, err = prompt.Run()
 		if err != nil {
 			return err
@@ -173,12 +198,6 @@ func runAISummarize(topic string, brainNames []string, outputPath string, stream
 	}
 
 	fmt.Printf("\n🔍 Searching for notes about: %s\n", topic)
-
-	// Get brains to search
-	activeWs, err := getActiveWorkspace()
-	if err != nil {
-		return fmt.Errorf("failed to get workspace: %w", err)
-	}
 
 	var searchBrains []Brain
 
@@ -303,22 +322,23 @@ Keep the summary concise but comprehensive.`
 	}
 
 	// Save to file
-	if outputPath == "" {
+	filename := outputPath
+	if filename == "" {
 		// Generate filename
 		slug := strings.ToLower(strings.ReplaceAll(topic, " ", "-"))
 		if len(slug) > 30 {
 			slug = slug[:30]
 		}
-		outputPath = fmt.Sprintf("summary-%s-%s.md", slug, time.Now().Format("2006-01-02"))
+		filename = fmt.Sprintf("summary-%s-%s.md", slug, time.Now().Format("2006-01-02"))
 	}
 
-	// Get default brain for output
-	defaultBrain := aiGetDefaultBrain(activeWs)
-	if defaultBrain != nil {
-		outputPath = filepath.Join(defaultBrain.Path, "notes", outputPath)
-	}
+	// Use selected target brain for output
+	outputPath = filepath.Join(targetBrain.Path, "notes", filename)
 
-	// Create frontmatter
+	// Get AI config for metadata
+	cfg := ai.LoadConfig()
+
+	// Create frontmatter with AI metadata
 	frontmatter := fmt.Sprintf(`---
 title: "Summary: %s"
 date: %s
@@ -326,9 +346,11 @@ type: summary
 topic: "%s"
 sources: %d notes
 ai_generated: true
+ai_provider: "%s"
+ai_model: "%s"
 ---
 
-`, topic, time.Now().Format("2006-01-02"), topic, noteCount)
+`, topic, time.Now().Format("2006-01-02"), topic, noteCount, cfg.Provider, cfg.Model)
 
 	// Write file
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
@@ -340,6 +362,19 @@ ai_generated: true
 	}
 
 	fmt.Printf("\n\n✅ Summary saved to: %s\n", outputPath)
+
+	// Add link to journal
+	relPath := relativePathFromBrain(outputPath, targetBrain.Path)
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType:    "note",
+		ItemName:    fmt.Sprintf("Summary: %s", topic),
+		ItemPath:    relPath,
+		Brain:       targetBrain,
+		Interactive: true,
+		BrainType:   detection.Type,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
 
 	return nil
 }
@@ -441,12 +476,32 @@ Examples:
 }
 
 func runAIResearch(topic string, outputPath string, stream bool) error {
+	// Get active workspace first
+	activeWs, err := getActiveWorkspace()
+	if err != nil {
+		return fmt.Errorf("failed to get workspace: %w", err)
+	}
+
+	if len(activeWs.Brains) == 0 {
+		fmt.Println("⚠️  No brains found in active workspace. Please add a brain first.")
+		return nil
+	}
+
+	// STEP 1: Select target brain for output
+	targetBrain, err := confirmOrSelectBrain(activeWs)
+	if err != nil {
+		return err
+	}
+
+	// Detect brain type
+	detector := brain.NewDetector()
+	detection, _ := detector.DetectBrainType(targetBrain.Path)
+
 	// Get topic interactively if not provided
 	if topic == "" {
 		prompt := promptui.Prompt{
 			Label: "What topic do you want to research?",
 		}
-		var err error
 		topic, err = prompt.Run()
 		if err != nil {
 			return err
@@ -520,7 +575,8 @@ func runAIResearch(topic string, outputPath string, stream bool) error {
 	}
 
 	// Save to file
-	if outputPath == "" {
+	filename := outputPath
+	if filename == "" {
 		slug := strings.ToLower(strings.ReplaceAll(topic, " ", "-"))
 		slug = strings.Map(func(r rune) rune {
 			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
@@ -531,28 +587,27 @@ func runAIResearch(topic string, outputPath string, stream bool) error {
 		if len(slug) > 40 {
 			slug = slug[:40]
 		}
-		outputPath = fmt.Sprintf("research-%s-%s.md", slug, time.Now().Format("2006-01-02"))
+		filename = fmt.Sprintf("research-%s-%s.md", slug, time.Now().Format("2006-01-02"))
 	}
 
-	// Get default brain for output
-	activeWs, _ := getActiveWorkspace()
-	if activeWs != nil {
-		defaultBrain := aiGetDefaultBrain(activeWs)
-		if defaultBrain != nil {
-			outputPath = filepath.Join(defaultBrain.Path, "notes", outputPath)
-		}
-	}
+	// Use selected target brain for output
+	outputPath = filepath.Join(targetBrain.Path, "notes", filename)
 
-	// Create frontmatter
+	// Get AI config for metadata
+	cfg := ai.LoadConfig()
+
+	// Create frontmatter with AI metadata
 	frontmatter := fmt.Sprintf(`---
 title: "%s"
 date: %s
 type: research
 topic: "%s"
 ai_generated: true
+ai_provider: "%s"
+ai_model: "%s"
 ---
 
-`, topic, time.Now().Format("2006-01-02"), topic)
+`, topic, time.Now().Format("2006-01-02"), topic, cfg.Provider, cfg.Model)
 
 	// Write file
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
@@ -564,6 +619,19 @@ ai_generated: true
 	}
 
 	fmt.Printf("\n\n✅ Research note saved to: %s\n", outputPath)
+
+	// Add link to journal
+	relPath := relativePathFromBrain(outputPath, targetBrain.Path)
+	if err := AddLinkToJournal(JournalLinkOptions{
+		ItemType:    "note",
+		ItemName:    topic,
+		ItemPath:    relPath,
+		Brain:       targetBrain,
+		Interactive: true,
+		BrainType:   detection.Type,
+	}); err != nil {
+		fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+	}
 
 	return nil
 }

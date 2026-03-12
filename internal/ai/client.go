@@ -38,6 +38,9 @@ func NewClientWithConfig(cfg *Config) (*Client, error) {
 	case "azure":
 		// Azure uses OpenAI-compatible API
 		provider = NewAzureOpenAIProvider(cfg)
+	case "groq":
+		// Groq uses OpenAI-compatible API with custom LPU
+		provider = NewGroqProvider(cfg)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}
@@ -138,6 +141,9 @@ func GetDefaultProvider() string {
 	if cfg.AnthropicKey != "" {
 		return "anthropic"
 	}
+	if cfg.GroqKey != "" {
+		return "groq"
+	}
 	if cfg.AzureKey != "" {
 		return "azure"
 	}
@@ -163,8 +169,14 @@ func QuickCheck(ctx context.Context) map[string]bool {
 
 	// Check Anthropic if configured
 	if cfg.AnthropicKey != "" {
-		anthropic := NewAnthropicProvider(cfg)
-		results["anthropic"] = anthropic.IsAvailable(ctx)
+		anthropicProvider := NewAnthropicProvider(cfg)
+		results["anthropic"] = anthropicProvider.IsAvailable(ctx)
+	}
+
+	// Check Groq if configured
+	if cfg.GroqKey != "" {
+		groqProvider := NewGroqProvider(cfg)
+		results["groq"] = groqProvider.IsAvailable(ctx)
 	}
 
 	return results

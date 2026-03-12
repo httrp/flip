@@ -54,6 +54,10 @@ type Config struct {
 	AzureKey        string
 	AzureDeployment string
 	AzureAPIVersion string
+
+	// Groq settings (fast inference)
+	GroqKey   string
+	GroqModel string
 }
 
 // DefaultConfig returns a configuration with sensible defaults
@@ -67,6 +71,7 @@ func DefaultConfig() *Config {
 		OllamaModel:    "llama3.2",
 		OpenAIModel:    "gpt-4o-mini",
 		AnthropicModel: "claude-3-haiku-20240307",
+		GroqModel:      "llama-3.3-70b-versatile",
 	}
 }
 
@@ -144,6 +149,14 @@ func LoadConfig() *Config {
 		cfg.AzureAPIVersion = v
 	}
 
+	// Groq settings
+	if v := os.Getenv("GROQ_API_KEY"); v != "" {
+		cfg.GroqKey = v
+	}
+	if v := os.Getenv("FLIP_GROQ_MODEL"); v != "" {
+		cfg.GroqModel = v
+	}
+
 	// Set APIKey and Model based on provider
 	switch cfg.Provider {
 	case "openai":
@@ -157,6 +170,10 @@ func LoadConfig() *Config {
 		cfg.APIKey = cfg.AzureKey
 		cfg.Model = cfg.AzureDeployment
 		cfg.BaseURL = cfg.AzureEndpoint
+	case "groq":
+		cfg.APIKey = cfg.GroqKey
+		cfg.Model = cfg.GroqModel
+		cfg.BaseURL = "https://api.groq.com/openai/v1"
 	default: // ollama
 		cfg.Model = cfg.OllamaModel
 		cfg.BaseURL = cfg.OllamaHost
@@ -186,6 +203,8 @@ func (c *Config) HasAPIKey() bool {
 		return c.AnthropicKey != ""
 	case "azure":
 		return c.AzureKey != ""
+	case "groq":
+		return c.GroqKey != ""
 	default:
 		return false
 	}
@@ -209,6 +228,10 @@ func (c *Config) Validate() error {
 	case "azure":
 		if c.AzureEndpoint == "" || c.AzureKey == "" {
 			return NewProviderError("azure", ErrCodeConfiguration, "Azure OpenAI endpoint or key not set", nil)
+		}
+	case "groq":
+		if c.GroqKey == "" {
+			return NewProviderError("groq", ErrCodeConfiguration, "GROQ_API_KEY not set", nil)
 		}
 	default:
 		return NewProviderError(c.Provider, ErrCodeConfiguration, "unknown provider", nil)

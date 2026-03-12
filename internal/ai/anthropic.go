@@ -60,11 +60,11 @@ func (p *AnthropicProvider) IsAvailable(ctx context.Context) bool {
 
 // anthropicRequest is the request body for Anthropic Messages API
 type anthropicRequest struct {
-	Model     string              `json:"model"`
-	Messages  []anthropicMessage  `json:"messages"`
-	System    string              `json:"system,omitempty"`
-	MaxTokens int                 `json:"max_tokens"`
-	Stream    bool                `json:"stream,omitempty"`
+	Model     string             `json:"model"`
+	Messages  []anthropicMessage `json:"messages"`
+	System    string             `json:"system,omitempty"`
+	MaxTokens int                `json:"max_tokens"`
+	Stream    bool               `json:"stream,omitempty"`
 }
 
 type anthropicMessage struct {
