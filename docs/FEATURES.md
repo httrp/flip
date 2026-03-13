@@ -89,6 +89,8 @@ Create research notes, summaries, and improvements with AI.
 
 Reusable prompt notes live in notes/prompts. You can set a default prompt or add extra instructions per request.
 
+AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and include `## Prompt` and `## Sources` sections at the top.
+
 ### Tasks
 | Command | Description |
 |---------|-------------|

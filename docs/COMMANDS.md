@@ -136,6 +136,13 @@ flip ai summarize "Topic"
 flip ai improve notes/my-note.md
 ```
 
+### AI Note Conventions
+
+- Filename: `<short-title-slug>-YYYY-MM-DD.md` (no `research-` or `summary-` prefix)
+- Title: required; suggested from topic and can be confirmed/edited
+- Journal link label: `Title (Research: <provider>)` or `Title (Summary: <provider>)`
+- Top sections: `## Prompt` and `## Sources` are always present
+
 ### Prompt Notes
 
 Prompt notes live under notes/prompts and can be reused across AI commands.

@@ -74,10 +74,13 @@ The extension can select or create prompt notes for AI commands.
 ### Flow
 1. Pick brain
 2. Pick prompt (or create one if none exist)
-3. Optional extra instructions (multi-line editor)
-4. Run AI command
+3. Add extra instructions (multi-line editor, optional)
+4. Confirm suggested title (required)
+5. Run AI command
 
 Prompt notes are stored under notes/prompts. Default prompt notes are used automatically when set.
+
+AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and add prompt/sources sections at the top of the note.
 
 ---
 
