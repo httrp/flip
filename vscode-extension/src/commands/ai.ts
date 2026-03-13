@@ -132,6 +132,30 @@ function appendPromptArgs(args: string[], selection: PromptSelection, extra: str
   }
 }
 
+function suggestTitleFromTopic(topic: string): string {
+  const cleaned = topic.trim();
+  if (!cleaned) {
+    return '';
+  }
+
+  const stopChars = ['.', '?', '!'];
+  let candidate = cleaned;
+  for (const char of stopChars) {
+    const idx = candidate.indexOf(char);
+    if (idx > 15) {
+      candidate = candidate.slice(0, idx);
+      break;
+    }
+  }
+
+  const words = candidate.split(/\s+/).filter(Boolean);
+  if (words.length > 8) {
+    candidate = words.slice(0, 8).join(' ');
+  }
+
+  return candidate.replace(/^"|"$/g, '').trim();
+}
+
 async function selectPromptNote(brain: string): Promise<PromptSelection | undefined> {
   const client = getFlipClient();
   const result = await client.runCommand(['vscode', 'prompts', '--brain', brain]);
@@ -425,15 +449,6 @@ export async function aiResearchCommand(): Promise<void> {
     return;
   }
 
-  const title = await vscode.window.showInputBox({
-    prompt: 'Title (optional)',
-    placeHolder: 'Custom title for the note',
-  });
-
-  if (title === undefined) {
-    return;
-  }
-
   const topic = await vscode.window.showInputBox({
     prompt: 'Research topic (leave empty for interactive prompt)',
     placeHolder: 'Kubernetes networking',
@@ -445,6 +460,22 @@ export async function aiResearchCommand(): Promise<void> {
 
   if (topic.trim() === '') {
     vscode.window.showWarningMessage('Topic is required for AI research.');
+    return;
+  }
+
+  const suggestedTitle = suggestTitleFromTopic(topic.trim());
+  const title = await vscode.window.showInputBox({
+    prompt: 'Title',
+    placeHolder: 'Short, clear title for the note',
+    value: suggestedTitle,
+  });
+
+  if (title === undefined) {
+    return;
+  }
+
+  if (title.trim() === '') {
+    vscode.window.showWarningMessage('Title is required for AI research.');
     return;
   }
 
@@ -460,9 +491,7 @@ export async function aiResearchCommand(): Promise<void> {
   if (model) {
     args.push('--model', model);
   }
-  if (title.trim() !== '') {
-    args.push('--title', title.trim());
-  }
+  args.push('--title', title.trim());
 
   const result = await vscode.window.withProgress(
     {
@@ -511,15 +540,6 @@ export async function aiSummarizeCommand(): Promise<void> {
     return;
   }
 
-  const title = await vscode.window.showInputBox({
-    prompt: 'Title (optional)',
-    placeHolder: 'Custom title for the note',
-  });
-
-  if (title === undefined) {
-    return;
-  }
-
   const topic = await vscode.window.showInputBox({
     prompt: 'Summarize topic (leave empty for interactive prompt)',
     placeHolder: 'Docker best practices',
@@ -531,6 +551,22 @@ export async function aiSummarizeCommand(): Promise<void> {
 
   if (topic.trim() === '') {
     vscode.window.showWarningMessage('Topic is required for AI summary.');
+    return;
+  }
+
+  const suggestedTitle = suggestTitleFromTopic(topic.trim());
+  const title = await vscode.window.showInputBox({
+    prompt: 'Title',
+    placeHolder: 'Short, clear title for the note',
+    value: suggestedTitle,
+  });
+
+  if (title === undefined) {
+    return;
+  }
+
+  if (title.trim() === '') {
+    vscode.window.showWarningMessage('Title is required for AI summary.');
     return;
   }
 
@@ -546,9 +582,7 @@ export async function aiSummarizeCommand(): Promise<void> {
   if (model) {
     args.push('--model', model);
   }
-  if (title.trim() !== '') {
-    args.push('--title', title.trim());
-  }
+  args.push('--title', title.trim());
 
   const result = await vscode.window.withProgress(
     {

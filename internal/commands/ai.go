@@ -493,23 +493,20 @@ Keep the summary concise but comprehensive.`
 	}
 
 	// Save to file
-	filename := outputPath
-	if filename == "" {
-		// Generate filename
-		slug := strings.ToLower(strings.ReplaceAll(topic, " ", "-"))
-		if len(slug) > 30 {
-			slug = slug[:30]
-		}
-		filename = fmt.Sprintf("summary-%s-%s.md", slug, time.Now().Format("2006-01-02"))
+	noteDate := time.Now().Format("2006-01-02")
+	noteDir := filepath.Join(targetBrain.Path, "notes")
+
+	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
+	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
+	if err != nil {
+		return err
 	}
 
 	// Use selected target brain for output
-	outputPath = filepath.Join(targetBrain.Path, "notes", filename)
-
-	// Resolve note title
-	noteTitle := title
-	if noteTitle == "" {
-		noteTitle = fmt.Sprintf("Summary: %s", topic)
+	if outputPath == "" {
+		outputPath = filepath.Join(targetBrain.Path, "notes", filename)
+	} else if !filepath.IsAbs(outputPath) {
+		outputPath = filepath.Join(targetBrain.Path, "notes", outputPath)
 	}
 
 	// Get AI config for metadata
@@ -522,25 +519,30 @@ Keep the summary concise but comprehensive.`
 		relPrompt := relativePathFromBrain(promptNote.Path, targetBrain.Path)
 		promptMeta = fmt.Sprintf("prompt_note: \"%s\"\n", filepath.ToSlash(relPrompt))
 	}
+	if strings.TrimSpace(promptExtra) != "" {
+		promptMeta += "prompt_extra: true\n"
+	}
 
 	// Create frontmatter with AI metadata
-	frontmatter := fmt.Sprintf(`---
+frontmatter := fmt.Sprintf(`---
 title: "%s"
 date: %s
 type: summary
 topic: "%s"
 sources: %d notes
 ai_generated: true
+ai_action: summary
+ai_created_at: "%s"
 ai_provider: "%s"
 ai_model: "%s"
 %s---
 
-`, noteTitle, time.Now().Format("2006-01-02"), topic, noteCount, cfg.Provider, usedModel, promptMeta)
+`, noteTitle, noteDate, topic, noteCount, time.Now().Format(time.RFC3339), cfg.Provider, usedModel, promptMeta)
 
-	// Append sources section
-	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra)
-	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes)
-	finalContent := result.String() + promptSection + sourcesSection
+	// Append sources/prompts section at the top
+	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
+	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes, true)
+	finalContent := promptSection + sourcesSection + result.String()
 
 	// Write file
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
@@ -568,9 +570,10 @@ ai_model: "%s"
 	// Add link to journal
 	if !noLink {
 		relPath := relativePathFromBrain(outputPath, targetBrain.Path)
+		linkTitle := formatAILinkTitle(noteTitle, "Summary", cfg.Provider)
 		if err := AddLinkToJournal(JournalLinkOptions{
 			ItemType:    "note",
-			ItemName:    noteTitle,
+			ItemName:    linkTitle,
 			ItemPath:    relPath,
 			Brain:       targetBrain,
 			Interactive: !link,
@@ -583,12 +586,16 @@ ai_model: "%s"
 	return nil
 }
 
-func buildSummarySourcesSection(summaryPath string, targetBrain *Brain, sources []summarySourceNote) string {
-	if len(sources) == 0 {
+func buildSummarySourcesSection(summaryPath string, targetBrain *Brain, sources []summarySourceNote, force bool) string {
+	if len(sources) == 0 && !force {
 		return ""
 	}
 
 	lines := []string{"", "", "## Sources"}
+	if len(sources) == 0 {
+		lines = append(lines, "- None")
+		return strings.Join(lines, "\n")
+	}
 	for _, source := range sources {
 		label := source.Title
 		if source.BrainName != "" && source.BrainName != targetBrain.Name {
@@ -609,8 +616,8 @@ func buildSummarySourcesSection(summaryPath string, targetBrain *Brain, sources 
 	return strings.Join(lines, "\n")
 }
 
-func buildPromptSection(notePath string, targetBrain *Brain, promptNote *PromptNoteInfo, promptExtra string) string {
-	if promptNote == nil && strings.TrimSpace(promptExtra) == "" {
+func buildPromptSection(notePath string, targetBrain *Brain, promptNote *PromptNoteInfo, promptExtra string, force bool) string {
+	if promptNote == nil && strings.TrimSpace(promptExtra) == "" && !force {
 		return ""
 	}
 
@@ -635,6 +642,9 @@ func buildPromptSection(notePath string, targetBrain *Brain, promptNote *PromptN
 	extra := strings.TrimSpace(promptExtra)
 	if extra != "" {
 		lines = append(lines, "", "### Extra Instructions", "", extra)
+	}
+	if promptNote == nil && extra == "" {
+		lines = append(lines, "- None")
 	}
 
 	return strings.Join(lines, "\n")
@@ -900,28 +910,20 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	}
 
 	// Save to file
-	filename := outputPath
-	if filename == "" {
-		slug := strings.ToLower(strings.ReplaceAll(topic, " ", "-"))
-		slug = strings.Map(func(r rune) rune {
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-				return r
-			}
-			return '-'
-		}, slug)
-		if len(slug) > 40 {
-			slug = slug[:40]
-		}
-		filename = fmt.Sprintf("research-%s-%s.md", slug, time.Now().Format("2006-01-02"))
+	noteDate := time.Now().Format("2006-01-02")
+	noteDir := filepath.Join(targetBrain.Path, "notes")
+
+	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
+	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
+	if err != nil {
+		return err
 	}
 
 	// Use selected target brain for output
-	outputPath = filepath.Join(targetBrain.Path, "notes", filename)
-
-	// Resolve note title
-	noteTitle := title
-	if noteTitle == "" {
-		noteTitle = topic
+	if outputPath == "" {
+		outputPath = filepath.Join(targetBrain.Path, "notes", filename)
+	} else if !filepath.IsAbs(outputPath) {
+		outputPath = filepath.Join(targetBrain.Path, "notes", outputPath)
 	}
 
 	// Get AI config for metadata
@@ -934,22 +936,28 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 		relPrompt := relativePathFromBrain(promptNote.Path, targetBrain.Path)
 		promptMeta = fmt.Sprintf("prompt_note: \"%s\"\n", filepath.ToSlash(relPrompt))
 	}
+	if strings.TrimSpace(promptExtra) != "" {
+		promptMeta += "prompt_extra: true\n"
+	}
 
 	// Create frontmatter with AI metadata
-	frontmatter := fmt.Sprintf(`---
+frontmatter := fmt.Sprintf(`---
 title: "%s"
 date: %s
 type: research
 topic: "%s"
 ai_generated: true
+ai_action: research
+ai_created_at: "%s"
 ai_provider: "%s"
 ai_model: "%s"
 %s---
 
-`, noteTitle, time.Now().Format("2006-01-02"), topic, cfg.Provider, usedModel, promptMeta)
+`, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), cfg.Provider, usedModel, promptMeta)
 
-	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra)
-	finalContent := promptSection + result.String()
+	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
+	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, nil, true)
+	finalContent := promptSection + sourcesSection + result.String()
 
 	// Write file
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
@@ -977,9 +985,10 @@ ai_model: "%s"
 	// Add link to journal
 	if !noLink {
 		relPath := relativePathFromBrain(outputPath, targetBrain.Path)
+		linkTitle := formatAILinkTitle(noteTitle, "Research", cfg.Provider)
 		if err := AddLinkToJournal(JournalLinkOptions{
 			ItemType:    "note",
-			ItemName:    noteTitle,
+			ItemName:    linkTitle,
 			ItemPath:    relPath,
 			Brain:       targetBrain,
 			Interactive: !link,
@@ -1311,6 +1320,128 @@ func applyPromptStack(systemPrompt string, promptContent string, promptExtra str
 	}
 	parts = append(parts, systemPrompt)
 	return strings.Join(parts, "\n\n")
+}
+
+func resolveAITitleAndFilename(topic string, title string, targetDir string, dateStr string, interactive bool) (string, string, error) {
+	resolvedTitle := strings.TrimSpace(title)
+	if resolvedTitle == "" {
+		resolvedTitle = suggestTitleFromTopic(topic)
+	}
+
+	if interactive {
+		prompt := promptui.Prompt{
+			Label:   "Title",
+			Default: resolvedTitle,
+			Validate: func(input string) error {
+				if strings.TrimSpace(input) == "" {
+					return fmt.Errorf("title cannot be empty")
+				}
+				filename := aiFilenameFromTitle(strings.TrimSpace(input), dateStr)
+				if aiFileExists(filepath.Join(targetDir, filename)) {
+					return fmt.Errorf("a note with this title already exists")
+				}
+				return nil
+			},
+		}
+		value, err := prompt.Run()
+		if err != nil {
+			return "", "", err
+		}
+		resolvedTitle = strings.TrimSpace(value)
+		filename := aiFilenameFromTitle(resolvedTitle, dateStr)
+		return resolvedTitle, filename, nil
+	}
+
+	slug := aiSlugFromTitle(resolvedTitle)
+	filename := uniqueAIFilename(slug, dateStr, targetDir)
+	return resolvedTitle, filename, nil
+}
+
+func suggestTitleFromTopic(topic string) string {
+	cleaned := strings.TrimSpace(topic)
+	if cleaned == "" {
+		return "New Note"
+	}
+
+	for _, sep := range []string{".", "?", "!"} {
+		if idx := strings.Index(cleaned, sep); idx > 15 {
+			cleaned = cleaned[:idx]
+			break
+		}
+	}
+
+	words := strings.Fields(cleaned)
+	if len(words) > 8 {
+		cleaned = strings.Join(words[:8], " ")
+	}
+
+	cleaned = strings.Trim(cleaned, "\"'")
+	if cleaned == "" {
+		return "New Note"
+	}
+	return cleaned
+}
+
+func aiFilenameFromTitle(title string, dateStr string) string {
+	slug := aiSlugFromTitle(title)
+	if slug == "" {
+		slug = "note"
+	}
+	return fmt.Sprintf("%s-%s.md", slug, dateStr)
+}
+
+func aiSlugFromTitle(title string) string {
+	input := strings.ToLower(strings.TrimSpace(title))
+	if input == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	lastDash := false
+	for _, r := range input {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash {
+			b.WriteRune('-')
+			lastDash = true
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if len(slug) > 40 {
+		slug = slug[:40]
+		slug = strings.Trim(slug, "-")
+	}
+	return slug
+}
+
+func uniqueAIFilename(slug string, dateStr string, targetDir string) string {
+	base := fmt.Sprintf("%s-%s.md", slug, dateStr)
+	if !aiFileExists(filepath.Join(targetDir, base)) {
+		return base
+	}
+	for i := 2; i < 1000; i++ {
+		candidate := fmt.Sprintf("%s-%d-%s.md", slug, i, dateStr)
+		if !aiFileExists(filepath.Join(targetDir, candidate)) {
+			return candidate
+		}
+	}
+	return fmt.Sprintf("%s-%s.md", slug, dateStr)
+}
+
+func aiFileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func formatAILinkTitle(title string, action string, provider string) string {
+	if provider == "" {
+		return title
+	}
+	return fmt.Sprintf("%s (%s: %s)", title, action, provider)
 }
 
 func resolveBrainForFile(filePath string) (*Brain, brain.BrainType) {
