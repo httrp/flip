@@ -197,7 +197,11 @@ func runCreateNoteNonInteractive(opts NoteOptions) error {
 	}
 
 	// Generate content with tags
-	content := generateNoteContentWithTags(opts.Title, opts.Tags, detection.Type, activeBrain.Path)
+	templateType := templates.TemplateTypeNote
+	if isPromptTargetDir(targetDir) || strings.EqualFold(opts.Subfolder, "prompts") {
+		templateType = templates.TemplateTypePrompt
+	}
+	content := generateNoteContentWithTags(opts.Title, opts.Tags, detection.Type, activeBrain.Path, templateType)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -248,7 +252,7 @@ func runCreateNoteNonInteractive(opts NoteOptions) error {
 }
 
 // generateNoteContentWithTags creates note content with tags
-func generateNoteContentWithTags(title string, tags []string, brainType brain.BrainType, brainPath string) string {
+func generateNoteContentWithTags(title string, tags []string, brainType brain.BrainType, brainPath string, templateType templates.TemplateType) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 
@@ -260,7 +264,11 @@ func generateNoteContentWithTags(title string, tags []string, brainType brain.Br
 	// Format tags based on brain type
 	var tagsStr string
 	if len(tags) == 0 {
-		tags = []string{"note"}
+		if templateType == templates.TemplateTypePrompt {
+			tags = []string{"prompt"}
+		} else {
+			tags = []string{"note"}
+		}
 	}
 
 	switch brainType {
@@ -273,10 +281,10 @@ func generateNoteContentWithTags(title string, tags []string, brainType brain.Br
 	}
 
 	// Try to load template
-	tmpl, err := templates.Load(brainType, templates.TemplateTypeNote)
+	tmpl, err := templates.Load(brainType, templateType)
 	if err != nil {
 		// Use inline template with tags
-		return generateDefaultNoteContentWithTags(title, tagsStr, brainType, author, dateStr)
+		return generateDefaultNoteContentWithTags(title, tagsStr, brainType, author, dateStr, templateType)
 	}
 
 	// Prepare template variables
@@ -294,9 +302,26 @@ func generateNoteContentWithTags(title string, tags []string, brainType brain.Br
 }
 
 // generateDefaultNoteContentWithTags provides fallback templates with tags
-func generateDefaultNoteContentWithTags(title, tags string, brainType brain.BrainType, author, dateStr string) string {
+func generateDefaultNoteContentWithTags(title, tags string, brainType brain.BrainType, author, dateStr string, templateType templates.TemplateType) string {
 	switch brainType {
 	case brain.BrainTypeLogseq:
+		if templateType == templates.TemplateTypePrompt {
+			return fmt.Sprintf(`- title:: %s
+- created:: %s
+- type:: prompt
+- tags:: %s
+
+- # %s
+	- ## Role
+		- 
+	- ## Instructions
+		- 
+	- ## Output
+		- 
+	- ## Constraints
+		- 
+`, title, dateStr, tags, title)
+		}
 		return fmt.Sprintf(`- title:: %s
 - created:: %s
 - author:: %s
@@ -307,6 +332,26 @@ func generateDefaultNoteContentWithTags(title, tags string, brainType brain.Brai
 `, title, dateStr, author, tags, title)
 
 	case brain.BrainTypeObsidian:
+		if templateType == templates.TemplateTypePrompt {
+			return fmt.Sprintf(`---
+title: %s
+created: %s
+type: prompt
+tags: %s
+---
+
+# %s
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`, title, dateStr, tags, title)
+		}
 		return fmt.Sprintf(`---
 title: %s
 created: %s
@@ -319,6 +364,26 @@ tags: %s
 `, title, dateStr, author, tags, title)
 
 	default:
+		if templateType == templates.TemplateTypePrompt {
+			return fmt.Sprintf(`---
+title: %s
+created: %s
+type: prompt
+tags: %s
+---
+
+# %s
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`, title, dateStr, tags, title)
+		}
 		return fmt.Sprintf(`---
 title: %s
 created: %s
@@ -423,7 +488,11 @@ func runCreateNote() error {
 	fmt.Printf("   Location: %s\n\n", targetDir)
 
 	// Generate content based on brain type
-	content := generateNoteContent(title, detection.Type, activeBrain.Path)
+	templateType := templates.TemplateTypeNote
+	if isPromptTargetDir(targetDir) {
+		templateType = templates.TemplateTypePrompt
+	}
+	content := generateNoteContent(title, detection.Type, activeBrain.Path, templateType)
 
 	// STEP 5: Write file (only after title is confirmed)
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -553,7 +622,7 @@ func generateNoteFilename(title string, brainType brain.BrainType) string {
 // are now in content_common.go
 
 // generateNoteContent creates note content with appropriate frontmatter/metadata
-func generateNoteContent(title string, brainType brain.BrainType, brainPath string) string {
+func generateNoteContent(title string, brainType brain.BrainType, brainPath string, templateType templates.TemplateType) string {
 	now := time.Now()
 	dateStr := now.Format("2006-01-02")
 
@@ -564,7 +633,7 @@ func generateNoteContent(title string, brainType brain.BrainType, brainPath stri
 	}
 
 	// Load template (falls back to embedded defaults automatically)
-	tmpl, _ := templates.Load(brainType, templates.TemplateTypeNote)
+	tmpl, _ := templates.Load(brainType, templateType)
 
 	// Prepare template variables
 	vars := map[string]string{
@@ -578,6 +647,10 @@ func generateNoteContent(title string, brainType brain.BrainType, brainPath stri
 	}
 
 	return templates.Render(tmpl, vars)
+}
+
+func isPromptTargetDir(targetDir string) bool {
+	return strings.EqualFold(filepath.Base(targetDir), "prompts")
 }
 
 // promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor

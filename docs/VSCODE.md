@@ -48,6 +48,7 @@ For deeper integration, install the flip VS Code extension:
 - Status bar showing active brain
 - Native VS Code dialogs for note/task creation
 - Quick Pick for brain switching
+- AI research/summarize/improve with prompt notes
 
 ### Installation
 
@@ -63,6 +64,20 @@ npm run compile
 make package-extension
 make install-extension   # detects code/codium/code-insiders
 ```
+
+---
+
+## AI Prompt Notes
+
+The extension can select or create prompt notes for AI commands.
+
+### Flow
+1. Pick brain
+2. Pick prompt (or create one if none exist)
+3. Optional extra instructions (multi-line editor)
+4. Run AI command
+
+Prompt notes are stored under notes/prompts. Default prompt notes are used automatically when set.
 
 ---
 

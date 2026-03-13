@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.3.18",
+  "version": "0.3.20",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -54,6 +54,22 @@
       {
         "command": "flip.status",
         "title": "Flip: Show Status"
+      },
+      {
+        "command": "flip.aiStatus",
+        "title": "Flip: AI Status"
+      },
+      {
+        "command": "flip.aiResearch",
+        "title": "Flip: AI Research"
+      },
+      {
+        "command": "flip.aiSummarize",
+        "title": "Flip: AI Summarize"
+      },
+      {
+        "command": "flip.aiImprove",
+        "title": "Flip: AI Improve Note"
       },
       {
         "command": "flip.brainHealth",
@@ -289,6 +305,11 @@
           "type": "number",
           "default": 10000,
           "description": "Timeout for flip commands in milliseconds"
+        },
+        "flip.aiTimeout": {
+          "type": "number",
+          "default": 180,
+          "description": "Timeout for AI commands in seconds"
         },
         "flip.showStatusBar": {
           "type": "boolean",

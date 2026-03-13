@@ -28,6 +28,7 @@ const (
 	TemplateTypeMeeting      TemplateType = "meeting"
 	TemplateTypeJournal      TemplateType = "journal"
 	TemplateTypeTask         TemplateType = "task"
+	TemplateTypePrompt       TemplateType = "prompt"
 	TemplateTypeExercise     TemplateType = "exercise"
 	TemplateTypeExercisePlan TemplateType = "exercise-plan"
 )
@@ -170,6 +171,25 @@ tags: [task]
 ## Notes
 
 `,
+
+	TemplateTypePrompt: `---
+title: {{title}}
+created: {{date}}
+type: prompt
+tags: [prompt]
+---
+
+# {{title}}
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`,
 }
 
 var obsidianDefaults = map[TemplateType]string{
@@ -239,6 +259,25 @@ tags:
 ## Notes
 
 `,
+
+	TemplateTypePrompt: `---
+title: {{title}}
+created: {{date}}
+type: prompt
+tags: [prompt]
+---
+
+# {{title}}
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`,
 }
 
 var logseqDefaults = map[TemplateType]string{
@@ -287,6 +326,22 @@ var logseqDefaults = map[TemplateType]string{
 	- ## Description
 		- 
 	- ## Notes
+		- 
+`,
+
+	TemplateTypePrompt: `- title:: {{title}}
+- created:: {{date}}
+- type:: prompt
+- tags:: prompt
+
+- # {{title}}
+	- ## Role
+		- 
+	- ## Instructions
+		- 
+	- ## Output
+		- 
+	- ## Constraints
 		- 
 `,
 }
@@ -360,6 +415,28 @@ priority: normal
 ## Notes
 
 `,
+
+	TemplateTypePrompt: `---
+id: {{id}}
+title: {{title}}
+created: {{created}}
+updated: {{updated}}
+type: prompt
+tags:
+  - prompt
+---
+
+# {{title}}
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`,
 }
 
 var foamDefaults = map[TemplateType]string{
@@ -429,6 +506,25 @@ tags:
 ## Notes
 
 `,
+
+	TemplateTypePrompt: `---
+title: {{title}}
+date: {{date}}
+type: prompt
+tags: [prompt]
+---
+
+# {{title}}
+
+## Role
+
+## Instructions
+
+## Output
+
+## Constraints
+
+`,
 }
 
 // ============================================================================
@@ -455,6 +551,7 @@ func InitTemplates() error {
 		TemplateTypeMeeting,
 		TemplateTypeJournal,
 		TemplateTypeTask,
+		TemplateTypePrompt,
 	}
 
 	for _, bt := range brainTypes {
@@ -508,6 +605,7 @@ func ResetBrainTemplates(brainType brain.BrainType) error {
 		TemplateTypeMeeting,
 		TemplateTypeJournal,
 		TemplateTypeTask,
+		TemplateTypePrompt,
 	}
 
 	for _, tt := range templateTypes {
@@ -570,6 +668,7 @@ func ListTemplates(brainType brain.BrainType) ([]TemplateType, error) {
 			TemplateTypeMeeting,
 			TemplateTypeJournal,
 			TemplateTypeTask,
+			TemplateTypePrompt,
 		}, nil
 	}
 

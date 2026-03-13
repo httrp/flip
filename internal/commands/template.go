@@ -119,7 +119,7 @@ func editTemplateFlow() error {
 	// Select template type
 	templatePrompt := promptui.Select{
 		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task"},
+		Items: []string{"note", "meeting", "journal", "task", "prompt"},
 	}
 
 	templateIdx, _, err := templatePrompt.Run()
@@ -137,6 +137,8 @@ func editTemplateFlow() error {
 		templateType = templates.TemplateTypeJournal
 	case 3:
 		templateType = templates.TemplateTypeTask
+	case 4:
+		templateType = templates.TemplateTypePrompt
 	}
 
 	// Get template path
@@ -251,7 +253,7 @@ func viewTemplateFlow() error {
 	// Select template type
 	templatePrompt := promptui.Select{
 		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task"},
+		Items: []string{"note", "meeting", "journal", "task", "prompt"},
 	}
 
 	templateIdx, _, err := templatePrompt.Run()
@@ -269,6 +271,8 @@ func viewTemplateFlow() error {
 		templateType = templates.TemplateTypeJournal
 	case 3:
 		templateType = templates.TemplateTypeTask
+	case 4:
+		templateType = templates.TemplateTypePrompt
 	}
 
 	// Load and display template
@@ -360,7 +364,7 @@ func resetTemplateFlow() error {
 	// Reset single template
 	templatePrompt := promptui.Select{
 		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task"},
+		Items: []string{"note", "meeting", "journal", "task", "prompt"},
 	}
 
 	templateIdx, templateStr, err := templatePrompt.Run()
@@ -378,6 +382,8 @@ func resetTemplateFlow() error {
 		templateType = templates.TemplateTypeJournal
 	case 3:
 		templateType = templates.TemplateTypeTask
+	case 4:
+		templateType = templates.TemplateTypePrompt
 	}
 
 	// Confirm reset
@@ -429,6 +435,7 @@ func showTemplateDirectoryFlow() error {
 	fmt.Println("  - meeting.md   (Meeting notes)")
 	fmt.Println("  - journal.md   (Daily journal/notes)")
 	fmt.Println("  - task.md      (Task notes)")
+	fmt.Println("  - prompt.md    (Prompt notes)")
 	fmt.Println()
 
 	// Offer to open in file browser

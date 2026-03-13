@@ -68,6 +68,8 @@ func parseTemplateType(s string) templates.TemplateType {
 		return templates.TemplateTypeJournal
 	case "task":
 		return templates.TemplateTypeTask
+	case "prompt":
+		return templates.TemplateTypePrompt
 	default:
 		return templates.TemplateTypeNote
 	}
@@ -93,6 +95,7 @@ func newVSCodeTemplateListCommand() *cobra.Command {
 				templates.TemplateTypeMeeting,
 				templates.TemplateTypeJournal,
 				templates.TemplateTypeTask,
+				templates.TemplateTypePrompt,
 			}
 
 			var infos []TemplateInfo
@@ -158,7 +161,7 @@ func newVSCodeTemplateGetCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&brainTypeStr, "brain-type", "flip", "Brain type (flip, obsidian, logseq, dendron, foam)")
-	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task)")
+	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task, prompt)")
 
 	return cmd
 }
@@ -191,7 +194,7 @@ func newVSCodeTemplateGetDefaultCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&brainTypeStr, "brain-type", "flip", "Brain type (flip, obsidian, logseq, dendron, foam)")
-	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task)")
+	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task, prompt)")
 
 	return cmd
 }
@@ -244,7 +247,7 @@ func newVSCodeTemplateResetCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&brainTypeStr, "brain-type", "flip", "Brain type (flip, obsidian, logseq, dendron, foam)")
-	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task)")
+	cmd.Flags().StringVar(&templateTypeStr, "template-type", "note", "Template type (note, meeting, journal, task, prompt)")
 	cmd.Flags().BoolVar(&all, "all", false, "Reset all templates for the brain type")
 
 	return cmd

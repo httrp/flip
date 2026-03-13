@@ -12,6 +12,7 @@
 - 🏋️ **Exercise Tracking** - Practice sessions, plans, progress
 - 🔗 **Multi-Brain** - Connect and switch between knowledge bases
 - 🎨 **VS Code Integration** - Tasks, commands, status bar
+- 🤖 **AI Assist** - Research, summaries, and improvements
 
 ## Quick Start
 

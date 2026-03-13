@@ -9,6 +9,7 @@ package ai
 // Models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768
 
 import (
+	"context"
 	"net/http"
 	"time"
 )
@@ -48,6 +49,11 @@ func NewGroqProvider(cfg *Config) *GroqProvider {
 
 func (p *GroqProvider) Name() string {
 	return "groq"
+}
+
+// ListModels returns the available Groq models without API calls.
+func (p *GroqProvider) ListModels(ctx context.Context) ([]ModelInfo, error) {
+	return GroqModels(), nil
 }
 
 // GroqModels returns the list of available Groq models

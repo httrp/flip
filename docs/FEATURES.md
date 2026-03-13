@@ -73,6 +73,22 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 |---------|-------------|
 | `flip meeting-note` | Create meeting note |
 
+---
+
+## 🤖 AI Assist
+
+Create research notes, summaries, and improvements with AI.
+
+| Command | Description |
+|---------|-------------|
+| `flip ai research` | Create research note from topic |
+| `flip ai summarize` | Summarize notes about a topic |
+| `flip ai improve` | Improve an existing note |
+
+### Prompt Notes
+
+Reusable prompt notes live in notes/prompts. You can set a default prompt or add extra instructions per request.
+
 ### Tasks
 | Command | Description |
 |---------|-------------|
@@ -176,6 +192,7 @@ Manage reusable metadata for tasks and notes.
 - `journal-template.md`
 - `meeting-template.md`
 - `task-template.md`
+- `prompt-template.md`
 - `exercise-template.md`
 - `exercise-plan-template.md`
 

@@ -241,6 +241,7 @@ func inferTypeFromPath(filePath string) string {
 		{"/sessions/", "session"},
 		{"/tasks/", "task"},
 		{"/todo/", "task"},
+		{"/prompts/", "prompt"},
 		{"/notes/", "note"},
 		{"/journal/", "journal"},
 		{"/journals/", "journal"},
@@ -350,6 +351,8 @@ func getTypeIcon(fileType string) string {
 		return "📔"
 	case "meeting":
 		return "👥"
+	case "prompt":
+		return "💡"
 	case "non-markdown":
 		return "📎"
 	default:

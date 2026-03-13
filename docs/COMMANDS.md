@@ -121,6 +121,51 @@ flip meeting-note
 
 ---
 
+## AI Commands
+
+AI-powered research, summaries, and improvements.
+
+```bash
+# Research a topic
+flip ai research "Topic"
+
+# Summarize notes about a topic
+flip ai summarize "Topic"
+
+# Improve a note
+flip ai improve notes/my-note.md
+```
+
+### Prompt Notes
+
+Prompt notes live under notes/prompts and can be reused across AI commands.
+
+```bash
+# Create a prompt note
+flip note --subfolder prompts --title "Research (Deep)"
+```
+
+### Useful Flags
+
+```bash
+# Select prompt note (path or name)
+--prompt "Research (Deep)"
+
+# Add extra instructions for this request
+--prompt-extra "Focus on 2025-2026 trends"
+
+# Create a prompt note on the fly
+--prompt-create-title "Research (Deep)"
+--prompt-create-body "Structured research with sources and risks"
+--prompt-create-default
+
+# Override model and timeout
+--model "llama3.2"
+--timeout 240
+```
+
+---
+
 ## Task Management
 
 Tasks can live in any markdown file or dedicated task files.

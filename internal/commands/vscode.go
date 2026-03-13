@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/assets"
+	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/tasks"
 	"github.com/spf13/cobra"
 )
@@ -42,6 +43,7 @@ func NewVSCodeCommand() *cobra.Command {
 	cmd.AddCommand(newVSCodeUninstallCommand())
 	cmd.AddCommand(newVSCodeInfoCommand())
 	cmd.AddCommand(newVSCodeNotesCommand())
+	cmd.AddCommand(newVSCodePromptsCommand())
 	cmd.AddCommand(newVSCodeTasksCommand())
 	cmd.AddCommand(newVSCodeSearchCommand())
 	cmd.AddCommand(newVSCodeRecentCommand())
@@ -93,6 +95,26 @@ type NotesResult struct {
 	LinkSyntax string     `json:"link_syntax"` // e.g., "[[name]]" or "[name](path)"
 }
 
+// PromptInfo represents a prompt note for VS Code extension
+type PromptInfo struct {
+	Name      string `json:"name"`
+	Title     string `json:"title"`
+	Path      string `json:"path"`
+	RelPath   string `json:"rel_path"`
+	IsDefault bool   `json:"is_default"`
+	BrainName string `json:"brain_name"`
+	BrainType string `json:"brain_type"`
+}
+
+// PromptsResult is returned by vscode prompts command
+type PromptsResult struct {
+	Prompts       []PromptInfo `json:"prompts"`
+	BrainName     string       `json:"brain_name"`
+	BrainType     string       `json:"brain_type"`
+	BrainPath     string       `json:"brain_path"`
+	DefaultPrompt string       `json:"default_prompt,omitempty"`
+}
+
 func newVSCodeNotesCommand() *cobra.Command {
 	var brainName string
 
@@ -105,6 +127,22 @@ func newVSCodeNotesCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to list notes from (default: active)")
+	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
+	return cmd
+}
+
+func newVSCodePromptsCommand() *cobra.Command {
+	var brainName string
+
+	cmd := &cobra.Command{
+		Use:   "prompts",
+		Short: "List prompt notes for VS Code extension (JSON)",
+		Long:  "Returns JSON list of prompt notes with default selection if available",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVSCodePrompts(brainName)
+		},
+	}
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to list prompts from (default: active)")
 	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
 	return cmd
 }
@@ -223,6 +261,74 @@ func runVSCodeNotes(brainName string) error {
 	}
 
 	OutputJSONSuccess("vscode-notes", result)
+	return nil
+}
+
+func runVSCodePrompts(brainName string) error {
+	config, err := loadWorkspaceConfig()
+	if err != nil {
+		OutputJSONError("vscode-prompts", err)
+		return nil
+	}
+
+	// Find the target brain
+	var targetBrain *Brain
+	for _, ws := range config.Workspaces {
+		if ws.Name == config.ActiveWorkspace {
+			for i, b := range ws.Brains {
+				if brainName == "" && b.Name == ws.DefaultBrain {
+					targetBrain = &ws.Brains[i]
+					break
+				} else if b.Name == brainName {
+					targetBrain = &ws.Brains[i]
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if targetBrain == nil {
+		OutputJSONError("vscode-prompts", fmt.Errorf("brain not found"))
+		return nil
+	}
+
+	brainType := brain.BrainType(targetBrain.Type)
+	detector := brain.NewDetector()
+	if detection, err := detector.DetectBrainType(targetBrain.Path); err == nil {
+		brainType = detection.Type
+	}
+
+	prompts, defaultPrompt, err := findPromptNotes(targetBrain.Path, brainType)
+	if err != nil {
+		OutputJSONError("vscode-prompts", err)
+		return nil
+	}
+
+	result := PromptsResult{
+		Prompts:   []PromptInfo{},
+		BrainName: targetBrain.Name,
+		BrainType: targetBrain.Type,
+		BrainPath: targetBrain.Path,
+	}
+
+	if defaultPrompt != nil {
+		result.DefaultPrompt = defaultPrompt.Path
+	}
+
+	for _, prompt := range prompts {
+		result.Prompts = append(result.Prompts, PromptInfo{
+			Name:      prompt.Name,
+			Title:     prompt.Title,
+			Path:      prompt.Path,
+			RelPath:   prompt.RelPath,
+			IsDefault: prompt.IsDefault,
+			BrainName: targetBrain.Name,
+			BrainType: targetBrain.Type,
+		})
+	}
+
+	OutputJSONSuccess("vscode-prompts", result)
 	return nil
 }
 

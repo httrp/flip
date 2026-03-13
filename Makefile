@@ -16,7 +16,7 @@ EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | 
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
 VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks
+.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install
 
 # Default: show help
 help:
@@ -42,6 +42,11 @@ help:
 	@echo "  make clean-cli           Clean CLI binary only"
 	@echo "  make clean-extension     Clean Extension build files"
 	@echo "  make uninstall           Remove installed flip"
+	@echo "  make bump-extension      Bump extension version (patch)"
+	@echo "  make bump-extension-patch Bump extension version (patch)"
+	@echo "  make bump-extension-minor Bump extension version (minor)"
+	@echo "  make bump-extension-major Bump extension version (major)"
+	@echo "  make bump-extension-install Bump (patch) + build + install extension"
 
 # Full setup: build + install CLI + install extension (for new machines)
 setup: build install install-extension
@@ -69,6 +74,26 @@ build: sync-version build-cli build-extension
 # Sync extension version between package.json and Go
 sync-version:
 	@bash scripts/sync-extension-version.sh
+
+# Bump extension version (package.json only), then sync Go const
+bump-extension: bump-extension-patch
+
+bump-extension-patch:
+	@cd $(VSIX_DIR) && npm version patch --no-git-tag-version
+	@$(MAKE) sync-version
+	@echo "✓ Extension version bumped (patch)"
+
+bump-extension-minor:
+	@cd $(VSIX_DIR) && npm version minor --no-git-tag-version
+	@$(MAKE) sync-version
+	@echo "✓ Extension version bumped (minor)"
+
+bump-extension-major:
+	@cd $(VSIX_DIR) && npm version major --no-git-tag-version
+	@$(MAKE) sync-version
+	@echo "✓ Extension version bumped (major)"
+
+bump-extension-install: bump-extension-patch build install-extension
 
 # Build CLI only
 build-cli:

@@ -62,6 +62,11 @@ function findFlipExecutable(): string {
   return 'flip';
 }
 
+// Expose the resolved executable path for non-JSON commands.
+export function getFlipExecutablePath(): string {
+  return findFlipExecutable();
+}
+
 /**
  * Result from flip CLI command
  */
@@ -118,6 +123,24 @@ export interface NoteResult {
   brain_name: string;
   brain_path: string;
   brain_type: string;
+}
+
+export interface PromptNoteInfo {
+  name: string;
+  title: string;
+  path: string;
+  rel_path: string;
+  is_default: boolean;
+  brain_name: string;
+  brain_type: string;
+}
+
+export interface PromptsResult {
+  prompts: PromptNoteInfo[];
+  brain_name: string;
+  brain_type: string;
+  brain_path: string;
+  default_prompt?: string;
 }
 
 /**
@@ -518,7 +541,7 @@ export class FlipClient {
   /**
    * Execute a flip command and return parsed JSON result
    */
-  private async execute<T>(args: string[]): Promise<FlipResult<T>> {
+  private async execute<T>(args: string[], timeoutOverride?: number): Promise<FlipResult<T>> {
     // Add --json flag to args and use execFile instead of shell string concatenation
     const allArgs = [...args, '--json'];
      
@@ -528,7 +551,7 @@ export class FlipClient {
       
       try {
          const result = await execFileAsync(this.executablePath, allArgs, { 
-           timeout: this.timeout,
+           timeout: timeoutOverride ?? this.timeout,
            env: { ...process.env, TERM_PROGRAM: 'vscode' }
          });
         stdout = result.stdout;
@@ -1233,8 +1256,8 @@ export class FlipClient {
   /**
    * Execute arbitrary flip command
    */
-  async runCommand(args: string[]): Promise<FlipResult<any>> {
-    return this.execute<any>(args);
+  async runCommand(args: string[], timeoutOverride?: number): Promise<FlipResult<any>> {
+    return this.execute<any>(args, timeoutOverride);
   }
 
   /**

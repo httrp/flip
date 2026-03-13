@@ -16,6 +16,7 @@ import { brainHealthCheck } from './commands/brain-health';
 import { brainRestore } from './commands/brain-restore';
 import { brainRelocate } from './commands/brain-relocate';
 import { mediaNormalize } from './commands/media-normalize';
+import { aiStatusCommand, aiResearchCommand, aiSummarizeCommand, aiImproveCommand } from './commands/ai';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
@@ -42,6 +43,10 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.taskBrowse', () => browseTasksPanel(context.extensionUri)),
     vscode.commands.registerCommand('flip.status', showStatus),
     vscode.commands.registerCommand('flip.switchBrain', switchBrain),
+    vscode.commands.registerCommand('flip.aiStatus', aiStatusCommand),
+    vscode.commands.registerCommand('flip.aiResearch', aiResearchCommand),
+    vscode.commands.registerCommand('flip.aiSummarize', aiSummarizeCommand),
+    vscode.commands.registerCommand('flip.aiImprove', aiImproveCommand),
     vscode.commands.registerCommand('flip.insertLink', insertLink),
     vscode.commands.registerCommand('flip.addToJournal', addCurrentFileToJournal),
     
