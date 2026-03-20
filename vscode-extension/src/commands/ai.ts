@@ -5,6 +5,7 @@ import * as fs from 'fs/promises';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getFlipClient, BrainInfo, getFlipExecutablePath, NoteResult, PromptsResult } from '../flip-client';
+import { isCopilotAvailable, getCopilotModels, sendCopilotRequestWithProgress, CopilotModel } from './copilot-provider';
 
 const execFileAsync = promisify(execFile);
 
@@ -675,15 +676,21 @@ function scoreModel(action: 'research' | 'summarize' | 'improve', id: string): n
 
 async function pickModel(action: 'research' | 'summarize' | 'improve'): Promise<string | null | undefined> {
   const client = getFlipClient();
-  const result = await client.runCommand(['ai', 'models']);
 
-  if (!result.success || !result.data) {
-    vscode.window.showWarningMessage(`AI models not available: ${result.error || 'Unknown error'}`);
+  // Fetch CLI provider models and Copilot models in parallel
+  const [cliResult, copilotModels] = await Promise.all([
+    client.runCommand(['ai', 'models']).catch(() => ({ success: false, data: undefined, error: 'failed' })),
+    getCopilotModels().catch(() => [] as CopilotModel[]),
+  ]);
+
+  const data = (cliResult.success && cliResult.data) ? cliResult.data as AIModelsResponse : undefined;
+  const models = data?.models || [];
+
+  // If neither source has models, warn and return undefined (cancel)
+  if (models.length === 0 && copilotModels.length === 0) {
+    vscode.window.showWarningMessage('No AI models available. Run AI Setup or install GitHub Copilot.');
     return undefined;
   }
-
-  const data = result.data as AIModelsResponse;
-  const models = data.models || [];
 
   let recommendedId = '';
   let bestScore = -999;
@@ -699,31 +706,55 @@ async function pickModel(action: 'research' | 'summarize' | 'improve'): Promise<
     }
   }
 
-  const items: Array<vscode.QuickPickItem & { value: string }> = [
-    {
+  const items: Array<vscode.QuickPickItem & { value: string }> = [];
+
+  // Copilot models (shown first when available)
+  if (copilotModels.length > 0) {
+    items.push({
+      label: '$(github) Copilot Models',
+      kind: vscode.QuickPickItemKind.Separator,
+      value: '__sep__',
+    });
+    for (const cm of copilotModels) {
+      items.push({
+        label: `$(github) ${cm.family}`,
+        description: `${cm.vendor} • via Copilot`,
+        value: `copilot:${cm.id}`,
+      });
+    }
+  }
+
+  // CLI provider models
+  if (data) {
+    items.push({
+      label: `$(server) ${data.provider} Models`,
+      kind: vscode.QuickPickItemKind.Separator,
+      value: '__sep__',
+    });
+    items.push({
       label: `Use default (${data.provider}: ${data.default_model})`,
       description: 'recommended default',
       value: '',
-    },
-  ];
-
-  for (const model of models) {
-    const id = model.id || model.name || '';
-    if (!id) {
-      continue;
-    }
-    const label = model.name && model.name !== id ? model.name : id;
-    const details = [id !== label ? id : '', model.description || ''].filter(Boolean).join(' • ');
-    const isRecommended = id === recommendedId;
-    items.push({
-      label: isRecommended ? `${label} (recommended)` : label,
-      description: details || undefined,
-      value: id,
     });
+
+    for (const model of models) {
+      const id = model.id || model.name || '';
+      if (!id) {
+        continue;
+      }
+      const label = model.name && model.name !== id ? model.name : id;
+      const details = [id !== label ? id : '', model.description || ''].filter(Boolean).join(' • ');
+      const isRecommended = id === recommendedId;
+      items.push({
+        label: isRecommended ? `${label} (recommended)` : label,
+        description: details || undefined,
+        value: id,
+      });
+    }
   }
 
   const selected = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select model (optional)',
+    placeHolder: 'Select model (Copilot or provider)',
   });
 
   if (!selected) {
@@ -999,10 +1030,23 @@ export async function aiResearchCommand(): Promise<void> {
   if (contextSelection.autoBrain) {
     args.push('--context-auto-brain');
   }
+  args.push('--title', title.trim());
+
+  // --- Copilot flow ---
+  if (isCopilotModel(model)) {
+    const copilotModelId = extractCopilotModelId(model);
+    try {
+      await runCopilotFlow('research', args, copilotModelId);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Copilot research failed: ${err.message || err}`);
+    }
+    return;
+  }
+
+  // --- Standard CLI flow ---
   if (model) {
     args.push('--model', model);
   }
-  args.push('--title', title.trim());
   
   
 
@@ -1108,10 +1152,23 @@ export async function aiSummarizeCommand(): Promise<void> {
   for (const file of contextSelection.files) {
     args.push('--context-file', file);
   }
+  args.push('--title', title.trim());
+
+  // --- Copilot flow ---
+  if (isCopilotModel(model)) {
+    const copilotModelId = extractCopilotModelId(model);
+    try {
+      await runCopilotFlow('summarize', args, copilotModelId);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Copilot summarize failed: ${err.message || err}`);
+    }
+    return;
+  }
+
+  // --- Standard CLI flow ---
   if (model) {
     args.push('--model', model);
   }
-  args.push('--title', title.trim());
   
 
   const result = await vscode.window.withProgress(
@@ -1208,11 +1265,24 @@ export async function aiImproveCommand(): Promise<void> {
   if (instruction.trim() !== '') {
     args.push('--instruction', instruction.trim());
   }
-  if (model) {
-    args.push('--model', model);
-  }
   if (mode.value === 'in-place') {
     args.push('--in-place');
+  }
+
+  // --- Copilot flow ---
+  if (isCopilotModel(model)) {
+    const copilotModelId = extractCopilotModelId(model);
+    try {
+      await runCopilotImproveFlow(args, copilotModelId, filePath!, mode.value === 'in-place');
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Copilot improve failed: ${err.message || err}`);
+    }
+    return;
+  }
+
+  // --- Standard CLI flow ---
+  if (model) {
+    args.push('--model', model);
   }
 
   await vscode.window.withProgress(
@@ -1382,6 +1452,182 @@ export async function aiSetupCommand(): Promise<void> {
   );
 }
 
+
+/** Check whether the selected model value is a Copilot model (prefixed with "copilot:"). */
+function isCopilotModel(model: string | null): model is string {
+  return typeof model === 'string' && model.startsWith('copilot:');
+}
+
+/** Extract the actual model ID from a "copilot:xxx" value. */
+function extractCopilotModelId(model: string): string {
+  return model.replace(/^copilot:/, '');
+}
+
+/** Parsed result from flip CLI --prepare-only. */
+interface PrepareOnlyResult {
+  system_prompt: string;
+  user_prompt: string;
+  output_path: string;
+  frontmatter: string;
+  prompt_section?: string;
+  sources_section?: string;
+  brain_name?: string;
+  brain_path?: string;
+  title?: string;
+  topic?: string;
+  file_path?: string;
+  in_place?: boolean;
+  instruction?: string;
+}
+
+/**
+ * Run the full Copilot flow for research/summarize:
+ * 1. Call CLI with --prepare-only to get prompts
+ * 2. Send to Copilot via vscode.lm
+ * 3. Write the result file
+ * 4. Open in editor
+ */
+async function runCopilotFlow(
+  action: 'research' | 'summarize',
+  cliArgs: string[],
+  copilotModelId: string,
+): Promise<void> {
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Creating ${action} note via Copilot…`,
+      cancellable: true,
+    },
+    async (progress, token) => {
+      // Step 1: Get prompts from CLI
+      progress.report({ message: 'Preparing prompts…' });
+      const prepArgs = [...cliArgs, '--prepare-only'];
+      const execPath = getFlipExecutablePath();
+      const result = await promisify(execFile)(execPath, prepArgs, {
+        timeout: 30000,
+        env: { ...process.env, TERM_PROGRAM: 'vscode' },
+      });
+
+      const stdout = (result.stdout || '').trim();
+      let prepared: PrepareOnlyResult;
+      try {
+        prepared = JSON.parse(stdout);
+      } catch {
+        throw new Error(`Failed to parse prepare-only output: ${stdout.substring(0, 200)}`);
+      }
+
+      if (token.isCancellationRequested) {
+        return;
+      }
+
+      // Step 2: Send to Copilot
+      progress.report({ message: `Sending to Copilot (${copilotModelId})…` });
+      const aiResponse = await sendCopilotRequestWithProgress(
+        prepared.system_prompt,
+        prepared.user_prompt,
+        copilotModelId,
+        progress,
+        token,
+      );
+
+      if (token.isCancellationRequested) {
+        return;
+      }
+
+      // Step 3: Build and write the final file
+      progress.report({ message: 'Writing note…' });
+      const frontmatter = prepared.frontmatter.replace('__MODEL__', copilotModelId).replace('"copilot"', '"copilot"');
+      const promptSection = prepared.prompt_section || '';
+      const sourcesSection = prepared.sources_section || '';
+      const finalContent = frontmatter + promptSection + sourcesSection + aiResponse;
+
+      const fsSync = require('fs');
+      const dirPath = require('path').dirname(prepared.output_path);
+      if (!fsSync.existsSync(dirPath)) {
+        fsSync.mkdirSync(dirPath, { recursive: true });
+      }
+      fsSync.writeFileSync(prepared.output_path, finalContent, 'utf-8');
+
+      // Step 4: Open in editor
+      const doc = await vscode.workspace.openTextDocument(prepared.output_path);
+      await vscode.window.showTextDocument(doc, { preview: false });
+
+      vscode.window.showInformationMessage(`✨ ${action === 'research' ? 'Research' : 'Summary'} note created via Copilot!`);
+    },
+  );
+}
+
+/**
+ * Run the Copilot flow for improve:
+ * 1. Call CLI with --prepare-only to get prompts
+ * 2. Send to Copilot via vscode.lm
+ * 3. Apply result (in-place or preview)
+ */
+async function runCopilotImproveFlow(
+  cliArgs: string[],
+  copilotModelId: string,
+  filePath: string,
+  inPlace: boolean,
+): Promise<void> {
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Improving note via Copilot…',
+      cancellable: true,
+    },
+    async (progress, token) => {
+      progress.report({ message: 'Preparing prompts…' });
+      const prepArgs = [...cliArgs, '--prepare-only'];
+      const execPath = getFlipExecutablePath();
+      const result = await promisify(execFile)(execPath, prepArgs, {
+        timeout: 30000,
+        env: { ...process.env, TERM_PROGRAM: 'vscode' },
+      });
+
+      const stdout = (result.stdout || '').trim();
+      let prepared: PrepareOnlyResult;
+      try {
+        prepared = JSON.parse(stdout);
+      } catch {
+        throw new Error(`Failed to parse prepare-only output: ${stdout.substring(0, 200)}`);
+      }
+
+      if (token.isCancellationRequested) {
+        return;
+      }
+
+      progress.report({ message: `Sending to Copilot (${copilotModelId})…` });
+      const aiResponse = await sendCopilotRequestWithProgress(
+        prepared.system_prompt,
+        prepared.user_prompt,
+        copilotModelId,
+        progress,
+        token,
+      );
+
+      if (token.isCancellationRequested) {
+        return;
+      }
+
+      if (inPlace) {
+        const fsSync = require('fs');
+        fsSync.writeFileSync(filePath, aiResponse, 'utf-8');
+        const doc = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(doc, { preview: false });
+        vscode.window.showInformationMessage('Note updated in place via Copilot.');
+      } else {
+        const previewDoc = await vscode.workspace.openTextDocument({
+          language: 'markdown',
+          content: aiResponse,
+        });
+        await vscode.window.showTextDocument(previewDoc, {
+          preview: true,
+          viewColumn: vscode.ViewColumn.Beside,
+        });
+      }
+    },
+  );
+}
 
 async function precalcAndOpenNote(client: any, brain: string, title: string, isSummary: boolean): Promise<string | undefined> {
   try {

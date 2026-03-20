@@ -14,6 +14,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -819,6 +820,7 @@ func newAISummarizeCommand() *cobra.Command {
 		noLink              bool
 		noStream            bool
 		jsonOut             bool
+		prepareOnly         bool
 	)
 
 	cmd := &cobra.Command{
@@ -842,7 +844,7 @@ Examples:
 				topic = args[0]
 			}
 			JSONOutput = jsonOut
-			return runAISummarize(topic, brains, output, brain, title, model, prompt, promptExtra, contextFiles, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
+			return runAISummarize(topic, brains, output, brain, title, model, prompt, promptExtra, contextFiles, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream, prepareOnly)
 		},
 	}
 
@@ -868,6 +870,7 @@ Examples:
 	cmd.Flags().BoolVar(&noLink, "no-link", false, "Do not add a link to today's journal")
 	cmd.Flags().BoolVar(&noStream, "no-stream", false, "Disable streaming output")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output JSON (for VS Code integration)")
+	cmd.Flags().BoolVar(&prepareOnly, "prepare-only", false, "Return prompts as JSON without calling AI (for Copilot integration)")
 
 	return cmd
 }
@@ -880,7 +883,7 @@ type summarySourceNote struct {
 	Title     string
 }
 
-func runAISummarize(topic string, brainNames []string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
+func runAISummarize(topic string, brainNames []string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool, prepareOnly bool) error {
 	// Get active workspace first
 	activeWs, err := getActiveWorkspace()
 	if err != nil {
@@ -1022,14 +1025,29 @@ func runAISummarize(topic string, brainNames []string, outputPath string, brainN
 
 	PrintOrJSON("📄 Found %d relevant notes\n\n", noteCount)
 
-	// Create AI client (allow per-request timeout override)
+	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
 	if timeoutSec > 0 {
 		cfg.Timeout = timeoutSec
 	}
-	client, err := ai.NewClientWithConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create AI client: %w", err)
+
+	var client *ai.Client
+	var effectiveModel string
+	ctx := context.Background()
+
+	if prepareOnly {
+		effectiveModel = modelOverride
+	} else {
+		var cErr error
+		client, cErr = ai.NewClientWithConfig(cfg)
+		if cErr != nil {
+			return fmt.Errorf("failed to create AI client: %w", cErr)
+		}
+		var mErr error
+		effectiveModel, mErr = resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+		if mErr != nil {
+			return mErr
+		}
 	}
 
 	// Build the prompt
@@ -1047,10 +1065,59 @@ Keep the summary concise but comprehensive.`
 
 	userPrompt := fmt.Sprintf("Please summarize the following notes about \"%s\":\n\n%s", topic, relevantContent.String())
 
-	ctx := context.Background()
-	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+	// Resolve title, filename, output path early (needed for prepare-only)
+	noteDate := time.Now().Format("2006-01-02")
+	noteDir := filepath.Join(targetBrain.Path, "notes")
+	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
+	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
 	if err != nil {
 		return err
+	}
+	if outputPath == "" {
+		outputPath = filepath.Join(targetBrain.Path, "notes", filename)
+	} else if !filepath.IsAbs(outputPath) {
+		outputPath = filepath.Join(targetBrain.Path, "notes", outputPath)
+	}
+
+	// --prepare-only: return prompts + metadata as JSON so the extension can use Copilot
+	if prepareOnly {
+		promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
+		sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes, true)
+
+		usedModel := effectiveModel
+		if usedModel == "" {
+			usedModel = cfg.Model
+		}
+		promptMeta := ""
+		if promptNote != nil {
+			relPrompt := relativePathFromBrain(promptNote.Path, targetBrain.Path)
+			promptMeta = fmt.Sprintf("prompt_note: \"%s\"\n", filepath.ToSlash(relPrompt))
+		}
+		if strings.TrimSpace(promptExtra) != "" {
+			promptMeta += "prompt_extra: true\n"
+		}
+		frontmatter := fmt.Sprintf("---\ntitle: \"%s\"\ndate: %s\ntype: summary\ntopic: \"%s\"\nsources: %d notes\nai_generated: true\nai_action: summary\nai_created_at: \"%s\"\nai_provider: \"%s\"\nai_model: \"%s\"\n%s---\n\n",
+			noteTitle, noteDate, topic, noteCount, time.Now().Format(time.RFC3339), "copilot", "__MODEL__", promptMeta)
+
+		result := map[string]interface{}{
+			"system_prompt":   systemPrompt,
+			"user_prompt":     userPrompt,
+			"output_path":     outputPath,
+			"frontmatter":     frontmatter,
+			"prompt_section":  promptSection,
+			"sources_section": sourcesSection,
+			"brain_name":      targetBrain.Name,
+			"brain_path":      targetBrain.Path,
+			"title":           noteTitle,
+			"topic":           topic,
+			"source_count":    noteCount,
+		}
+		jsonBytes, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal prepare-only result: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
 	}
 
 	req := &ai.CompletionRequest{
@@ -1109,22 +1176,7 @@ Keep the summary concise but comprehensive.`
 		}
 	}
 
-	// Save to file
-	noteDate := time.Now().Format("2006-01-02")
-	noteDir := filepath.Join(targetBrain.Path, "notes")
-
-	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
-	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
-	if err != nil {
-		return err
-	}
-
-	// Use selected target brain for output
-	if outputPath == "" {
-		outputPath = filepath.Join(targetBrain.Path, "notes", filename)
-	} else if !filepath.IsAbs(outputPath) {
-		outputPath = filepath.Join(targetBrain.Path, "notes", outputPath)
-	}
+	// Save to file — title, filename, outputPath already resolved above
 
 	// Get AI config for metadata
 	if usedModel == "" {
@@ -1451,6 +1503,7 @@ func newAIResearchCommand() *cobra.Command {
 		noLink              bool
 		noStream            bool
 		jsonOut             bool
+		prepareOnly         bool
 	)
 
 	cmd := &cobra.Command{
@@ -1474,7 +1527,7 @@ Examples:
 				topic = args[0]
 			}
 			JSONOutput = jsonOut
-			return runAIResearch(topic, output, brain, title, model, prompt, promptExtra, contextFiles, contextAutoBrain, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
+			return runAIResearch(topic, output, brain, title, model, prompt, promptExtra, contextFiles, contextAutoBrain, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream, prepareOnly)
 		},
 	}
 
@@ -1500,13 +1553,16 @@ Examples:
 	cmd.Flags().BoolVar(&noLink, "no-link", false, "Do not add a link to today's journal")
 	cmd.Flags().BoolVar(&noStream, "no-stream", false, "Disable streaming output")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output JSON (for VS Code integration)")
+	cmd.Flags().BoolVar(&prepareOnly, "prepare-only", false, "Build prompts and create placeholder note, but skip AI call (output JSON with prompts)")
 
 	return cmd
 }
 
-func runAIResearch(topic string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, contextAutoBrain bool, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
-	if err := EnsureAISetup(JSONOutput); err != nil {
-		return err
+func runAIResearch(topic string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, contextAutoBrain bool, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool, prepareOnly bool) error {
+	if !prepareOnly {
+		if err := EnsureAISetup(JSONOutput); err != nil {
+			return err
+		}
 	}
 	// Get active workspace first
 	activeWs, err := getActiveWorkspace()
@@ -1563,7 +1619,7 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 
 	PrintOrJSON("\n🔬 Researching: %s\n\n", topic)
 
-	// Create AI client (allow per-request timeout override)
+	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
 	if timeoutSec > 0 {
 		cfg.Timeout = timeoutSec
@@ -1571,12 +1627,26 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 		// Research tasks need more time than the default 60s
 		cfg.Timeout = 120
 	}
-	client, err := ai.NewClientWithConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create AI client: %w", err)
-	}
 
-	// Build the prompt
+	var client *ai.Client
+	var effectiveModel string
+	ctx := context.Background()
+
+	if prepareOnly {
+		// In prepare-only mode, use model override directly (no AI client needed)
+		effectiveModel = modelOverride
+	} else {
+		var err error
+		client, err = ai.NewClientWithConfig(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create AI client: %w", err)
+		}
+
+		effectiveModel, err = resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+		if err != nil {
+			return err
+		}
+	}	// Build the prompt
 	systemPrompt := `You are a knowledgeable research assistant. When asked about a topic:
 - Provide comprehensive, accurate information
 - Structure the content with clear headings and sections
@@ -1614,12 +1684,6 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	userPrompt := fmt.Sprintf("Please provide a comprehensive overview of: %s\n\nInclude key concepts, practical examples, and best practices.", topic)
 	if len(contextParts) > 0 {
 		userPrompt += "\n\nUse the following internal context if relevant:\n\n" + strings.Join(contextParts, "\n\n")
-	}
-
-	ctx := context.Background()
-	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
-	if err != nil {
-		return err
 	}
 
 	// Resolve title, filename and output path BEFORE the AI call
@@ -1667,6 +1731,30 @@ ai_model: "%s"
 %s---
 
 `, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), cfg.Provider, model, promptMeta)
+	}
+
+	// --prepare-only: return prompts + metadata as JSON so the extension can use Copilot
+	if prepareOnly {
+		promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
+		sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes, true)
+		result := map[string]interface{}{
+			"system_prompt":   systemPrompt,
+			"user_prompt":     userPrompt,
+			"output_path":     outputPath,
+			"frontmatter":     buildFrontmatter("__MODEL__"),
+			"prompt_section":  promptSection,
+			"sources_section": sourcesSection,
+			"brain_name":      targetBrain.Name,
+			"brain_path":      targetBrain.Path,
+			"title":           noteTitle,
+			"topic":           topic,
+		}
+		jsonBytes, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal prepare-only result: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
 	}
 
 	// Write placeholder file immediately so the user sees progress
@@ -1821,6 +1909,7 @@ func newAIImproveCommand() *cobra.Command {
 		prompt      string
 		promptExtra string
 		timeout     int
+		prepareOnly bool
 	)
 
 	cmd := &cobra.Command{
@@ -1840,7 +1929,7 @@ Examples:
   flip ai improve notes/rough.md --instruction "fix grammar and improve flow" --in-place`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAIImprove(args[0], instruction, model, prompt, promptExtra, timeout, !noStream, inPlace)
+			return runAIImprove(args[0], instruction, model, prompt, promptExtra, timeout, !noStream, inPlace, prepareOnly)
 		},
 	}
 
@@ -1853,11 +1942,12 @@ Examples:
 	cmd.Flags().StringVar(&promptExtra, "prompt-extra", "", "Additional prompt instructions for this request")
 	cmd.Flags().StringVar(&promptExtra, "run-notes", "", "Additional run notes for this request (alias of --prompt-extra)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Override AI timeout in seconds")
+	cmd.Flags().BoolVar(&prepareOnly, "prepare-only", false, "Return prompts as JSON without calling AI (for Copilot integration)")
 
 	return cmd
 }
 
-func runAIImprove(filePath string, instruction string, modelOverride string, promptOverride string, promptExtra string, timeoutSec int, stream bool, inPlace bool) error {
+func runAIImprove(filePath string, instruction string, modelOverride string, promptOverride string, promptExtra string, timeoutSec int, stream bool, inPlace bool, prepareOnly bool) error {
 	// Read the file
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -1886,14 +1976,29 @@ func runAIImprove(filePath string, instruction string, modelOverride string, pro
 	fmt.Printf("\n📝 Improving: %s\n", filePath)
 	fmt.Printf("💡 Instruction: %s\n\n", instruction)
 
-	// Create AI client (allow per-request timeout override)
+	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
 	if timeoutSec > 0 {
 		cfg.Timeout = timeoutSec
 	}
-	client, err := ai.NewClientWithConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create AI client: %w", err)
+
+	var client *ai.Client
+	var effectiveModel string
+	ctx := context.Background()
+
+	if prepareOnly {
+		effectiveModel = modelOverride
+	} else {
+		var cErr error
+		client, cErr = ai.NewClientWithConfig(cfg)
+		if cErr != nil {
+			return fmt.Errorf("failed to create AI client: %w", cErr)
+		}
+		var mErr error
+		effectiveModel, mErr = resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+		if mErr != nil {
+			return mErr
+		}
 	}
 
 	// Build the prompt
@@ -1909,10 +2014,25 @@ When given a note and improvement instructions:
 
 	userPrompt := fmt.Sprintf("Please improve the following note according to this instruction: %s\n\n---\n\n%s", instruction, string(content))
 
-	ctx := context.Background()
-	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
-	if err != nil {
-		return err
+	// --prepare-only: return prompts + metadata as JSON so the extension can use Copilot
+	if prepareOnly {
+		result := map[string]interface{}{
+			"system_prompt": systemPrompt,
+			"user_prompt":   userPrompt,
+			"file_path":     filePath,
+			"in_place":      inPlace,
+			"instruction":   instruction,
+		}
+		if brainInfo != nil {
+			result["brain_name"] = brainInfo.Name
+			result["brain_path"] = brainInfo.Path
+		}
+		jsonBytes, jErr := json.MarshalIndent(result, "", "  ")
+		if jErr != nil {
+			return fmt.Errorf("failed to marshal prepare-only result: %w", jErr)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
 	}
 
 	req := &ai.CompletionRequest{
