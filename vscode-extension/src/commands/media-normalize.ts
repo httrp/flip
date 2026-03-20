@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, BrainInfo, HealthIssue, HealthReport } from '../flip-client';
 
-const output = vscode.window.createOutputChannel('Flip Media');
+let output: vscode.OutputChannel | undefined;
+function getOutput(): vscode.OutputChannel {
+  if (!output) { output = vscode.window.createOutputChannel('Flip Media'); }
+  return output;
+}
+export function disposeMediaOutput(): void { output?.dispose(); output = undefined; }
 
 export async function mediaNormalize(): Promise<void> {
   const client = getFlipClient();
@@ -98,35 +103,35 @@ export async function mediaNormalize(): Promise<void> {
   }
 
   const title = `Media Normalize: ${check.BrainInfo.Name}`;
-  output.clear();
-  output.appendLine(title);
-  output.appendLine(`Typ: ${check.BrainInfo.Type}`);
-  output.appendLine(`Path: ${check.BrainInfo.Path}`);
-  output.appendLine(`Media: Assets=${check.Stats.AssetsChecked}`);
-  output.appendLine('');
+  getOutput().clear();
+  getOutput().appendLine(title);
+  getOutput().appendLine(`Typ: ${check.BrainInfo.Type}`);
+  getOutput().appendLine(`Path: ${check.BrainInfo.Path}`);
+  getOutput().appendLine(`Media: Assets=${check.Stats.AssetsChecked}`);
+  getOutput().appendLine('');
 
   if (issues.length === 0) {
-    output.appendLine('✅ Keine Media-Issues gefunden');
+    getOutput().appendLine('✅ Keine Media-Issues gefunden');
   } else {
-    output.appendLine('Media Issues:');
+    getOutput().appendLine('Media Issues:');
     for (const issue of issues) {
-      output.appendLine(formatIssue(issue));
+      getOutput().appendLine(formatIssue(issue));
     }
   }
 
   if (repairs) {
-    output.appendLine('');
-    output.appendLine('Repairs:');
+    getOutput().appendLine('');
+    getOutput().appendLine('Repairs:');
     for (const res of repairs.results) {
       const icon = res.Success ? '✓' : '✗';
       const line = res.Issue.Line > 0 ? `:${res.Issue.Line}` : '';
-      output.appendLine(`${icon} ${res.Issue.File}${line} → ${res.Message || res.SkipReason}`);
+      getOutput().appendLine(`${icon} ${res.Issue.File}${line} → ${res.Message || res.SkipReason}`);
     }
-    output.appendLine('');
-    output.appendLine(`Stats: ${repairs.stats.Repaired} repaired, ${repairs.stats.Failed} failed, ${repairs.stats.Skipped} skipped`);
+    getOutput().appendLine('');
+    getOutput().appendLine(`Stats: ${repairs.stats.Repaired} repaired, ${repairs.stats.Failed} failed, ${repairs.stats.Skipped} skipped`);
   }
 
-  output.show();
+  getOutput().show();
 
   const summary = summaryParts.join(', ');
   if (dryRun) {

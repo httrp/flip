@@ -187,13 +187,15 @@ func runCreateQuicknoteNonInteractive(opts QuicknoteOptions) error {
 	// Add link to journal (unless disabled)
 	if !opts.NoLink {
 		relPath := relativePathFromBrain(filePath, activeBrain.Path)
-		_ = AddLinkToJournal(JournalLinkOptions{
+		if err := AddLinkToJournal(JournalLinkOptions{
 			ItemType:    "note",
 			ItemName:    opts.Title,
 			ItemPath:    relPath,
 			Brain:       activeBrain,
 			Interactive: false,
-		})
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  journal link failed: %v\n", err)
+		}
 	}
 
 	// Output result

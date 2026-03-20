@@ -43,27 +43,18 @@ interface ContextSelection {
   autoBrain: boolean;
 }
 
-interface RunReviewConfig {
-  action: 'research' | 'summarize' | 'improve';
-  brain?: string;
-  template: PromptSelection;
-  request?: string;
-  instruction?: string;
-  runNotes: string;
-  context: ContextSelection;
-  model: string | null;
-  title?: string;
-  targetFile?: string;
-  applyMode?: 'in-place' | 'preview';
-}
-
 let aiTerminal: vscode.Terminal | undefined;
 
 function getAiTerminal(): vscode.Terminal {
-  if (!aiTerminal) {
+  if (!aiTerminal || aiTerminal.exitStatus !== undefined) {
     aiTerminal = vscode.window.createTerminal('Flip AI');
   }
   return aiTerminal;
+}
+
+export function disposeAiTerminal(): void {
+  aiTerminal?.dispose();
+  aiTerminal = undefined;
 }
 
 function runFlipAiCommand(args: string[]): void {
@@ -278,41 +269,6 @@ function suggestTitleFromTopic(topic: string): string {
   return candidate.replace(/^"|"$/g, '').trim();
 }
 
-function formatTemplateSelection(selection: PromptSelection): string {
-  if (selection.mode === 'none') {
-    return 'None';
-  }
-  if (selection.mode === 'create') {
-    return `Create: ${selection.title || 'Untitled'}`;
-  }
-  if (selection.mode === 'existing') {
-    const value = selection.value || '';
-    if (!value) {
-      return 'Default';
-    }
-    return path.basename(value);
-  }
-  return 'None';
-}
-
-function formatContextSelection(context: ContextSelection): string {
-  const parts: string[] = [];
-  if (context.autoBrain) {
-    parts.push('Auto brain search');
-  }
-  if (context.files.length > 0) {
-    if (context.files.length === 1) {
-      parts.push(`1 file: ${path.basename(context.files[0])}`);
-    } else {
-      parts.push(`${context.files.length} files`);
-    }
-  }
-  if (parts.length === 0) {
-    return 'No additional context';
-  }
-  return parts.join(' + ');
-}
-
 function getTemplatePresets(action: 'research' | 'summarize' | 'improve'): TemplatePreset[] {
   const researchPreset: TemplatePreset = {
     key: 'research',
@@ -510,55 +466,6 @@ async function promptTemplateCreation(action: 'research' | 'summarize' | 'improv
     mode: 'existing',
     value: templatePath,
   };
-}
-
-function truncateForReview(value: string, max = 140): string {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= max) {
-    return normalized;
-  }
-  return normalized.slice(0, max - 1) + '…';
-}
-
-async function confirmRunReview_UNUSED(config: RunReviewConfig): Promise<boolean> {
-  const lines: string[] = [];
-  if (config.brain) {
-    lines.push(`Brain: ${config.brain}`);
-  }
-  lines.push(`Template: ${formatTemplateSelection(config.template)}`);
-
-  if (config.request && config.request.trim() !== '') {
-    lines.push(`Request: ${truncateForReview(config.request)}`);
-  }
-
-  if (config.instruction && config.instruction.trim() !== '') {
-    lines.push(`Instruction: ${truncateForReview(config.instruction)}`);
-  }
-
-  lines.push(`Context: ${formatContextSelection(config.context)}`);
-  lines.push(`Run notes: ${config.runNotes.trim() ? 'Yes' : 'No'}`);
-  lines.push(`Model: ${config.model || 'Provider default'}`);
-
-  if (config.title) {
-    lines.push(`Title: ${config.title}`);
-  }
-  if (config.targetFile) {
-    lines.push(`File: ${path.basename(config.targetFile)}`);
-  }
-  if (config.applyMode) {
-    lines.push(`Apply mode: ${config.applyMode}`);
-  }
-
-  const detail = lines.join('\n');
-  const actionLabel = config.action === 'improve' ? 'Run improve' : `Run ${config.action}`;
-  const choice = await vscode.window.showInformationMessage(
-    'Review AI run configuration',
-    { modal: true, detail },
-    actionLabel,
-    'Cancel'
-  );
-
-  return choice === actionLabel;
 }
 
 async function selectPromptNote(brain: string, action: 'research' | 'summarize' | 'improve'): Promise<PromptSelection | undefined> {
@@ -1536,17 +1443,20 @@ async function runCopilotFlow(
 
       // Step 3: Build and write the final file
       progress.report({ message: 'Writing note…' });
-      const frontmatter = prepared.frontmatter.replace('__MODEL__', copilotModelId).replace('"copilot"', '"copilot"');
+      const frontmatter = prepared.frontmatter
+        .replace('__PROVIDER__', 'copilot')
+        .replace('__MODEL__', copilotModelId);
       const promptSection = prepared.prompt_section || '';
       const sourcesSection = prepared.sources_section || '';
       const finalContent = frontmatter + promptSection + sourcesSection + aiResponse;
 
-      const fsSync = require('fs');
-      const dirPath = require('path').dirname(prepared.output_path);
-      if (!fsSync.existsSync(dirPath)) {
-        fsSync.mkdirSync(dirPath, { recursive: true });
+      const fs = await import('fs');
+      const path = await import('path');
+      const dirPath = path.dirname(prepared.output_path);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
       }
-      fsSync.writeFileSync(prepared.output_path, finalContent, 'utf-8');
+      fs.writeFileSync(prepared.output_path, finalContent, 'utf-8');
 
       // Step 4: Open in editor
       const doc = await vscode.workspace.openTextDocument(prepared.output_path);
@@ -1610,8 +1520,8 @@ async function runCopilotImproveFlow(
       }
 
       if (inPlace) {
-        const fsSync = require('fs');
-        fsSync.writeFileSync(filePath, aiResponse, 'utf-8');
+        const fs = await import('fs');
+        fs.writeFileSync(filePath, aiResponse, 'utf-8');
         const doc = await vscode.workspace.openTextDocument(filePath);
         await vscode.window.showTextDocument(doc, { preview: false });
         vscode.window.showInformationMessage('Note updated in place via Copilot.');
@@ -1627,40 +1537,4 @@ async function runCopilotImproveFlow(
       }
     },
   );
-}
-
-async function precalcAndOpenNote(client: any, brain: string, title: string, isSummary: boolean): Promise<string | undefined> {
-  try {
-    const info = await client.getInfo();
-    if (info.success && info.data && info.data.brains) {
-      const targetBrainObj = info.data.brains.find((b: any) => b.name === brain);
-      if (targetBrainObj) {
-        const notesDir = require('path').join(targetBrainObj.path, 'notes');
-        const dateStr = new Date().toISOString().split('T')[0];
-        const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'note';
-        const fsLib = require('fs');
-        
-        let candidate = `${slug}-${dateStr}.md`;
-        let i = 1;
-        while (fsLib.existsSync(require('path').join(notesDir, candidate))) {
-           candidate = `${slug}-${dateStr}-${i}.md`;
-           i++;
-        }
-        
-        const fullPath = require('path').join(notesDir, candidate);
-        if (!fsLib.existsSync(notesDir)) { fsLib.mkdirSync(notesDir, {recursive: true}); }
-        const typeText = isSummary ? 'summary' : 'response';
-        fsLib.writeFileSync(fullPath, `# ${title}\n\n_Generating AI ${typeText}..._\n`);
-        
-        const vscode = require('vscode');
-        const doc = await vscode.workspace.openTextDocument(fullPath);
-        await vscode.window.showTextDocument(doc, { preview: false });
-        
-        return fullPath;
-      }
-    }
-  } catch(e) { 
-    console.error("Failed to open early doc", e); 
-  }
-  return undefined;
 }

@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, BrainInfo, HealthIssue, HealthReport } from '../flip-client';
 
-const output = vscode.window.createOutputChannel('Flip Health');
+let output: vscode.OutputChannel | undefined;
+function getOutput(): vscode.OutputChannel {
+  if (!output) { output = vscode.window.createOutputChannel('Flip Health'); }
+  return output;
+}
+export function disposeHealthOutput(): void { output?.dispose(); output = undefined; }
 
 export async function brainHealthCheck(): Promise<void> {
   const client = getFlipClient();
@@ -98,38 +103,38 @@ export async function brainHealthCheck(): Promise<void> {
   }
 
   const title = `Brain Health: ${check.BrainInfo.Name}`;
-  output.clear();
-  output.appendLine(title);
-  output.appendLine(`Typ: ${check.BrainInfo.Type}`);
-  output.appendLine(`Path: ${check.BrainInfo.Path}`);
-  output.appendLine(`Scan: Files=${check.Stats.FilesScanned}, Links=${check.Stats.LinksChecked}, Assets=${check.Stats.AssetsChecked}`);
-  output.appendLine('');
+  getOutput().clear();
+  getOutput().appendLine(title);
+  getOutput().appendLine(`Typ: ${check.BrainInfo.Type}`);
+  getOutput().appendLine(`Path: ${check.BrainInfo.Path}`);
+  getOutput().appendLine(`Scan: Files=${check.Stats.FilesScanned}, Links=${check.Stats.LinksChecked}, Assets=${check.Stats.AssetsChecked}`);
+  getOutput().appendLine('');
 
   if (issues.length === 0) {
-    output.appendLine('✅ Keine Issues gefunden');
+    getOutput().appendLine('✅ Keine Issues gefunden');
   } else {
-    output.appendLine('Issues:');
+    getOutput().appendLine('Issues:');
     for (const issue of issues) {
-      output.appendLine(formatIssue(issue));
+      getOutput().appendLine(formatIssue(issue));
     }
   }
 
   if (repairs) {
-    output.appendLine('');
-    output.appendLine('Repairs:');
+    getOutput().appendLine('');
+    getOutput().appendLine('Repairs:');
     for (const res of repairs.results) {
       const icon = res.Success ? '✓' : '✗';
-      output.appendLine(` ${icon} ${res.Issue.File}`);
+      getOutput().appendLine(` ${icon} ${res.Issue.File}`);
       if (res.Message && res.Message !== 'Repaired successfully') {
-        output.appendLine(`    ${res.Message}`);
+        getOutput().appendLine(`    ${res.Message}`);
       }
       if (res.SkipReason) {
-        output.appendLine(`    Skipped: ${res.SkipReason}`);
+        getOutput().appendLine(`    Skipped: ${res.SkipReason}`);
       }
     }
   }
 
-  output.show(true);
+  getOutput().show(true);
 
   const message = repairs
     ? `${title} – ${summaryParts.join(', ')}${dryRun ? ' (Dry-Run)' : ''}`
@@ -137,11 +142,11 @@ export async function brainHealthCheck(): Promise<void> {
 
   if (errors === 0 && (!repairs || repairs.stats.Failed === 0)) {
     vscode.window.showInformationMessage(message, 'Output öffnen').then((choice) => {
-      if (choice === 'Output öffnen') output.show(true);
+      if (choice === 'Output öffnen') getOutput().show(true);
     });
   } else {
     vscode.window.showWarningMessage(message, 'Output öffnen').then((choice) => {
-      if (choice === 'Output öffnen') output.show(true);
+      if (choice === 'Output öffnen') getOutput().show(true);
     });
   }
 }

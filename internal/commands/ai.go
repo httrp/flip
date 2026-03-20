@@ -1073,7 +1073,7 @@ Keep the summary concise but comprehensive.`
 	noteDate := time.Now().Format("2006-01-02")
 	noteDir := filepath.Join(targetBrain.Path, "notes")
 	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
-	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
+	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, interactiveTitle)
 	if err != nil {
 		return err
 	}
@@ -1101,7 +1101,7 @@ Keep the summary concise but comprehensive.`
 			promptMeta += "prompt_extra: true\n"
 		}
 		frontmatter := fmt.Sprintf("---\ntitle: \"%s\"\ndate: %s\ntype: summary\ntopic: \"%s\"\nsources: %d notes\nai_generated: true\nai_action: summary\nai_created_at: \"%s\"\nai_provider: \"%s\"\nai_model: \"%s\"\n%s---\n\n",
-			noteTitle, noteDate, topic, noteCount, time.Now().Format(time.RFC3339), "copilot", "__MODEL__", promptMeta)
+			noteTitle, noteDate, topic, noteCount, time.Now().Format(time.RFC3339), "__PROVIDER__", "__MODEL__", promptMeta)
 
 		result := map[string]interface{}{
 			"system_prompt":   systemPrompt,
@@ -1697,7 +1697,7 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	noteDir := filepath.Join(targetBrain.Path, "notes")
 
 	interactiveTitle := !JSONOutput && strings.TrimSpace(title) == ""
-	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, noteDate, interactiveTitle)
+	noteTitle, filename, err := resolveAITitleAndFilename(topic, title, noteDir, interactiveTitle)
 	if err != nil {
 		return err
 	}
@@ -1723,7 +1723,7 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	}
 
 	// Build frontmatter (used for both placeholder and final file)
-	buildFrontmatter := func(model string) string {
+	buildFrontmatter := func(provider string, model string) string {
 		return fmt.Sprintf(`---
 title: "%s"
 date: %s
@@ -1736,7 +1736,7 @@ ai_provider: "%s"
 ai_model: "%s"
 %s---
 
-`, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), cfg.Provider, model, promptMeta)
+`, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), provider, model, promptMeta)
 	}
 
 	// --prepare-only: return prompts + metadata as JSON so the extension can use Copilot
@@ -1747,7 +1747,7 @@ ai_model: "%s"
 			"system_prompt":   systemPrompt,
 			"user_prompt":     userPrompt,
 			"output_path":     outputPath,
-			"frontmatter":     buildFrontmatter("__MODEL__"),
+			"frontmatter":     buildFrontmatter("__PROVIDER__", "__MODEL__"),
 			"prompt_section":  promptSection,
 			"sources_section": sourcesSection,
 			"brain_name":      targetBrain.Name,
@@ -1768,7 +1768,7 @@ ai_model: "%s"
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	placeholderContent := buildFrontmatter(usedModel) + fmt.Sprintf("> ⏳ **AI is working…** (%s / %s)\n>\n> Researching: *%s*\n>\n> This note will be updated automatically when the AI finishes.\n", cfg.Provider, usedModel, topic)
+	placeholderContent := buildFrontmatter(cfg.Provider, usedModel) + fmt.Sprintf("> ⏳ **AI is working…** (%s / %s)\n>\n> Researching: *%s*\n>\n> This note will be updated automatically when the AI finishes.\n", cfg.Provider, usedModel, topic)
 	if err := os.WriteFile(outputPath, []byte(placeholderContent), 0644); err != nil {
 		return fmt.Errorf("failed to write placeholder file: %w", err)
 	}
@@ -1839,7 +1839,7 @@ ai_model: "%s"
 	}
 
 	// Update the file with final content (or error message)
-	frontmatter := buildFrontmatter(usedModel)
+	frontmatter := buildFrontmatter(cfg.Provider, usedModel)
 	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
 	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes, true)
 
@@ -2268,7 +2268,7 @@ func applyPromptStack(systemPrompt string, promptContent string, promptExtra str
 	return strings.Join(parts, "\n\n")
 }
 
-func resolveAITitleAndFilename(topic string, title string, targetDir string, dateStr string, interactive bool) (string, string, error) {
+func resolveAITitleAndFilename(topic string, title string, targetDir string, interactive bool) (string, string, error) {
 	resolvedTitle := strings.TrimSpace(title)
 	if resolvedTitle == "" {
 		resolvedTitle = suggestTitleFromTopic(topic)
@@ -2282,7 +2282,7 @@ func resolveAITitleAndFilename(topic string, title string, targetDir string, dat
 				if strings.TrimSpace(input) == "" {
 					return fmt.Errorf("title cannot be empty")
 				}
-				filename := aiFilenameFromTitle(strings.TrimSpace(input), dateStr)
+				filename := aiFilenameFromTitle(strings.TrimSpace(input))
 				if aiFileExists(filepath.Join(targetDir, filename)) {
 					return fmt.Errorf("a note with this title already exists")
 				}
@@ -2294,12 +2294,12 @@ func resolveAITitleAndFilename(topic string, title string, targetDir string, dat
 			return "", "", err
 		}
 		resolvedTitle = strings.TrimSpace(value)
-		filename := aiFilenameFromTitle(resolvedTitle, dateStr)
+		filename := aiFilenameFromTitle(resolvedTitle)
 		return resolvedTitle, filename, nil
 	}
 
 	slug := aiSlugFromTitle(resolvedTitle)
-	filename := uniqueAIFilename(slug, dateStr, targetDir)
+	filename := uniqueAIFilename(slug, targetDir)
 	return resolvedTitle, filename, nil
 }
 
@@ -2328,12 +2328,12 @@ func suggestTitleFromTopic(topic string) string {
 	return cleaned
 }
 
-func aiFilenameFromTitle(title string, dateStr string) string {
+func aiFilenameFromTitle(title string) string {
 	slug := aiSlugFromTitle(title)
 	if slug == "" {
 		slug = "note"
 	}
-	return fmt.Sprintf("%s-%s.md", slug, dateStr)
+	return fmt.Sprintf("%s.md", slug)
 }
 
 func aiSlugFromTitle(title string) string {
@@ -2364,18 +2364,18 @@ func aiSlugFromTitle(title string) string {
 	return slug
 }
 
-func uniqueAIFilename(slug string, dateStr string, targetDir string) string {
-	base := fmt.Sprintf("%s-%s.md", slug, dateStr)
+func uniqueAIFilename(slug string, targetDir string) string {
+	base := fmt.Sprintf("%s.md", slug)
 	if !aiFileExists(filepath.Join(targetDir, base)) {
 		return base
 	}
 	for i := 2; i < 1000; i++ {
-		candidate := fmt.Sprintf("%s-%d-%s.md", slug, i, dateStr)
+		candidate := fmt.Sprintf("%s-%d.md", slug, i)
 		if !aiFileExists(filepath.Join(targetDir, candidate)) {
 			return candidate
 		}
 	}
-	return fmt.Sprintf("%s-%s.md", slug, dateStr)
+	return fmt.Sprintf("%s.md", slug)
 }
 
 func aiFileExists(path string) bool {

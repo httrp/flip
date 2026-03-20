@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, BrainInfo } from '../flip-client';
 
-const output = vscode.window.createOutputChannel('Flip Restore');
+let output: vscode.OutputChannel | undefined;
+function getOutput(): vscode.OutputChannel {
+  if (!output) { output = vscode.window.createOutputChannel('Flip Restore'); }
+  return output;
+}
+export function disposeRestoreOutput(): void { output?.dispose(); output = undefined; }
 
 export async function brainRestore(): Promise<void> {
   const client = getFlipClient();
@@ -76,30 +81,30 @@ export async function brainRestore(): Promise<void> {
     return;
   }
 
-  output.clear();
-  output.appendLine(`📂 Restore: ${selectedBrain.brain.name}`);
-  output.appendLine(`Brain: ${selectedBrain.brain.path}`);
-  output.appendLine(`Modus: ${mode.label}`);
-  output.appendLine('');
+  getOutput().clear();
+  getOutput().appendLine(`📂 Restore: ${selectedBrain.brain.name}`);
+  getOutput().appendLine(`Brain: ${selectedBrain.brain.path}`);
+  getOutput().appendLine(`Modus: ${mode.label}`);
+  getOutput().appendLine('');
   
   if (mode.value === 'auto') {
-    output.appendLine('✅ Restore abgeschlossen!');
-    output.appendLine('');
-    output.appendLine('Alle orphaned Dateien wurden wiederhergestellt:');
-    output.appendLine('• Zurück in ihre ursprünglichen Ordner (meetings/, notes/, etc.)');
-    output.appendLine('• Mit Journal-Verlinkung, wenn Datumsübereinstimmung gefunden');
-    output.appendLine('• Leere .orphaned/ Verzeichnisse bereinigt');
+    getOutput().appendLine('✅ Restore abgeschlossen!');
+    getOutput().appendLine('');
+    getOutput().appendLine('Alle orphaned Dateien wurden wiederhergestellt:');
+    getOutput().appendLine('• Zurück in ihre ursprünglichen Ordner (meetings/, notes/, etc.)');
+    getOutput().appendLine('• Mit Journal-Verlinkung, wenn Datumsübereinstimmung gefunden');
+    getOutput().appendLine('• Leere .orphaned/ Verzeichnisse bereinigt');
   } else {
-    output.appendLine('📋 Interaktiver Restore gestartet im Terminal');
-    output.appendLine('Wähle die Dateien aus, die du wiederherstellen möchtest.');
+    getOutput().appendLine('📋 Interaktiver Restore gestartet im Terminal');
+    getOutput().appendLine('Wähle die Dateien aus, die du wiederherstellen möchtest.');
   }
   
-  output.show(true);
+  getOutput().show(true);
 
   vscode.window.showInformationMessage(
     `Restore für "${selectedBrain.brain.name}" abgeschlossen!`,
     'Output öffnen'
   ).then((choice) => {
-    if (choice === 'Output öffnen') output.show(true);
+    if (choice === 'Output öffnen') getOutput().show(true);
   });
 }

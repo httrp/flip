@@ -305,7 +305,13 @@ func (sm *SchemaManager) MigrateNote(notePath string, dryRun bool) (*MigrationRe
 	for _, change := range migration.FieldChanges {
 		switch change.Action {
 		case "rename":
-			newContent, _ = renameField(newContent, change.OldName, change.NewName)
+			renamed, ok := renameField(newContent, change.OldName, change.NewName)
+			if !ok {
+				result.Changes = append(result.Changes,
+					fmt.Sprintf("Warning: field %s not found for rename to %s", change.OldName, change.NewName))
+			} else {
+				newContent = renamed
+			}
 			result.Changes = append(result.Changes,
 				fmt.Sprintf("Renamed field: %s → %s", change.OldName, change.NewName))
 		case "add":

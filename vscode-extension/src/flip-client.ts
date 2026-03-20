@@ -604,7 +604,7 @@ export class FlipClient {
           success: false,
           command: args[0],
           error: `flip not found at '${this.executablePath}'. ` +
-                 `Install flip with 'go install github.com/danorama/flip@latest' ` +
+                 `Install flip with 'go install github.com/httrp/flip@latest' ` +
                  `or set 'flip.executablePath' in VS Code settings to point to your flip binary ` +
                  `(expected location: ${goBinPath})`
         };

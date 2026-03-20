@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, ExerciseItemResult, ExercisesListResult, ExerciseDetailResult, ExerciseTrackResult, ExerciseNewResult } from '../flip-client';
 
+let exerciseOutput: vscode.OutputChannel | undefined;
+function getExerciseOutput(): vscode.OutputChannel {
+  if (!exerciseOutput) { exerciseOutput = vscode.window.createOutputChannel('Flip Exercise'); }
+  return exerciseOutput;
+}
+
 interface ExerciseQuickPickItem extends vscode.QuickPickItem {
   exercise: ExerciseItemResult;
 }
@@ -186,7 +192,7 @@ async function showExerciseDetails(client: ReturnType<typeof getFlipClient>, exe
   }
 
   // Show in output channel or as notification
-  const outputChannel = vscode.window.createOutputChannel('Flip Exercise');
+  const outputChannel = getExerciseOutput();
   outputChannel.clear();
   outputChannel.appendLine(details);
   outputChannel.show();

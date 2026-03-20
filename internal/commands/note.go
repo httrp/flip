@@ -213,18 +213,22 @@ func runCreateNoteNonInteractive(opts NoteOptions) error {
 	}
 
 	// Auto-commit
-	_ = autoCommitFile(activeBrain.Path, filePath, "note")
+	if err := autoCommitFile(activeBrain.Path, filePath, "note"); err != nil {
+		fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  auto-commit failed: %v\n", err)
+	}
 
 	// Add link to journal (unless disabled)
 	if !opts.NoLink {
 		relPath := relativePathFromBrain(filePath, activeBrain.Path)
-		_ = AddLinkToJournal(JournalLinkOptions{
+		if err := AddLinkToJournal(JournalLinkOptions{
 			ItemType:    "note",
 			ItemName:    opts.Title,
 			ItemPath:    relPath,
 			Brain:       activeBrain,
 			Interactive: false,
-		})
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  journal link failed: %v\n", err)
+		}
 	}
 
 	// Output result

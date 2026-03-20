@@ -124,10 +124,6 @@
         "title": "Flip: 📋 Browse Tasks (WebView Panel)"
       },
       {
-        "command": "flip.taskDone",
-        "title": "Flip: Mark Task Done"
-      },
-      {
         "command": "flip.insertLink",
         "title": "Flip: Insert Link to Note"
       },

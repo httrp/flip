@@ -12,11 +12,11 @@ import { showStatus, switchBrain } from './commands/status';
 import { insertLink, addCurrentFileToJournal } from './commands/insert-link';
 import { addParticipantsCommand } from './commands/add-participants';
 import { journalSyncCheck } from './commands/journal-sync';
-import { brainHealthCheck } from './commands/brain-health';
-import { brainRestore } from './commands/brain-restore';
-import { brainRelocate } from './commands/brain-relocate';
-import { mediaNormalize } from './commands/media-normalize';
-import { aiStatusCommand, aiSetupCommand, aiResearchCommand, aiSummarizeCommand, aiImproveCommand } from './commands/ai';
+import { brainHealthCheck, disposeHealthOutput } from './commands/brain-health';
+import { brainRestore, disposeRestoreOutput } from './commands/brain-restore';
+import { brainRelocate, disposeRelocateOutput } from './commands/brain-relocate';
+import { mediaNormalize, disposeMediaOutput } from './commands/media-normalize';
+import { aiStatusCommand, aiSetupCommand, aiResearchCommand, aiSummarizeCommand, aiImproveCommand, disposeAiTerminal } from './commands/ai';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
 import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
@@ -184,4 +184,9 @@ export function deactivate() {
   if (statusBarItem) {
     statusBarItem.dispose();
   }
+  disposeAiTerminal();
+  disposeHealthOutput();
+  disposeRestoreOutput();
+  disposeRelocateOutput();
+  disposeMediaOutput();
 }

@@ -210,12 +210,16 @@ func runCreateMeetingNonInteractive(opts meetingCreateOptions) error {
 	}
 
 	// Auto-commit
-	_ = autoCommitFile(activeBrain.Path, filePath, "meeting note")
+	if err := autoCommitFile(activeBrain.Path, filePath, "meeting note"); err != nil {
+		fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  auto-commit failed: %v\n", err)
+	}
 
 	// Optional link to journal
 	if !opts.NoLink {
 		rel := relativePathFromBrain(filePath, activeBrain.Path)
-		_ = AddLinkToJournal(JournalLinkOptions{ItemType: "meeting", ItemName: opts.Title, ItemPath: rel, Brain: activeBrain, Interactive: false})
+		if err := AddLinkToJournal(JournalLinkOptions{ItemType: "meeting", ItemName: opts.Title, ItemPath: rel, Brain: activeBrain, Interactive: false}); err != nil {
+			fmt.Fprintf(os.Stderr, "\u26a0\ufe0f  journal link failed: %v\n", err)
+		}
 	}
 
 	if JSONOutput {

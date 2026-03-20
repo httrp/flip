@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, BrainSyncResult } from '../flip-client';
 
+let syncOutput: vscode.OutputChannel | undefined;
+function getSyncOutput(): vscode.OutputChannel {
+  if (!syncOutput) { syncOutput = vscode.window.createOutputChannel('Flip Sync'); }
+  return syncOutput;
+}
+
 /**
  * Sync all brains - commit changes with auto-generated messages
  */
@@ -153,7 +159,7 @@ export async function syncAndPush(): Promise<void> {
  * Show sync details in output channel
  */
 function showSyncDetails(brains: BrainSyncResult[]): void {
-  const output = vscode.window.createOutputChannel('Flip Sync');
+  const output = getSyncOutput();
   output.clear();
   output.appendLine('=== Flip Sync Results ===\n');
 

@@ -968,7 +968,9 @@ func (r *Repairer) repairWrongMediaLocation(brainPath string, issue Issue) error
 		}
 
 		if updated {
-			_ = os.WriteFile(file, []byte(text), 0644)
+			if err := os.WriteFile(file, []byte(text), 0644); err != nil {
+				return fmt.Errorf("failed to update references in %s: %w", file, err)
+			}
 		}
 	}
 

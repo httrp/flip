@@ -8,7 +8,6 @@ package ai
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 )
 
@@ -147,37 +146,6 @@ const (
 	ErrCodeUnknown       = "UNKNOWN"
 )
 
-// simpleStream wraps a channel into a Stream interface
-type simpleStream struct {
-	ch     chan string
-	err    error
-	closed bool
-}
-
-func (s *simpleStream) Next() (string, error) {
-	if s.closed {
-		return "", io.EOF
-	}
-	chunk, ok := <-s.ch
-	if !ok {
-		s.closed = true
-		if s.err != nil {
-			return "", s.err
-		}
-		return "", io.EOF
-	}
-	return chunk, nil
-}
-
-func (s *simpleStream) Close() error {
-	s.closed = true
-	return nil
-}
-
-// NewSimpleStream creates a stream from a channel
-func NewSimpleStream(ch chan string) Stream {
-	return &simpleStream{ch: ch}
-}
 
 // KeyStatus represents the result of an API key validation check.
 type KeyStatus struct {

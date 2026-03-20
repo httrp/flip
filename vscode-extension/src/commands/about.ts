@@ -78,9 +78,9 @@ function buildAboutMarkdown(flipVersion: string, extensionVersion: string): stri
   
   lines.push('## 🔗 Links');
   lines.push('');
-  lines.push('- [GitHub Repository](https://github.com/danorama-dh/flip)');
-  lines.push('- [Documentation](https://github.com/danorama-dh/flip/blob/main/README.md)');
-  lines.push('- [Report Issue](https://github.com/danorama-dh/flip/issues)');
+  lines.push('- [GitHub Repository](https://github.com/httrp/flip)');
+  lines.push('- [Documentation](https://github.com/httrp/flip/blob/main/README.md)');
+  lines.push('- [Report Issue](https://github.com/httrp/flip/issues)');
   lines.push('');
   
   lines.push('## ✨ Features');
@@ -202,7 +202,7 @@ function buildHelpMarkdown(): string {
   
   lines.push('---');
   lines.push('');
-  lines.push('For more information, visit the [GitHub Repository](https://github.com/danorama-dh/flip)');
+  lines.push('For more information, visit the [GitHub Repository](https://github.com/httrp/flip)');
   
   return lines.join('\n');
 }

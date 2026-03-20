@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlipClient, BrainInfo } from '../flip-client';
 
-const output = vscode.window.createOutputChannel('Flip Relocate');
+let output: vscode.OutputChannel | undefined;
+function getOutput(): vscode.OutputChannel {
+  if (!output) { output = vscode.window.createOutputChannel('Flip Relocate'); }
+  return output;
+}
+export function disposeRelocateOutput(): void { output?.dispose(); output = undefined; }
 
 export async function brainRelocate(): Promise<void> {
 	const client = getFlipClient();
@@ -126,10 +131,10 @@ export async function brainRelocate(): Promise<void> {
 				? 'Dry run preview completed'
 				: 'Brain relocated successfully';
 		vscode.window.showInformationMessage(msg);
-		output.show(true);
+		getOutput().show(true);
 	} else {
 		const errorMsg = result.error ? (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) : 'Unknown error';
 		vscode.window.showErrorMessage(`Relocation failed: ${errorMsg}`);
-		output.show(true);
+		getOutput().show(true);
 	}
 }
