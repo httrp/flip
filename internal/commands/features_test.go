@@ -26,6 +26,7 @@ func TestIsEnabled_OptionalFeatures(t *testing.T) {
 		FeatureDefinitions,
 		FeatureMeetings,
 		FeatureMigration,
+		FeatureAI,
 	}
 
 	for _, f := range optionalFeatures {
@@ -205,12 +206,12 @@ func TestFeatureEnvVarParsing(t *testing.T) {
 	}
 
 	feature := FeatureExercises
-	
+
 	for _, tt := range tests {
 		t.Run(tt.envValue, func(t *testing.T) {
 			// Reset feature state
 			EnableFeature(feature)
-			
+
 			os.Setenv("FLIP_FEATURE_EXERCISES", tt.envValue)
 			defer os.Unsetenv("FLIP_FEATURE_EXERCISES")
 
@@ -226,9 +227,9 @@ func TestFeatureEnvVarEmpty(t *testing.T) {
 	// Empty env var means use registry default (enabled)
 	feature := FeatureExercises
 	EnableFeature(feature)
-	
+
 	os.Unsetenv("FLIP_FEATURE_EXERCISES")
-	
+
 	if !IsEnabled(feature) {
 		t.Error("Empty env var should use default (enabled)")
 	}
@@ -236,7 +237,7 @@ func TestFeatureEnvVarEmpty(t *testing.T) {
 
 func TestAllFeaturesHaveDescriptions(t *testing.T) {
 	info := GetFeatureInfo()
-	
+
 	for _, fi := range info {
 		if fi.Description == "" {
 			t.Errorf("Feature %s has no description", fi.Name)

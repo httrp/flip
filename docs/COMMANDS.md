@@ -141,11 +141,11 @@ flip ai improve notes/my-note.md
 - Filename: `<short-title-slug>-YYYY-MM-DD.md` (no `research-` or `summary-` prefix)
 - Title: required; suggested from topic and can be confirmed/edited
 - Journal link label: `Title (Research: <provider>)` or `Title (Summary: <provider>)`
-- Top sections: `## Prompt` and `## Sources` are always present
+- Top sections: `## Template Context` and `## Sources` are always present
 
 ### Prompt Notes
 
-Prompt notes live under notes/prompts and can be reused across AI commands.
+Template notes live under templates/ai and can be reused across AI commands.
 
 ```bash
 # Create a prompt note
@@ -155,16 +155,25 @@ flip note --subfolder prompts --title "Research (Deep)"
 ### Useful Flags
 
 ```bash
-# Select prompt note (path or name)
---prompt "Research (Deep)"
+# Select template note (path or name)
+--template "Research (Deep)"
 
-# Add extra instructions for this request
---prompt-extra "Focus on 2025-2026 trends"
+# Add concrete request for this run
+--request "Analyze migration options for project X"
 
-# Create a prompt note on the fly
---prompt-create-title "Research (Deep)"
---prompt-create-body "Structured research with sources and risks"
---prompt-create-default
+# Add optional run notes for this request
+--run-notes "Focus on 2025-2026 trends"
+
+# Add explicit context files (repeat flag)
+--context-file notes/architecture.md --context-file notes/decisions.md
+
+# Research only: auto-search current brain for additional context
+--context-auto-brain
+
+# Create a template note on the fly
+--template-create-title "Research (Deep)"
+--template-create-body "Structured research with sources and risks"
+--template-create-default
 
 # Override model and timeout
 --model "llama3.2"

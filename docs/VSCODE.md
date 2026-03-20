@@ -67,18 +67,21 @@ make install-extension   # detects code/codium/code-insiders
 
 ---
 
-## AI Prompt Notes
+## AI Templates
 
-The extension can select or create prompt notes for AI commands.
+The extension can select or create template notes for AI commands.
 
 ### Flow
 1. Pick brain
-2. Pick prompt (or create one if none exist)
-3. Add extra instructions (multi-line editor, optional)
-4. Confirm suggested title (required)
-5. Run AI command
+2. Pick template (or create one if none exist)
+  - Built-in presets are available when creating: `Research (Best Practice)`, `Summarize (Best Practice)`, `Improve (Best Practice)`
+3. Enter concrete request (required)
+4. Select context source (none, current file, selected files, or brain auto-search for research)
+5. Add optional run notes (multi-line editor)
+6. Confirm suggested title (required)
+7. Run AI command
 
-Prompt notes are stored under notes/prompts. Default prompt notes are used automatically when set.
+Template notes are stored under templates/ai. Default template notes are used automatically when set.
 
 AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and add prompt/sources sections at the top of the note.
 

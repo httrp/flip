@@ -41,6 +41,8 @@ func NewClientWithConfig(cfg *Config) (*Client, error) {
 	case "groq":
 		// Groq uses OpenAI-compatible API with custom LPU
 		provider = NewGroqProvider(cfg)
+	case "mistral":
+		provider = NewMistralProvider(cfg)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}
@@ -112,6 +114,38 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	return c.provider.ListModels(ctx)
 }
 
+// ValidateAPIKey performs a lightweight API call to check if the configured key is valid.
+// Returns a KeyStatus with the result. This does NOT consume significant API quota.
+func (c *Client) ValidateAPIKey(ctx context.Context) *KeyStatus {
+	provider := c.provider.Name()
+
+	// Ollama doesn't use API keys
+	if provider == "ollama" {
+		return &KeyStatus{Provider: provider, Valid: true, Message: "no API key required"}
+	}
+
+	// For all API-based providers: try listing models as a lightweight validation.
+	// A 401/403 means invalid key, 200 means valid, anything else is inconclusive.
+	_, err := c.provider.ListModels(ctx)
+	if err != nil {
+		pErr, ok := err.(*ProviderError)
+		if ok {
+			switch pErr.Code {
+			case ErrCodeAuth:
+				return &KeyStatus{Provider: provider, Valid: false, Message: "API key rejected (invalid or revoked)"}
+			case ErrCodeRateLimit:
+				return &KeyStatus{Provider: provider, Valid: true, RateLimited: true, Message: "API key valid (currently rate-limited)"}
+			case ErrCodeConnection:
+				return &KeyStatus{Provider: provider, Valid: true, Message: "API key set, but provider not reachable"}
+			}
+		}
+		// Connection errors etc. – key might still be valid
+		return &KeyStatus{Provider: provider, Valid: true, Message: fmt.Sprintf("could not verify: %v", err)}
+	}
+
+	return &KeyStatus{Provider: provider, Valid: true, Message: "API key valid"}
+}
+
 // NewAzureOpenAIProvider creates an Azure OpenAI provider
 // Azure uses the OpenAI API format with different authentication
 func NewAzureOpenAIProvider(cfg *Config) *OpenAIProvider {
@@ -143,6 +177,9 @@ func GetDefaultProvider() string {
 	}
 	if cfg.GroqKey != "" {
 		return "groq"
+	}
+	if cfg.MistralKey != "" {
+		return "mistral"
 	}
 	if cfg.AzureKey != "" {
 		return "azure"
@@ -177,6 +214,12 @@ func QuickCheck(ctx context.Context) map[string]bool {
 	if cfg.GroqKey != "" {
 		groqProvider := NewGroqProvider(cfg)
 		results["groq"] = groqProvider.IsAvailable(ctx)
+	}
+
+	// Check Mistral if configured
+	if cfg.MistralKey != "" {
+		mistralProvider := NewMistralProvider(cfg)
+		results["mistral"] = mistralProvider.IsAvailable(ctx)
 	}
 
 	return results

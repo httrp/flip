@@ -72,6 +72,10 @@
         "title": "Flip: AI Improve Note"
       },
       {
+        "command": "flip.aiSetup",
+        "title": "Flip: AI Setup (Provider & Model)"
+      },
+      {
         "command": "flip.brainHealth",
         "title": "Flip: Brain Health Check"
       },

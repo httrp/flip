@@ -7,7 +7,9 @@ package ai
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"time"
 )
 
 // Provider is the common interface for all AI providers
@@ -175,4 +177,50 @@ func (s *simpleStream) Close() error {
 // NewSimpleStream creates a stream from a channel
 func NewSimpleStream(ch chan string) Stream {
 	return &simpleStream{ch: ch}
+}
+
+// KeyStatus represents the result of an API key validation check.
+type KeyStatus struct {
+	// Provider name
+	Provider string
+
+	// Valid indicates whether the key was accepted by the API
+	Valid bool
+
+	// Message provides a human-readable status description
+	Message string
+
+	// ExpiresAt contains the key expiry time, if the provider reports it.
+	// Zero value means the provider does not expose expiry information.
+	ExpiresAt time.Time
+
+	// RateLimited indicates whether the key is currently rate-limited
+	RateLimited bool
+}
+
+// HasExpiry returns true if the provider reported an expiry date.
+func (ks *KeyStatus) HasExpiry() bool {
+	return !ks.ExpiresAt.IsZero()
+}
+
+// ExpiryString returns a human-readable expiry string, or "" if unknown.
+func (ks *KeyStatus) ExpiryString() string {
+	if ks.ExpiresAt.IsZero() {
+		return ""
+	}
+	remaining := time.Until(ks.ExpiresAt)
+	if remaining <= 0 {
+		return "expired"
+	}
+	days := int(remaining.Hours() / 24)
+	if days > 30 {
+		return ks.ExpiresAt.Format("2006-01-02")
+	}
+	if days == 0 {
+		return "expires today"
+	}
+	if days == 1 {
+		return "expires tomorrow"
+	}
+	return fmt.Sprintf("expires in %d days", days)
 }

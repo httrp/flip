@@ -23,58 +23,86 @@ type PromptNoteInfo struct {
 	IsDefault bool
 }
 
+func getAITemplateDirectory(brainPath string) string {
+	return filepath.Join(brainPath, "templates", "ai")
+}
+
+func getPromptSearchDirectories(brainPath string, brainType brain.BrainType) []string {
+	_ = brainType
+	return []string{getAITemplateDirectory(brainPath)}
+}
+
 func findPromptNotes(brainPath string, brainType brain.BrainType) ([]PromptNoteInfo, *PromptNoteInfo, error) {
-	promptsDir := filepath.Join(getNotesDirectory(brainPath, brainType), "prompts")
-	info, err := os.Stat(promptsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []PromptNoteInfo{}, nil, nil
-		}
-		return nil, nil, err
-	}
-	if !info.IsDir() {
-		return []PromptNoteInfo{}, nil, nil
-	}
-
+	searchDirs := getPromptSearchDirectories(brainPath, brainType)
 	var prompts []PromptNoteInfo
+	seenPaths := make(map[string]bool)
+	seenNames := make(map[string]bool)
 
-	err = filepath.Walk(promptsDir, func(path string, fileInfo os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return nil
-		}
-
-		if fileInfo.IsDir() {
-			name := fileInfo.Name()
-			if strings.HasPrefix(name, ".") {
-				return filepath.SkipDir
+	for _, promptsDir := range searchDirs {
+		info, err := os.Stat(promptsDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
 			}
+			return nil, nil, err
+		}
+		if !info.IsDir() {
+			continue
+		}
+
+		err = filepath.Walk(promptsDir, func(path string, fileInfo os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return nil
+			}
+
+			if fileInfo.IsDir() {
+				name := fileInfo.Name()
+				if strings.HasPrefix(name, ".") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			if !strings.HasSuffix(strings.ToLower(fileInfo.Name()), ".md") {
+				return nil
+			}
+
+			absPath, absErr := filepath.Abs(path)
+			if absErr != nil {
+				absPath = path
+			}
+			if seenPaths[absPath] {
+				return nil
+			}
+
+			metaTitle, isDefault := readPromptNoteMeta(path)
+			name := strings.TrimSuffix(fileInfo.Name(), filepath.Ext(fileInfo.Name()))
+			nameKey := strings.ToLower(name)
+			if seenNames[nameKey] {
+				return nil
+			}
+			seenNames[nameKey] = true
+			seenPaths[absPath] = true
+
+			title := metaTitle
+			if title == "" {
+				title = name
+			}
+
+			relPath, _ := filepath.Rel(brainPath, path)
+			prompts = append(prompts, PromptNoteInfo{
+				Name:      name,
+				Title:     title,
+				Path:      path,
+				RelPath:   relPath,
+				IsDefault: isDefault || strings.EqualFold(name, "default"),
+			})
+
 			return nil
-		}
-
-		if !strings.HasSuffix(strings.ToLower(fileInfo.Name()), ".md") {
-			return nil
-		}
-
-		metaTitle, isDefault := readPromptNoteMeta(path)
-		name := strings.TrimSuffix(fileInfo.Name(), filepath.Ext(fileInfo.Name()))
-		title := metaTitle
-		if title == "" {
-			title = name
-		}
-
-		relPath, _ := filepath.Rel(brainPath, path)
-		prompts = append(prompts, PromptNoteInfo{
-			Name:      name,
-			Title:     title,
-			Path:      path,
-			RelPath:   relPath,
-			IsDefault: isDefault || strings.EqualFold(name, "default"),
 		})
-
-		return nil
-	})
-	if err != nil {
-		return nil, nil, err
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	sort.Slice(prompts, func(i, j int) bool {
@@ -188,15 +216,22 @@ func resolvePromptOverride(override string, brainPath string, brainType brain.Br
 		return PromptNoteInfo{}, false, fmt.Errorf("prompt note not found: %s", override)
 	}
 
-	promptsDir := filepath.Join(getNotesDirectory(brainPath, brainType), "prompts")
 	candidate := override
 	if !strings.HasSuffix(strings.ToLower(candidate), ".md") {
 		candidate += ".md"
 	}
 
-	pathCandidate := filepath.Join(promptsDir, candidate)
-	if _, err := os.Stat(pathCandidate); err == nil {
-		return PromptNoteInfo{Path: pathCandidate}, true, nil
+	// Try direct brain-relative path first (e.g. templates/ai/foo.md)
+	brainRelCandidate := filepath.Join(brainPath, candidate)
+	if _, err := os.Stat(brainRelCandidate); err == nil {
+		return PromptNoteInfo{Path: brainRelCandidate}, true, nil
+	}
+
+	for _, promptsDir := range getPromptSearchDirectories(brainPath, brainType) {
+		pathCandidate := filepath.Join(promptsDir, candidate)
+		if _, err := os.Stat(pathCandidate); err == nil {
+			return PromptNoteInfo{Path: pathCandidate}, true, nil
+		}
 	}
 
 	for _, prompt := range prompts {
@@ -215,7 +250,7 @@ func createPromptNote(brainPath string, brainType brain.BrainType, title string,
 	}
 
 	filename := sanitizeFilename(title) + ".md"
-	promptsDir := filepath.Join(getNotesDirectory(brainPath, brainType), "prompts")
+	promptsDir := getAITemplateDirectory(brainPath)
 	if err := os.MkdirAll(promptsDir, 0755); err != nil {
 		return PromptNoteInfo{}, err
 	}

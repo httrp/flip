@@ -331,7 +331,14 @@ func (p *OpenAIProvider) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, NewProviderError("openai", ErrCodeUnknown, fmt.Sprintf("API error %d", resp.StatusCode), nil)
+		code := ErrCodeUnknown
+		switch resp.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			code = ErrCodeAuth
+		case http.StatusTooManyRequests:
+			code = ErrCodeRateLimit
+		}
+		return nil, NewProviderError("openai", code, fmt.Sprintf("API error %d", resp.StatusCode), nil)
 	}
 
 	var result struct {

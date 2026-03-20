@@ -181,13 +181,32 @@ tags: [prompt]
 
 # {{title}}
 
-## Role
+## Rolle
 
-## Instructions
+Du bist ein Experte für ...
+_→ Beschreibe Expertise, Perspektive und Hintergrund der KI-Rolle_
 
-## Output
+## Aufgabe
 
-## Constraints
+_→ Beginne mit Verb: Analysiere · Erstelle · Erkläre · Optimiere · Übersetze · Verfasse_
+
+## Kontext
+
+_→ Hintergrundinformationen, die die KI für eine gute Antwort braucht_
+
+## Input
+
+_→ Hier kommt der eigentliche Input (Text, Code, Daten, URLs ...)_
+
+## Ausgabe-Format
+
+- Format: Markdown / Liste / JSON / Fließtext
+- Sprache: Deutsch
+- Länge: kurz / mittel / ausführlich
+
+## Einschränkungen
+
+- 
 
 `,
 }
@@ -269,13 +288,32 @@ tags: [prompt]
 
 # {{title}}
 
-## Role
+## Rolle
 
-## Instructions
+Du bist ein Experte für ...
+_→ Beschreibe Expertise, Perspektive und Hintergrund der KI-Rolle_
 
-## Output
+## Aufgabe
 
-## Constraints
+_→ Beginne mit Verb: Analysiere · Erstelle · Erkläre · Optimiere · Übersetze · Verfasse_
+
+## Kontext
+
+_→ Hintergrundinformationen, die die KI für eine gute Antwort braucht_
+
+## Input
+
+_→ Hier kommt der eigentliche Input (Text, Code, Daten, URLs ...)_
+
+## Ausgabe-Format
+
+- Format: Markdown / Liste / JSON / Fließtext
+- Sprache: Deutsch
+- Länge: kurz / mittel / ausführlich
+
+## Einschränkungen
+
+- 
 
 `,
 }
@@ -335,13 +373,20 @@ var logseqDefaults = map[TemplateType]string{
 - tags:: prompt
 
 - # {{title}}
-	- ## Role
-		- 
-	- ## Instructions
-		- 
-	- ## Output
-		- 
-	- ## Constraints
+	- ## Rolle
+		- Du bist ein Experte für ...
+		- _→ Beschreibe Expertise, Perspektive und Hintergrund der KI-Rolle_
+	- ## Aufgabe
+		- _→ Beginne mit Verb: Analysiere · Erstelle · Erkläre · Optimiere · Übersetze · Verfasse_
+	- ## Kontext
+		- _→ Hintergrundinformationen, die die KI für eine gute Antwort braucht_
+	- ## Input
+		- _→ Hier kommt der eigentliche Input (Text, Code, Daten, URLs ...)_
+	- ## Ausgabe-Format
+		- Format: Markdown / Liste / JSON / Fließtext
+		- Sprache: Deutsch
+		- Länge: kurz / mittel / ausführlich
+	- ## Einschränkungen
 		- 
 `,
 }
@@ -428,13 +473,32 @@ tags:
 
 # {{title}}
 
-## Role
+## Rolle
 
-## Instructions
+Du bist ein Experte für ...
+_→ Beschreibe Expertise, Perspektive und Hintergrund der KI-Rolle_
 
-## Output
+## Aufgabe
 
-## Constraints
+_→ Beginne mit Verb: Analysiere · Erstelle · Erkläre · Optimiere · Übersetze · Verfasse_
+
+## Kontext
+
+_→ Hintergrundinformationen, die die KI für eine gute Antwort braucht_
+
+## Input
+
+_→ Hier kommt der eigentliche Input (Text, Code, Daten, URLs ...)_
+
+## Ausgabe-Format
+
+- Format: Markdown / Liste / JSON / Fließtext
+- Sprache: Deutsch
+- Länge: kurz / mittel / ausführlich
+
+## Einschränkungen
+
+- 
 
 `,
 }
@@ -516,13 +580,32 @@ tags: [prompt]
 
 # {{title}}
 
-## Role
+## Rolle
 
-## Instructions
+Du bist ein Experte für ...
+_→ Beschreibe Expertise, Perspektive und Hintergrund der KI-Rolle_
 
-## Output
+## Aufgabe
 
-## Constraints
+_→ Beginne mit Verb: Analysiere · Erstelle · Erkläre · Optimiere · Übersetze · Verfasse_
+
+## Kontext
+
+_→ Hintergrundinformationen, die die KI für eine gute Antwort braucht_
+
+## Input
+
+_→ Hier kommt der eigentliche Input (Text, Code, Daten, URLs ...)_
+
+## Ausgabe-Format
+
+- Format: Markdown / Liste / JSON / Fließtext
+- Sprache: Deutsch
+- Länge: kurz / mittel / ausführlich
+
+## Einschränkungen
+
+- 
 
 `,
 }

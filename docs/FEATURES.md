@@ -85,11 +85,11 @@ Create research notes, summaries, and improvements with AI.
 | `flip ai summarize` | Summarize notes about a topic |
 | `flip ai improve` | Improve an existing note |
 
-### Prompt Notes
+### AI Templates
 
-Reusable prompt notes live in notes/prompts. You can set a default prompt or add extra instructions per request.
+Reusable template notes live in templates/ai. You can set a default template or add optional run notes per request.
 
-AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and include `## Prompt` and `## Sources` sections at the top.
+AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and include `## Template Context` and `## Sources` sections at the top.
 
 ### Tasks
 | Command | Description |

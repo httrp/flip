@@ -129,6 +129,7 @@ func GetFeatureInfo() []FeatureInfo {
 		{FeatureDefinitions, "Organization/Person definitions", false, IsEnabled(FeatureDefinitions)},
 		{FeatureMeetings, "Meeting note creation", false, IsEnabled(FeatureMeetings)},
 		{FeatureMigration, "Brain migration tools", false, IsEnabled(FeatureMigration)},
+		{FeatureAI, "AI integration (summarize, research, improve)", false, IsEnabled(FeatureAI)},
 	}
 }
 

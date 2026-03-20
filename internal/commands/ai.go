@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,11 +42,12 @@ flip uses AI to help you:
   - Improve existing notes
 
 Configuration:
-  FLIP_AI_PROVIDER=ollama|openai|anthropic|groq|azure
+  FLIP_AI_PROVIDER=ollama|openai|anthropic|groq|mistral|azure
   OLLAMA_HOST=http://localhost:11434 (for Ollama)
   OPENAI_API_KEY=sk-... (for OpenAI)
   ANTHROPIC_API_KEY=sk-ant-... (for Anthropic)
-  GROQ_API_KEY=gsk_... (for Groq - fast & free)`,
+  GROQ_API_KEY=gsk_... (for Groq - fast & free)
+  MISTRAL_API_KEY=... (for Mistral)`,
 	}
 
 	cmd.AddCommand(newAISummarizeCommand())
@@ -52,6 +55,8 @@ Configuration:
 	cmd.AddCommand(newAIImproveCommand())
 	cmd.AddCommand(newAIStatusCommand())
 	cmd.AddCommand(newAIModelsCommand())
+	cmd.AddCommand(newAISetupCommand())
+	cmd.AddCommand(newAIRenewKeyCommand())
 
 	return cmd
 }
@@ -73,59 +78,129 @@ func runAIStatus() error {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	cfg := ai.LoadConfig()
-	fmt.Printf("Provider: %s\n", cfg.Provider)
-	fmt.Printf("Model:    %s\n", cfg.Model)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Show config file location
+	configPath := ai.ConfigFilePath()
+	if configPath != "" {
+		if _, err := os.Stat(configPath); err == nil {
+			fmt.Printf("Config:   %s\n", configPath)
+		}
+	}
+	fmt.Printf("Active:   %s (%s)\n", cfg.Provider, cfg.Model)
+	fmt.Println()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	client, err := ai.NewClient()
-	if err != nil {
-		fmt.Printf("Status:   ❌ Configuration error: %v\n", err)
-		return nil
+	// Build a list of all providers and their status
+	type providerInfo struct {
+		name      string
+		model     string
+		apiKey    string
+		hasKey    bool
+		available bool
+		keyStatus *ai.KeyStatus
 	}
 
-	if client.IsAvailable(ctx) {
-		fmt.Println("Status:   ✅ Available")
+	providers := []providerInfo{
+		{name: "ollama", model: cfg.OllamaModel, hasKey: true},
+		{name: "openai", model: cfg.OpenAIModel, apiKey: cfg.OpenAIKey, hasKey: cfg.OpenAIKey != ""},
+		{name: "anthropic", model: cfg.AnthropicModel, apiKey: cfg.AnthropicKey, hasKey: cfg.AnthropicKey != ""},
+		{name: "groq", model: cfg.GroqModel, apiKey: cfg.GroqKey, hasKey: cfg.GroqKey != ""},
+		{name: "mistral", model: cfg.MistralModel, apiKey: cfg.MistralKey, hasKey: cfg.MistralKey != ""},
+		{name: "azure", model: cfg.AzureDeployment, apiKey: cfg.AzureKey, hasKey: cfg.AzureKey != ""},
+	}
 
-		// Try to list models
-		models, err := client.ListModels(ctx)
-		if err == nil && len(models) > 0 {
-			fmt.Printf("Models:   %d available\n", len(models))
-			// Show first few models
-			for i, m := range models {
-				if i >= 5 {
-					fmt.Printf("          ...and %d more\n", len(models)-5)
-					break
-				}
-				fmt.Printf("          - %s\n", m.Name)
+	// Check availability and validate keys for configured providers
+	for i, p := range providers {
+		if !p.hasKey {
+			continue
+		}
+
+		checkCfg := buildSetupConfig(cfg, p.name, p.model)
+		client, err := ai.NewClientWithConfig(checkCfg)
+		if err == nil {
+			providers[i].available = client.IsAvailable(ctx)
+		}
+
+		// Validate API key for cloud providers
+		if p.name != "ollama" {
+			providers[i].keyStatus = ai.ValidateAPIKey(ctx, checkCfg)
+		}
+	}
+
+	// Display all providers
+	for _, p := range providers {
+		var status string
+		if !p.hasKey {
+			status = "—  not configured"
+		} else if p.keyStatus != nil && !p.keyStatus.Valid {
+			status = "❌ key invalid"
+		} else if p.available {
+			status = "✅ available"
+		} else {
+			status = "⚠️  not reachable"
+		}
+
+		active := " "
+		if p.name == cfg.Provider {
+			active = "▸"
+		}
+
+		modelStr := ""
+		if p.hasKey && p.model != "" {
+			modelStr = fmt.Sprintf(" (%s)", p.model)
+		}
+
+		keyInfo := ""
+		if p.hasKey && p.apiKey != "" {
+			keyInfo = fmt.Sprintf("  key: %s", ai.MaskAPIKey(p.apiKey))
+			if p.keyStatus != nil && p.keyStatus.HasExpiry() {
+				keyInfo += fmt.Sprintf(" [%s]", p.keyStatus.ExpiryString())
 			}
 		}
-	} else {
-		fmt.Println("Status:   ⚠️  Not available")
-		fmt.Println()
-		fmt.Println("Troubleshooting:")
-		switch cfg.Provider {
-		case "ollama":
-			fmt.Println("  • Make sure Ollama is running: ollama serve")
-			fmt.Println("  • Check OLLAMA_HOST if using a different address")
-		case "openai":
-			fmt.Println("  • Check that OPENAI_API_KEY is set correctly")
-		case "anthropic":
-			fmt.Println("  • Check that ANTHROPIC_API_KEY is set correctly")
-		case "groq":
-			fmt.Println("  • Check that GROQ_API_KEY is set correctly")
-			fmt.Println("  • Get a free key at: https://console.groq.com")
-		}
+
+		fmt.Printf(" %s %-10s %s%s%s\n", active, p.name, status, modelStr, keyInfo)
 	}
 
 	fmt.Println()
+
+	// Show invalid key warnings
+	hasInvalidKey := false
+	for _, p := range providers {
+		if p.keyStatus != nil && !p.keyStatus.Valid {
+			if !hasInvalidKey {
+				fmt.Println("⚠️  Key issues detected:")
+				hasInvalidKey = true
+			}
+			fmt.Printf("   • %s: %s\n", p.name, p.keyStatus.Message)
+		}
+	}
+	if hasInvalidKey {
+		fmt.Println()
+		fmt.Println("   Update a key with: flip ai setup --provider <name> --api-key <new-key>")
+		fmt.Println("   Or interactively:  flip ai renew-key")
+		fmt.Println()
+	}
+
+	// Show hint if no cloud providers configured
+	hasCloudProvider := false
+	for _, p := range providers {
+		if p.name != "ollama" && p.hasKey {
+			hasCloudProvider = true
+			break
+		}
+	}
+	if !hasCloudProvider {
+		fmt.Println("Tip: Run 'flip ai setup' to configure additional providers.")
+	}
+
 	return nil
 }
 
 type aiModelsResponse struct {
-	Provider     string        `json:"provider"`
-	DefaultModel string        `json:"default_model"`
+	Provider     string         `json:"provider"`
+	DefaultModel string         `json:"default_model"`
 	Models       []ai.ModelInfo `json:"models"`
 }
 
@@ -189,6 +264,9 @@ func runAIModels() error {
 
 	if len(models) == 0 {
 		fmt.Println("No models found.")
+		if cfg.Provider == "ollama" {
+			fmt.Println("Hint: run `flip ai setup` to install a default model.")
+		}
 		return nil
 	}
 
@@ -206,30 +284,547 @@ func runAIModels() error {
 	return nil
 }
 
-// newAISummarizeCommand creates notes summarizing content from brains
-func newAISummarizeCommand() *cobra.Command {
+// newAISetupCommand prepares local AI setup (Ollama + default model)
+func newAISetupCommand() *cobra.Command {
 	var (
-		topic    string
-		brains   []string
-		output   string
-		brain    string
-		title    string
-		model    string
-		prompt   string
-		promptExtra string
-		promptCreateTitle string
-		promptCreateBody  string
-		promptCreateDefault bool
-		timeout  int
-		link     bool
-		noLink   bool
-		noStream bool
-		jsonOut  bool
+		provider      string
+		model         string
+		apiKey        string
+		host          string
+		installOllama bool
+		skipCheck     bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "summarize [topic]",
-		Short: "Summarize your notes about a topic",
+		Use:   "setup",
+		Short: "Set up AI provider and default model",
+		Long: `Set up AI providers and default models from flip.
+
+This command can:
+1) Configure provider + default model instructions for all providers
+2) Validate provider availability/configuration
+3) For Ollama: optionally install Ollama and pull model
+
+Examples:
+  flip ai setup
+  flip ai setup --provider openai --model gpt-4o-mini
+  flip ai setup --provider anthropic --model claude-3-5-haiku-20241022
+  flip ai setup --provider groq --model llama-3.3-70b-versatile
+  flip ai setup --provider mistral --model mistral-large-latest
+  flip ai setup --provider azure --model my-deployment
+  flip ai setup --model llama3.2
+  flip ai setup --install-ollama
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAISetup(provider, model, apiKey, host, installOllama, skipCheck)
+		},
+	}
+
+	cmd.Flags().StringVar(&provider, "provider", "", "AI provider (ollama, openai, anthropic, groq, mistral, azure)")
+	cmd.Flags().StringVar(&model, "model", "", "Model to install (default: configured AI model)")
+	cmd.Flags().StringVar(&apiKey, "api-key", "", "API key override for cloud providers (not persisted)")
+	cmd.Flags().StringVar(&host, "host", "", "Ollama host override (default: OLLAMA_HOST or http://localhost:11434)")
+	cmd.Flags().BoolVar(&installOllama, "install-ollama", false, "Install Ollama if not found in PATH")
+	cmd.Flags().BoolVar(&skipCheck, "skip-check", false, "Skip provider connectivity/config check")
+
+	return cmd
+}
+
+func runAISetup(provider, model, apiKey, host string, installOllama bool, skipCheck bool) error {
+	cfg := ai.LoadConfig()
+
+	targetProvider := strings.ToLower(strings.TrimSpace(provider))
+	if targetProvider == "" {
+		targetProvider = strings.ToLower(strings.TrimSpace(cfg.Provider))
+	}
+	if targetProvider == "" {
+		targetProvider = "ollama"
+	}
+
+	if !isSupportedAIProvider(targetProvider) {
+		return fmt.Errorf("unsupported provider: %s (supported: ollama, openai, anthropic, groq, mistral, azure)", targetProvider)
+	}
+
+	targetModel := strings.TrimSpace(model)
+	if targetModel == "" {
+		targetModel = defaultModelForProvider(cfg, targetProvider)
+	}
+
+	if strings.TrimSpace(host) != "" {
+		cfg.OllamaHost = strings.TrimSpace(host)
+	}
+
+	if strings.TrimSpace(apiKey) != "" {
+		setProviderAPIKey(cfg, targetProvider, strings.TrimSpace(apiKey))
+	}
+
+	fmt.Println()
+	fmt.Println("🤖 AI Setup")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("Provider: %s\n", targetProvider)
+	fmt.Printf("Model:    %s\n", targetModel)
+	if targetProvider == "ollama" {
+		fmt.Printf("Host:     %s\n", cfg.OllamaHost)
+	}
+
+	setupCfg := buildSetupConfig(cfg, targetProvider, targetModel)
+
+	if targetProvider == "ollama" {
+		if err := ensureOllamaModelInstalled(targetModel, installOllama); err != nil {
+			return err
+		}
+	}
+
+	if !skipCheck {
+		if err := checkAIProviderAvailability(setupCfg); err != nil {
+			return err
+		}
+	}
+
+	// Persist configuration to config file
+	if err := ai.SaveConfig(setupCfg); err != nil {
+		fmt.Printf("⚠️  Could not save config: %v\n", err)
+		fmt.Println("   You can set the environment variables manually:")
+		printAISetupEnvInstructions(setupCfg)
+	} else {
+		fmt.Printf("\n✅ Configuration saved to %s\n", ai.ConfigFilePath())
+	}
+
+	// Validate API key if this is a cloud provider
+	if targetProvider != "ollama" {
+		fmt.Println("\n🔑 Validating API key...")
+		valCtx, valCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer valCancel()
+		keyStatus := ai.ValidateAPIKey(valCtx, setupCfg)
+		if keyStatus.Valid {
+			fmt.Printf("   %s\n", keyStatus.Message)
+		} else {
+			fmt.Printf("   ⚠️  %s\n", keyStatus.Message)
+			fmt.Println("   Check your API key and try again with: flip ai setup --provider", targetProvider)
+		}
+	}
+
+	fmt.Println("✅ AI setup complete.")
+	return nil
+}
+
+func ensureOllamaModelInstalled(targetModel string, installOllama bool) error {
+	if strings.TrimSpace(targetModel) == "" {
+		targetModel = "llama3.2"
+	}
+
+	if _, err := exec.LookPath("ollama"); err != nil {
+		if !installOllama {
+			return fmt.Errorf("Ollama not found. Install it manually or run `flip ai setup --install-ollama`")
+		}
+
+		if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+			return fmt.Errorf("automatic Ollama installation is only supported on Linux/macOS")
+		}
+
+		fmt.Println("\n📦 Installing Ollama...")
+		installCmd := exec.Command("sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh")
+		installCmd.Stdin = os.Stdin
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
+		if err := installCmd.Run(); err != nil {
+			return fmt.Errorf("failed to install Ollama: %w", err)
+		}
+	}
+
+	fmt.Println("\n🔍 Checking Ollama service...")
+	listCmd := exec.Command("ollama", "list")
+	listOutput, err := listCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ollama is installed but not ready: %w\nOutput: %s", err, strings.TrimSpace(string(listOutput)))
+	}
+
+	if ollamaListContainsModel(string(listOutput), targetModel) {
+		fmt.Printf("✅ Model already installed: %s\n", targetModel)
+		return nil
+	}
+
+	fmt.Printf("\n⬇️  Pulling model: %s\n", targetModel)
+	pullCmd := exec.Command("ollama", "pull", targetModel)
+	pullCmd.Stdin = os.Stdin
+	pullCmd.Stdout = os.Stdout
+	pullCmd.Stderr = os.Stderr
+	if err := pullCmd.Run(); err != nil {
+		return fmt.Errorf("failed to pull model '%s': %w", targetModel, err)
+	}
+
+	verifyCmd := exec.Command("ollama", "list")
+	verifyOutput, err := verifyCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("model pull finished, but verification failed: %w", err)
+	}
+
+	if !ollamaListContainsModel(string(verifyOutput), targetModel) {
+		return fmt.Errorf("model '%s' not found after pull; run `ollama list` to verify", targetModel)
+	}
+
+	fmt.Printf("✅ Installed model: %s\n", targetModel)
+	return nil
+}
+
+func checkAIProviderAvailability(cfg *ai.Config) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := ai.NewClientWithConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	if client.IsAvailable(ctx) {
+		fmt.Println("Status:   ✅ Available")
+		return nil
+	}
+
+	fmt.Println("Status:   ⚠️  Not reachable right now")
+	fmt.Println("          Config is set, but provider check failed.")
+	return nil
+}
+
+func printAISetupEnvInstructions(cfg *ai.Config) {
+	fmt.Println()
+	fmt.Println("Environment setup:")
+	fmt.Printf("  export FLIP_AI_PROVIDER=%s\n", cfg.Provider)
+
+	switch cfg.Provider {
+	case "ollama":
+		if cfg.OllamaHost != "" {
+			fmt.Printf("  export OLLAMA_HOST=%s\n", cfg.OllamaHost)
+		}
+		if cfg.OllamaModel != "" {
+			fmt.Printf("  export FLIP_OLLAMA_MODEL=%s\n", cfg.OllamaModel)
+		}
+	case "openai":
+		fmt.Println("  export OPENAI_API_KEY=<YOUR_OPENAI_KEY>")
+		if cfg.OpenAIModel != "" {
+			fmt.Printf("  export FLIP_OPENAI_MODEL=%s\n", cfg.OpenAIModel)
+		}
+	case "anthropic":
+		fmt.Println("  export ANTHROPIC_API_KEY=<YOUR_ANTHROPIC_KEY>")
+		if cfg.AnthropicModel != "" {
+			fmt.Printf("  export FLIP_ANTHROPIC_MODEL=%s\n", cfg.AnthropicModel)
+		}
+	case "groq":
+		fmt.Println("  export GROQ_API_KEY=<YOUR_GROQ_KEY>")
+		if cfg.GroqModel != "" {
+			fmt.Printf("  export FLIP_GROQ_MODEL=%s\n", cfg.GroqModel)
+		}
+	case "mistral":
+		fmt.Println("  export MISTRAL_API_KEY=<YOUR_MISTRAL_KEY>")
+		if cfg.MistralModel != "" {
+			fmt.Printf("  export FLIP_MISTRAL_MODEL=%s\n", cfg.MistralModel)
+		}
+	case "azure":
+		fmt.Println("  export AZURE_OPENAI_ENDPOINT=<YOUR_AZURE_ENDPOINT>")
+		fmt.Println("  export AZURE_OPENAI_KEY=<YOUR_AZURE_KEY>")
+		if cfg.AzureDeployment != "" {
+			fmt.Printf("  export AZURE_OPENAI_DEPLOYMENT=%s\n", cfg.AzureDeployment)
+		}
+		if cfg.AzureAPIVersion != "" {
+			fmt.Printf("  export AZURE_OPENAI_API_VERSION=%s\n", cfg.AzureAPIVersion)
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("Tip: Add these exports to your shell profile (~/.bashrc or ~/.zshrc).")
+}
+
+func buildSetupConfig(base *ai.Config, provider, model string) *ai.Config {
+	cfg := *base
+	cfg.Provider = provider
+
+	switch provider {
+	case "ollama":
+		cfg.OllamaModel = model
+	case "openai":
+		cfg.OpenAIModel = model
+	case "anthropic":
+		cfg.AnthropicModel = model
+	case "groq":
+		cfg.GroqModel = model
+	case "mistral":
+		cfg.MistralModel = model
+	case "azure":
+		cfg.AzureDeployment = model
+	}
+
+	// Recompute derived fields
+	switch provider {
+	case "openai":
+		cfg.APIKey = cfg.OpenAIKey
+		cfg.Model = cfg.OpenAIModel
+		cfg.BaseURL = cfg.OpenAIBaseURL
+	case "anthropic":
+		cfg.APIKey = cfg.AnthropicKey
+		cfg.Model = cfg.AnthropicModel
+	case "azure":
+		cfg.APIKey = cfg.AzureKey
+		cfg.Model = cfg.AzureDeployment
+		cfg.BaseURL = cfg.AzureEndpoint
+	case "groq":
+		cfg.APIKey = cfg.GroqKey
+		cfg.Model = cfg.GroqModel
+		cfg.BaseURL = "https://api.groq.com/openai/v1"
+	case "mistral":
+		cfg.APIKey = cfg.MistralKey
+		cfg.Model = cfg.MistralModel
+		cfg.BaseURL = "https://api.mistral.ai/v1"
+	default:
+		cfg.Model = cfg.OllamaModel
+		cfg.BaseURL = cfg.OllamaHost
+	}
+
+	return &cfg
+}
+
+func setProviderAPIKey(cfg *ai.Config, provider, key string) {
+	switch provider {
+	case "openai":
+		cfg.OpenAIKey = key
+	case "anthropic":
+		cfg.AnthropicKey = key
+	case "groq":
+		cfg.GroqKey = key
+	case "mistral":
+		cfg.MistralKey = key
+	case "azure":
+		cfg.AzureKey = key
+	}
+}
+
+// newAIRenewKeyCommand allows interactive renewal of API keys
+func newAIRenewKeyCommand() *cobra.Command {
+	var provider string
+
+	cmd := &cobra.Command{
+		Use:   "renew-key",
+		Short: "Update or renew an API key for a provider",
+		Long: `Interactively update the API key for an AI provider.
+
+Lets you select a provider, enter a new key, validates it immediately,
+and saves it to the config file.
+
+Examples:
+  flip ai renew-key
+  flip ai renew-key --provider mistral`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAIRenewKey(provider)
+		},
+	}
+
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider to renew key for (skip selection)")
+
+	return cmd
+}
+
+func runAIRenewKey(targetProvider string) error {
+	cfg := ai.LoadConfig()
+
+	// Cloud providers that use API keys
+	type keyProvider struct {
+		name   string
+		hasKey bool
+		masked string
+	}
+
+	cloudProviders := []keyProvider{
+		{name: "openai", hasKey: cfg.OpenAIKey != "", masked: ai.MaskAPIKey(cfg.OpenAIKey)},
+		{name: "anthropic", hasKey: cfg.AnthropicKey != "", masked: ai.MaskAPIKey(cfg.AnthropicKey)},
+		{name: "groq", hasKey: cfg.GroqKey != "", masked: ai.MaskAPIKey(cfg.GroqKey)},
+		{name: "mistral", hasKey: cfg.MistralKey != "", masked: ai.MaskAPIKey(cfg.MistralKey)},
+		{name: "azure", hasKey: cfg.AzureKey != "", masked: ai.MaskAPIKey(cfg.AzureKey)},
+	}
+
+	if targetProvider == "" {
+		// Interactive selection
+		var items []string
+		for _, p := range cloudProviders {
+			label := p.name
+			if p.hasKey {
+				label += fmt.Sprintf(" (current: %s)", p.masked)
+			} else {
+				label += " (not configured)"
+			}
+			items = append(items, label)
+		}
+
+		sel := promptui.Select{
+			Label: "Select provider to update API key",
+			Items: items,
+		}
+		idx, _, err := sel.Run()
+		if err != nil {
+			return err
+		}
+		targetProvider = cloudProviders[idx].name
+	}
+
+	if !isSupportedAIProvider(targetProvider) || targetProvider == "ollama" {
+		return fmt.Errorf("provider '%s' does not use API keys", targetProvider)
+	}
+
+	fmt.Printf("\n🔑 Update API key for: %s\n", targetProvider)
+
+	// Find current key
+	for _, p := range cloudProviders {
+		if p.name == targetProvider && p.hasKey {
+			fmt.Printf("   Current key: %s\n", p.masked)
+		}
+	}
+
+	prompt := promptui.Prompt{
+		Label: "New API key",
+		Mask:  '*',
+		Validate: func(input string) error {
+			if strings.TrimSpace(input) == "" {
+				return fmt.Errorf("key cannot be empty")
+			}
+			return nil
+		},
+	}
+	newKey, err := prompt.Run()
+	if err != nil {
+		return err
+	}
+	newKey = strings.TrimSpace(newKey)
+
+	// Set the new key in config
+	setProviderAPIKey(cfg, targetProvider, newKey)
+
+	// Validate the new key immediately
+	fmt.Println("\n🔍 Validating new key...")
+	valCtx, valCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer valCancel()
+
+	valCfg := buildSetupConfig(cfg, targetProvider, defaultModelForProvider(cfg, targetProvider))
+	setProviderAPIKey(valCfg, targetProvider, newKey)
+	keyStatus := ai.ValidateAPIKey(valCtx, valCfg)
+
+	if !keyStatus.Valid {
+		fmt.Printf("   ❌ %s\n", keyStatus.Message)
+		fmt.Println()
+
+		confirmPrompt := promptui.Prompt{
+			Label:     "Save this key anyway",
+			IsConfirm: true,
+		}
+		_, err := confirmPrompt.Run()
+		if err != nil {
+			fmt.Println("   Key not saved.")
+			return nil
+		}
+	} else {
+		fmt.Printf("   ✅ %s\n", keyStatus.Message)
+	}
+
+	// Save to config file
+	if err := ai.SaveConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("\n✅ API key for %s updated and saved.\n", targetProvider)
+	return nil
+}
+
+func defaultModelForProvider(cfg *ai.Config, provider string) string {
+	switch provider {
+	case "openai":
+		if strings.TrimSpace(cfg.OpenAIModel) != "" {
+			return strings.TrimSpace(cfg.OpenAIModel)
+		}
+		return "gpt-4o-mini"
+	case "anthropic":
+		if strings.TrimSpace(cfg.AnthropicModel) != "" {
+			return strings.TrimSpace(cfg.AnthropicModel)
+		}
+		return "claude-3-5-haiku-20241022"
+	case "groq":
+		if strings.TrimSpace(cfg.GroqModel) != "" {
+			return strings.TrimSpace(cfg.GroqModel)
+		}
+		return "llama-3.3-70b-versatile"
+	case "mistral":
+		if strings.TrimSpace(cfg.MistralModel) != "" {
+			return strings.TrimSpace(cfg.MistralModel)
+		}
+		return "mistral-large-latest"
+	case "azure":
+		if strings.TrimSpace(cfg.AzureDeployment) != "" {
+			return strings.TrimSpace(cfg.AzureDeployment)
+		}
+		return "my-azure-deployment"
+	default:
+		if strings.TrimSpace(cfg.OllamaModel) != "" {
+			return strings.TrimSpace(cfg.OllamaModel)
+		}
+		return "llama3.2"
+	}
+}
+
+func isSupportedAIProvider(provider string) bool {
+	switch provider {
+	case "ollama", "openai", "anthropic", "groq", "mistral", "azure":
+		return true
+	default:
+		return false
+	}
+}
+
+func ollamaListContainsModel(listOutput string, model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return false
+	}
+
+	for _, line := range strings.Split(listOutput, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(strings.ToUpper(trimmed), "NAME") {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) == 0 {
+			continue
+		}
+		name := strings.ToLower(fields[0])
+		if name == model || strings.HasPrefix(name, model+":") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// newAISummarizeCommand creates notes summarizing content from brains
+func newAISummarizeCommand() *cobra.Command {
+	var (
+		topic               string
+		brains              []string
+		output              string
+		brain               string
+		title               string
+		model               string
+		prompt              string
+		promptExtra         string
+		contextFiles        []string
+		promptCreateTitle   string
+		promptCreateBody    string
+		promptCreateDefault bool
+		timeout             int
+		link                bool
+		noLink              bool
+		noStream            bool
+		jsonOut             bool
+	)
+
+	cmd := &cobra.Command{
+		Use:          "summarize [topic]",
+		SilenceUsage: true,
+		Short:        "Summarize your notes about a topic",
 		Long: `Search your brains for notes about a topic and create a summary.
 
 This command:
@@ -247,7 +842,7 @@ Examples:
 				topic = args[0]
 			}
 			JSONOutput = jsonOut
-			return runAISummarize(topic, brains, output, brain, title, model, prompt, promptExtra, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
+			return runAISummarize(topic, brains, output, brain, title, model, prompt, promptExtra, contextFiles, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
 		},
 	}
 
@@ -256,11 +851,18 @@ Examples:
 	cmd.Flags().StringVar(&brain, "brain", "", "Target brain to save the output (skip selection prompt)")
 	cmd.Flags().StringVar(&title, "title", "", "Custom title for the generated note")
 	cmd.Flags().StringVar(&model, "model", "", "Override model for this request")
+	cmd.Flags().StringVar(&topic, "request", "", "Specific request for this run (alias of topic argument)")
 	cmd.Flags().StringVar(&prompt, "prompt", "", "Prompt note to apply (path or name)")
+	cmd.Flags().StringVar(&prompt, "template", "", "Template note to apply (alias of --prompt)")
 	cmd.Flags().StringVar(&promptExtra, "prompt-extra", "", "Additional prompt instructions for this request")
+	cmd.Flags().StringVar(&promptExtra, "run-notes", "", "Additional run notes for this request (alias of --prompt-extra)")
+	cmd.Flags().StringSliceVar(&contextFiles, "context-file", nil, "Additional context file(s) to include (repeat flag)")
 	cmd.Flags().StringVar(&promptCreateTitle, "prompt-create-title", "", "Create a prompt note with this title")
+	cmd.Flags().StringVar(&promptCreateTitle, "template-create-title", "", "Create a template note with this title (alias of --prompt-create-title)")
 	cmd.Flags().StringVar(&promptCreateBody, "prompt-create-body", "", "Prompt body used when creating a prompt note")
+	cmd.Flags().StringVar(&promptCreateBody, "template-create-body", "", "Template body used when creating a template note (alias of --prompt-create-body)")
 	cmd.Flags().BoolVar(&promptCreateDefault, "prompt-create-default", false, "Mark created prompt note as default")
+	cmd.Flags().BoolVar(&promptCreateDefault, "template-create-default", false, "Mark created template note as default (alias of --prompt-create-default)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Override AI timeout in seconds")
 	cmd.Flags().BoolVar(&link, "link", false, "Always add link to today's journal without prompting")
 	cmd.Flags().BoolVar(&noLink, "no-link", false, "Do not add a link to today's journal")
@@ -278,7 +880,7 @@ type summarySourceNote struct {
 	Title     string
 }
 
-func runAISummarize(topic string, brainNames []string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
+func runAISummarize(topic string, brainNames []string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
 	// Get active workspace first
 	activeWs, err := getActiveWorkspace()
 	if err != nil {
@@ -321,7 +923,7 @@ func runAISummarize(topic string, brainNames []string, outputPath string, brainN
 	// Get topic interactively if not provided
 	if topic == "" {
 		prompt := promptui.Prompt{
-			Label: "What topic do you want to summarize?",
+			Label: "What should be summarized? (request)",
 		}
 		topic, err = prompt.Run()
 		if err != nil {
@@ -400,6 +1002,19 @@ func runAISummarize(topic string, brainNames []string, outputPath string, brainN
 		}
 	}
 
+	// Add explicit context files
+	contextNotes, contextContent, err := loadContextFiles(contextFiles, targetBrain)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(contextContent) != "" {
+		relevantContent.WriteString("\n\n--- Additional context files ---\n")
+		relevantContent.WriteString(contextContent)
+		relevantContent.WriteString("\n")
+		noteCount += len(contextNotes)
+		sourceNotes = append(sourceNotes, contextNotes...)
+	}
+
 	if noteCount == 0 {
 		PrintlnOrJSON("❌ No notes found matching the topic")
 		return nil
@@ -433,12 +1048,17 @@ Keep the summary concise but comprehensive.`
 	userPrompt := fmt.Sprintf("Please summarize the following notes about \"%s\":\n\n%s", topic, relevantContent.String())
 
 	ctx := context.Background()
+	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+	if err != nil {
+		return err
+	}
+
 	req := &ai.CompletionRequest{
 		System: systemPrompt,
 		Messages: []ai.Message{
 			{Role: ai.RoleUser, Content: userPrompt},
 		},
-		Model:       modelOverride,
+		Model:       effectiveModel,
 		Temperature: 0.3, // Lower temperature for summarization
 		MaxTokens:   4096,
 	}
@@ -448,10 +1068,7 @@ Keep the summary concise but comprehensive.`
 
 	var result strings.Builder
 
-	usedModel := ""
-	if modelOverride != "" {
-		usedModel = modelOverride
-	}
+	usedModel := effectiveModel
 
 	if stream {
 		// Stream the response
@@ -524,7 +1141,7 @@ Keep the summary concise but comprehensive.`
 	}
 
 	// Create frontmatter with AI metadata
-frontmatter := fmt.Sprintf(`---
+	frontmatter := fmt.Sprintf(`---
 title: "%s"
 date: %s
 type: summary
@@ -621,7 +1238,7 @@ func buildPromptSection(notePath string, targetBrain *Brain, promptNote *PromptN
 		return ""
 	}
 
-	lines := []string{"", "", "## Prompt"}
+	lines := []string{"", "", "## Template Context"}
 	if promptNote != nil {
 		label := promptNote.Title
 		if label == "" {
@@ -636,18 +1253,123 @@ func buildPromptSection(notePath string, targetBrain *Brain, promptNote *PromptN
 			}
 		}
 		linkPath = filepath.ToSlash(linkPath)
-		lines = append(lines, fmt.Sprintf("- Prompt note: [%s](%s)", label, linkPath))
+		lines = append(lines, fmt.Sprintf("- Template note: [%s](%s)", label, linkPath))
 	}
 
 	extra := strings.TrimSpace(promptExtra)
 	if extra != "" {
-		lines = append(lines, "", "### Extra Instructions", "", extra)
+		lines = append(lines, "", "### Run Notes", "", extra)
 	}
 	if promptNote == nil && extra == "" {
 		lines = append(lines, "- None")
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func loadContextFiles(filePaths []string, targetBrain *Brain) ([]summarySourceNote, string, error) {
+	if len(filePaths) == 0 {
+		return nil, "", nil
+	}
+
+	var notes []summarySourceNote
+	var content strings.Builder
+	seen := make(map[string]bool)
+
+	for _, raw := range filePaths {
+		candidate := strings.TrimSpace(raw)
+		if candidate == "" {
+			continue
+		}
+
+		abs := candidate
+		if !filepath.IsAbs(abs) {
+			resolved, err := filepath.Abs(abs)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to resolve context file '%s': %w", candidate, err)
+			}
+			abs = resolved
+		}
+
+		if seen[abs] {
+			continue
+		}
+		seen[abs] = true
+
+		fileContent, err := os.ReadFile(abs)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to read context file '%s': %w", candidate, err)
+		}
+
+		content.WriteString(fmt.Sprintf("\n--- %s ---\n", filepath.Base(abs)))
+		content.Write(fileContent)
+		content.WriteString("\n")
+
+		note := summarySourceNote{
+			NotePath: abs,
+			Title:    strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs)),
+		}
+		if targetBrain != nil {
+			relPath, err := filepath.Rel(targetBrain.Path, abs)
+			if err == nil && !strings.HasPrefix(relPath, "..") {
+				note.BrainName = targetBrain.Name
+				note.BrainPath = targetBrain.Path
+				note.RelPath = relPath
+			}
+		}
+		notes = append(notes, note)
+	}
+
+	return notes, strings.TrimSpace(content.String()), nil
+}
+
+func collectAutoContextFromBrain(targetBrain *Brain, request string) ([]summarySourceNote, string, error) {
+	if targetBrain == nil {
+		return nil, "", nil
+	}
+
+	notes, err := searchNotesInBrain(targetBrain.Path, request)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(notes) == 0 {
+		return nil, "", nil
+	}
+
+	var sourceNotes []summarySourceNote
+	var content strings.Builder
+
+	maxNotes := len(notes)
+	if maxNotes > 6 {
+		maxNotes = 6
+	}
+
+	for i := 0; i < maxNotes; i++ {
+		notePath := notes[i]
+		noteContent, readErr := os.ReadFile(notePath)
+		if readErr != nil {
+			continue
+		}
+
+		relPath, _ := filepath.Rel(targetBrain.Path, notePath)
+		content.WriteString(fmt.Sprintf("\n--- %s/%s ---\n", targetBrain.Name, relPath))
+		content.Write(noteContent)
+		content.WriteString("\n")
+
+		sourceNotes = append(sourceNotes, summarySourceNote{
+			BrainName: targetBrain.Name,
+			BrainPath: targetBrain.Path,
+			NotePath:  notePath,
+			RelPath:   relPath,
+			Title:     strings.TrimSuffix(filepath.Base(notePath), filepath.Ext(notePath)),
+		})
+
+		if content.Len() > 30000 {
+			break
+		}
+	}
+
+	return sourceNotes, strings.TrimSpace(content.String()), nil
 }
 
 // searchNotesInBrain searches for notes matching a query in a brain
@@ -712,26 +1434,29 @@ func searchNotesInBrain(brainPath string, query string) ([]string, error) {
 // newAIResearchCommand creates research notes using AI
 func newAIResearchCommand() *cobra.Command {
 	var (
-		topic    string
-		output   string
-		brain    string
-		title    string
-		model    string
-		prompt   string
-		promptExtra string
-		promptCreateTitle string
-		promptCreateBody  string
+		topic               string
+		output              string
+		brain               string
+		title               string
+		model               string
+		prompt              string
+		promptExtra         string
+		contextFiles        []string
+		contextAutoBrain    bool
+		promptCreateTitle   string
+		promptCreateBody    string
 		promptCreateDefault bool
-		timeout  int
-		link     bool
-		noLink   bool
-		noStream bool
-		jsonOut  bool
+		timeout             int
+		link                bool
+		noLink              bool
+		noStream            bool
+		jsonOut             bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "research [topic]",
-		Short: "Create a research note on a topic using AI",
+		Use:          "research [topic]",
+		SilenceUsage: true,
+		Short:        "Create a research note on a topic using AI",
 		Long: `Create a new note with AI-researched content about a topic.
 
 This command:
@@ -749,7 +1474,7 @@ Examples:
 				topic = args[0]
 			}
 			JSONOutput = jsonOut
-			return runAIResearch(topic, output, brain, title, model, prompt, promptExtra, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
+			return runAIResearch(topic, output, brain, title, model, prompt, promptExtra, contextFiles, contextAutoBrain, promptCreateTitle, promptCreateBody, promptCreateDefault, timeout, link, noLink, !noStream)
 		},
 	}
 
@@ -757,11 +1482,19 @@ Examples:
 	cmd.Flags().StringVar(&brain, "brain", "", "Target brain to save the output (skip selection prompt)")
 	cmd.Flags().StringVar(&title, "title", "", "Custom title for the generated note")
 	cmd.Flags().StringVar(&model, "model", "", "Override model for this request")
+	cmd.Flags().StringVar(&topic, "request", "", "Specific request for this run (alias of topic argument)")
 	cmd.Flags().StringVar(&prompt, "prompt", "", "Prompt note to apply (path or name)")
+	cmd.Flags().StringVar(&prompt, "template", "", "Template note to apply (alias of --prompt)")
 	cmd.Flags().StringVar(&promptExtra, "prompt-extra", "", "Additional prompt instructions for this request")
+	cmd.Flags().StringVar(&promptExtra, "run-notes", "", "Additional run notes for this request (alias of --prompt-extra)")
+	cmd.Flags().StringSliceVar(&contextFiles, "context-file", nil, "Additional context file(s) to include (repeat flag)")
+	cmd.Flags().BoolVar(&contextAutoBrain, "context-auto-brain", false, "Automatically search relevant notes in target brain and include as context")
 	cmd.Flags().StringVar(&promptCreateTitle, "prompt-create-title", "", "Create a prompt note with this title")
+	cmd.Flags().StringVar(&promptCreateTitle, "template-create-title", "", "Create a template note with this title (alias of --prompt-create-title)")
 	cmd.Flags().StringVar(&promptCreateBody, "prompt-create-body", "", "Prompt body used when creating a prompt note")
+	cmd.Flags().StringVar(&promptCreateBody, "template-create-body", "", "Template body used when creating a template note (alias of --prompt-create-body)")
 	cmd.Flags().BoolVar(&promptCreateDefault, "prompt-create-default", false, "Mark created prompt note as default")
+	cmd.Flags().BoolVar(&promptCreateDefault, "template-create-default", false, "Mark created template note as default (alias of --prompt-create-default)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Override AI timeout in seconds")
 	cmd.Flags().BoolVar(&link, "link", false, "Always add link to today's journal without prompting")
 	cmd.Flags().BoolVar(&noLink, "no-link", false, "Do not add a link to today's journal")
@@ -771,7 +1504,10 @@ Examples:
 	return cmd
 }
 
-func runAIResearch(topic string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
+func runAIResearch(topic string, outputPath string, brainName string, title string, modelOverride string, promptOverride string, promptExtra string, contextFiles []string, contextAutoBrain bool, promptCreateTitle string, promptCreateBody string, promptCreateDefault bool, timeoutSec int, link bool, noLink bool, stream bool) error {
+	if err := EnsureAISetup(JSONOutput); err != nil {
+		return err
+	}
 	// Get active workspace first
 	activeWs, err := getActiveWorkspace()
 	if err != nil {
@@ -814,7 +1550,7 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	// Get topic interactively if not provided
 	if topic == "" {
 		prompt := promptui.Prompt{
-			Label: "What topic do you want to research?",
+			Label: "What do you want to research? (request)",
 		}
 		topic, err = prompt.Run()
 		if err != nil {
@@ -831,6 +1567,9 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 	cfg := ai.LoadConfig()
 	if timeoutSec > 0 {
 		cfg.Timeout = timeoutSec
+	} else if cfg.Timeout < 120 {
+		// Research tasks need more time than the default 60s
+		cfg.Timeout = 120
 	}
 	client, err := ai.NewClientWithConfig(cfg)
 	if err != nil {
@@ -849,67 +1588,41 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 
 	systemPrompt = applyPromptStack(systemPrompt, promptContent, promptExtra)
 
+	var contextParts []string
+	var sourceNotes []summarySourceNote
+
+	if contextAutoBrain {
+		autoNotes, autoContent, err := collectAutoContextFromBrain(targetBrain, topic)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(autoContent) != "" {
+			contextParts = append(contextParts, "### Brain context\n"+autoContent)
+			sourceNotes = append(sourceNotes, autoNotes...)
+		}
+	}
+
+	contextFileNotes, contextFileContent, err := loadContextFiles(contextFiles, targetBrain)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(contextFileContent) != "" {
+		contextParts = append(contextParts, "### Context files\n"+contextFileContent)
+		sourceNotes = append(sourceNotes, contextFileNotes...)
+	}
+
 	userPrompt := fmt.Sprintf("Please provide a comprehensive overview of: %s\n\nInclude key concepts, practical examples, and best practices.", topic)
+	if len(contextParts) > 0 {
+		userPrompt += "\n\nUse the following internal context if relevant:\n\n" + strings.Join(contextParts, "\n\n")
+	}
 
 	ctx := context.Background()
-	req := &ai.CompletionRequest{
-		System: systemPrompt,
-		Messages: []ai.Message{
-			{Role: ai.RoleUser, Content: userPrompt},
-		},
-		Model:       modelOverride,
-		Temperature: 0.5,
-		MaxTokens:   4096,
+	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+	if err != nil {
+		return err
 	}
 
-	PrintlnOrJSON("🤖 Generating research note...")
-	PrintlnOrJSON()
-
-	var result strings.Builder
-
-	usedModel := ""
-	if modelOverride != "" {
-		usedModel = modelOverride
-	}
-
-	if stream {
-		streamResp, err := client.CompleteStream(ctx, req)
-		if err != nil {
-			return fmt.Errorf("AI error: %w", err)
-		}
-		defer streamResp.Close()
-
-		for {
-			chunk, err := streamResp.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return fmt.Errorf("stream error: %w", err)
-			}
-			if !JSONOutput {
-				fmt.Print(chunk)
-			}
-			result.WriteString(chunk)
-		}
-		if !JSONOutput {
-			fmt.Println()
-		}
-	} else {
-		resp, err := client.Complete(ctx, req)
-		if err != nil {
-			return fmt.Errorf("AI error: %w", err)
-		}
-		if !JSONOutput {
-			fmt.Println(resp.Content)
-		}
-		result.WriteString(resp.Content)
-		if resp.Model != "" {
-			usedModel = resp.Model
-		}
-	}
-
-	// Save to file
+	// Resolve title, filename and output path BEFORE the AI call
 	noteDate := time.Now().Format("2006-01-02")
 	noteDir := filepath.Join(targetBrain.Path, "notes")
 
@@ -919,14 +1632,13 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 		return err
 	}
 
-	// Use selected target brain for output
 	if outputPath == "" {
 		outputPath = filepath.Join(targetBrain.Path, "notes", filename)
 	} else if !filepath.IsAbs(outputPath) {
 		outputPath = filepath.Join(targetBrain.Path, "notes", outputPath)
 	}
 
-	// Get AI config for metadata
+	usedModel := effectiveModel
 	if usedModel == "" {
 		usedModel = cfg.Model
 	}
@@ -940,8 +1652,9 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 		promptMeta += "prompt_extra: true\n"
 	}
 
-	// Create frontmatter with AI metadata
-frontmatter := fmt.Sprintf(`---
+	// Build frontmatter (used for both placeholder and final file)
+	buildFrontmatter := func(model string) string {
+		return fmt.Sprintf(`---
 title: "%s"
 date: %s
 type: research
@@ -953,15 +1666,101 @@ ai_provider: "%s"
 ai_model: "%s"
 %s---
 
-`, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), cfg.Provider, usedModel, promptMeta)
+`, noteTitle, noteDate, topic, time.Now().Format(time.RFC3339), cfg.Provider, model, promptMeta)
+	}
 
-	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
-	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, nil, true)
-	finalContent := promptSection + sourcesSection + result.String()
-
-	// Write file
+	// Write placeholder file immediately so the user sees progress
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	placeholderContent := buildFrontmatter(usedModel) + fmt.Sprintf("> ⏳ **AI is working…** (%s / %s)\n>\n> Researching: *%s*\n>\n> This note will be updated automatically when the AI finishes.\n", cfg.Provider, usedModel, topic)
+	if err := os.WriteFile(outputPath, []byte(placeholderContent), 0644); err != nil {
+		return fmt.Errorf("failed to write placeholder file: %w", err)
+	}
+
+	PrintOrJSON("\n📝 Note created: %s\n", outputPath)
+
+	// Try to open the file in the editor (best-effort)
+	if !JSONOutput {
+		if _, err := exec.LookPath("code"); err == nil {
+			_ = exec.Command("code", outputPath).Start()
+		}
+	}
+
+	req := &ai.CompletionRequest{
+		System: systemPrompt,
+		Messages: []ai.Message{
+			{Role: ai.RoleUser, Content: userPrompt},
+		},
+		Model:       effectiveModel,
+		Temperature: 0.5,
+		MaxTokens:   4096,
+	}
+
+	PrintlnOrJSON("🤖 Generating research note...")
+	PrintlnOrJSON()
+
+	var result strings.Builder
+	var aiErr error
+
+	if stream {
+		streamResp, err := client.CompleteStream(ctx, req)
+		if err != nil {
+			aiErr = fmt.Errorf("AI error: %w", err)
+		} else {
+			defer streamResp.Close()
+
+			for {
+				chunk, err := streamResp.Next()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					aiErr = fmt.Errorf("stream error: %w", err)
+					break
+				}
+				if !JSONOutput {
+					fmt.Print(chunk)
+				}
+				result.WriteString(chunk)
+			}
+			if !JSONOutput {
+				fmt.Println()
+			}
+		}
+	} else {
+		resp, err := client.Complete(ctx, req)
+		if err != nil {
+			aiErr = fmt.Errorf("AI error: %w", err)
+		} else {
+			if !JSONOutput {
+				fmt.Println(resp.Content)
+			}
+			result.WriteString(resp.Content)
+			if resp.Model != "" {
+				usedModel = resp.Model
+			}
+		}
+	}
+
+	// Update the file with final content (or error message)
+	frontmatter := buildFrontmatter(usedModel)
+	promptSection := buildPromptSection(outputPath, targetBrain, promptNote, promptExtra, true)
+	sourcesSection := buildSummarySourcesSection(outputPath, targetBrain, sourceNotes, true)
+
+	var finalContent string
+	if aiErr != nil {
+		// Write error info into the note so the user sees what happened
+		errMsg := fmt.Sprintf("> ❌ **AI request failed**\n>\n> %s\n>\n> You can retry with: `flip ai research \"%s\" --timeout %d`\n\n",
+			aiErr.Error(), topic, cfg.Timeout*2)
+		if result.Len() > 0 {
+			// Partial content was received before the error
+			errMsg += "> ⚠️ Partial content received before error:\n\n"
+		}
+		finalContent = promptSection + sourcesSection + errMsg + result.String()
+	} else {
+		finalContent = promptSection + sourcesSection + result.String()
 	}
 
 	if err := os.WriteFile(outputPath, []byte(frontmatter+finalContent), 0644); err != nil {
@@ -977,12 +1776,16 @@ ai_model: "%s"
 			BrainPath: targetBrain.Path,
 			BrainType: string(detection.Type),
 		})
-		return nil
+	} else if aiErr != nil {
+		fmt.Printf("\n\n⚠️  Research note saved with error: %s\n", outputPath)
+		if strings.Contains(aiErr.Error(), "deadline exceeded") || strings.Contains(aiErr.Error(), "Timeout") {
+			fmt.Printf("💡 Tip: Try again with a longer timeout: flip ai research \"%s\" --timeout %d\n", topic, cfg.Timeout*2)
+		}
+	} else {
+		fmt.Printf("\n\n✅ Research note saved to: %s\n", outputPath)
 	}
 
-	fmt.Printf("\n\n✅ Research note saved to: %s\n", outputPath)
-
-	// Add link to journal
+	// Add link to journal (always attempt, even on AI error – the note file exists)
 	if !noLink {
 		relPath := relativePathFromBrain(outputPath, targetBrain.Path)
 		linkTitle := formatAILinkTitle(noteTitle, "Research", cfg.Provider)
@@ -991,11 +1794,18 @@ ai_model: "%s"
 			ItemName:    linkTitle,
 			ItemPath:    relPath,
 			Brain:       targetBrain,
-			Interactive: !link,
+			Interactive: !link && !JSONOutput,
 			BrainType:   detection.Type,
 		}); err != nil {
-			fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+			if !JSONOutput {
+				fmt.Printf("⚠️  Could not add journal link: %v\n", err)
+			}
 		}
+	}
+
+	// Return the AI error after everything else is done
+	if aiErr != nil {
+		return fmt.Errorf("failed to create research note: %w", aiErr)
 	}
 
 	return nil
@@ -1014,8 +1824,9 @@ func newAIImproveCommand() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "improve [file]",
-		Short: "Improve a note with AI assistance",
+		Use:          "improve [file]",
+		SilenceUsage: true,
+		Short:        "Improve a note with AI assistance",
 		Long: `Use AI to improve, rewrite, or enhance an existing note.
 
 This command:
@@ -1038,7 +1849,9 @@ Examples:
 	cmd.Flags().BoolVar(&inPlace, "in-place", false, "Update the file in place")
 	cmd.Flags().StringVar(&model, "model", "", "Override model for this request")
 	cmd.Flags().StringVar(&prompt, "prompt", "", "Prompt note to apply (path or name)")
+	cmd.Flags().StringVar(&prompt, "template", "", "Template note to apply (alias of --prompt)")
 	cmd.Flags().StringVar(&promptExtra, "prompt-extra", "", "Additional prompt instructions for this request")
+	cmd.Flags().StringVar(&promptExtra, "run-notes", "", "Additional run notes for this request (alias of --prompt-extra)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Override AI timeout in seconds")
 
 	return cmd
@@ -1097,12 +1910,17 @@ When given a note and improvement instructions:
 	userPrompt := fmt.Sprintf("Please improve the following note according to this instruction: %s\n\n---\n\n%s", instruction, string(content))
 
 	ctx := context.Background()
+	effectiveModel, err := resolveAIModelForRequest(ctx, client, cfg, modelOverride)
+	if err != nil {
+		return err
+	}
+
 	req := &ai.CompletionRequest{
 		System: systemPrompt,
 		Messages: []ai.Message{
 			{Role: ai.RoleUser, Content: userPrompt},
 		},
-		Model:       modelOverride,
+		Model:       effectiveModel,
 		Temperature: 0.4,
 		MaxTokens:   8192,
 	}
@@ -1444,6 +2262,98 @@ func formatAILinkTitle(title string, action string, provider string) string {
 	return fmt.Sprintf("%s (%s: %s)", title, action, provider)
 }
 
+func resolveAIModelForRequest(ctx context.Context, client *ai.Client, cfg *ai.Config, modelOverride string) (string, error) {
+	modelOverride = strings.TrimSpace(modelOverride)
+	if modelOverride != "" {
+		return modelOverride, nil
+	}
+
+	// For all providers: list available models and let user pick interactively
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		// If listing fails, fall back to default
+		return "", nil
+	}
+
+	if len(models) == 0 {
+		if cfg.Provider == "ollama" {
+			return "", fmt.Errorf("AI error: no Ollama models installed. Run `flip ai setup` (or `ollama pull %s`) and try again", cfg.Model)
+		}
+		return "", nil
+	}
+
+	// For Ollama: check if configured model exists, fallback if not
+	if cfg.Provider == "ollama" {
+		configured := strings.TrimSpace(cfg.Model)
+		if configured == "" {
+			return firstModelID(models), nil
+		}
+
+		found := false
+		for _, m := range models {
+			if strings.EqualFold(m.ID, configured) || strings.EqualFold(m.Name, configured) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fallback := firstModelID(models)
+			if fallback != "" && !JSONOutput {
+				fmt.Printf("⚠️  Ollama model '%s' not found locally, using '%s'\n", configured, fallback)
+			}
+			if fallback != "" {
+				return fallback, nil
+			}
+		}
+	}
+
+	// Interactive model selection for all providers (when not in JSON mode)
+	if !JSONOutput && len(models) > 1 {
+		items := make([]string, len(models))
+		defaultIdx := 0
+		configuredModel := strings.TrimSpace(cfg.Model)
+		for i, m := range models {
+			desc := m.Name
+			if m.Description != "" {
+				desc = fmt.Sprintf("%s – %s", m.Name, m.Description)
+			}
+			if m.ContextSize > 0 {
+				desc = fmt.Sprintf("%s (%dk ctx)", desc, m.ContextSize/1000)
+			}
+			items[i] = desc
+			if strings.EqualFold(m.ID, configuredModel) || strings.EqualFold(m.Name, configuredModel) {
+				defaultIdx = i
+			}
+		}
+
+		sel := promptui.Select{
+			Label:     "Select model",
+			Items:     items,
+			CursorPos: defaultIdx,
+			Size:      10,
+		}
+		idx, _, err := sel.Run()
+		if err != nil {
+			return "", err
+		}
+		return models[idx].ID, nil
+	}
+
+	return "", nil
+}
+
+func firstModelID(models []ai.ModelInfo) string {
+	for _, m := range models {
+		if strings.TrimSpace(m.ID) != "" {
+			return m.ID
+		}
+		if strings.TrimSpace(m.Name) != "" {
+			return m.Name
+		}
+	}
+	return ""
+}
+
 func resolveBrainForFile(filePath string) (*Brain, brain.BrainType) {
 	brainPath := detectBrainPath(filePath)
 	if brainPath == "" {
@@ -1469,4 +2379,33 @@ func resolveBrainForFile(filePath string) (*Brain, brain.BrainType) {
 		Path: brainPath,
 		Type: string(detection.Type),
 	}, detection.Type
+}
+
+// EnsureAISetup checks if an AI provider and model are configured,
+// and prompts the user to set it up if they aren't.
+func EnsureAISetup(jsonOutput bool) error {
+	cfg := ai.LoadConfig()
+	if cfg.Provider == "" || cfg.Model == "" {
+		if jsonOutput {
+			// Trigger VS Code extension to show setup UI
+			OutputJSONError("ai check", fmt.Errorf("AI not set up. Run 'flip ai setup'"))
+			return fmt.Errorf("setup required")
+		}
+
+		fmt.Println("⚠️  AI provider and model are not fully configured yet.")
+
+		prompt := promptui.Prompt{
+			Label:     "Would you like to run the setup now?",
+			IsConfirm: true,
+			Default:   "Y",
+		}
+
+		_, err := prompt.Run()
+		if err != nil {
+			return fmt.Errorf("AI configuration is required to use this command")
+		}
+
+		return runAISetup("", "", "", "", false, false)
+	}
+	return nil
 }
