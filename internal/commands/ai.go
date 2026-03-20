@@ -937,7 +937,9 @@ func runAISummarize(topic string, brainNames []string, outputPath string, brainN
 		}
 	}
 
-	PrintOrJSON("\n🔍 Searching for notes about: %s\n", topic)
+	if !prepareOnly {
+		PrintOrJSON("\n🔍 Searching for notes about: %s\n", topic)
+	}
 
 	var searchBrains []Brain
 
@@ -1023,7 +1025,9 @@ func runAISummarize(topic string, brainNames []string, outputPath string, brainN
 		return nil
 	}
 
-	PrintOrJSON("📄 Found %d relevant notes\n\n", noteCount)
+	if !prepareOnly {
+		PrintOrJSON("📄 Found %d relevant notes\n\n", noteCount)
+	}
 
 	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
@@ -1617,7 +1621,9 @@ func runAIResearch(topic string, outputPath string, brainName string, title stri
 		}
 	}
 
-	PrintOrJSON("\n🔬 Researching: %s\n\n", topic)
+	if !prepareOnly {
+		PrintOrJSON("\n🔬 Researching: %s\n\n", topic)
+	}
 
 	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
@@ -1973,8 +1979,10 @@ func runAIImprove(filePath string, instruction string, modelOverride string, pro
 		}
 	}
 
-	fmt.Printf("\n📝 Improving: %s\n", filePath)
-	fmt.Printf("💡 Instruction: %s\n\n", instruction)
+	if !prepareOnly {
+		fmt.Printf("\n📝 Improving: %s\n", filePath)
+		fmt.Printf("💡 Instruction: %s\n\n", instruction)
+	}
 
 	// Create AI client (allow per-request timeout override) — skip for prepare-only
 	cfg := ai.LoadConfig()
