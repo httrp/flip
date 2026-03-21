@@ -11,7 +11,6 @@ import (
 
 	"github.com/httrp/flip/internal/lang"
 	"github.com/httrp/flip/internal/platform"
-	"github.com/manifoldco/promptui"
 )
 
 // runManageResourcesMenu shows submenu for managing workspaces, brains, and templates
@@ -113,17 +112,7 @@ func runManageResourcesMenu() error {
 		Action: func() error { return nil },
 	})
 
-	templates := createMenuItemWithCommandTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     lang.GetText("menu.titles.manage"),
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
-	}
-
-	idx, _, err := selectMenu.Run()
+	idx, err := runMenuItemSelect(lang.GetText("menu.titles.manage"), menuItems)
 	if err != nil {
 		return nil
 	}
@@ -175,15 +164,7 @@ func runManageBrainsMenu() error {
 					brainNames = append(brainNames, fmt.Sprintf("%s %s (%s)", indicator, b.Name, b.Type))
 				}
 
-				selectBrain := promptui.Select{
-					Label:     "Select brain to view",
-					Items:     brainNames,
-					Size:      calculateMenuSize(len(brainNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectBrain.Run()
+				idx, err := runStringSelect("Select brain to view", brainNames)
 				if err != nil {
 					return runManageResourcesMenu()
 				}
@@ -262,17 +243,13 @@ func runManageBrainsMenu() error {
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     lang.GetText("menu.titles.manage_brains"),
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
+	// Convert to MenuItem slice for the helper
+	menuItemSlice := make([]MenuItem, len(menuItems))
+	for i, item := range menuItems {
+		menuItemSlice[i] = MenuItem{Label: item.Label, Description: item.Description}
 	}
 
-	idx, _, err := selectMenu.Run()
+	idx, err := runMenuItemSelect(lang.GetText("menu.titles.manage_brains"), menuItemSlice)
 	if err != nil {
 		return runManageResourcesMenu()
 	}

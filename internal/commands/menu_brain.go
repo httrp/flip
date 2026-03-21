@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
 )
 
 
@@ -48,15 +47,7 @@ func runSwitchWorkspaceMenu() error {
 	}
 	items = append(items, "◀️  Back to Main Menu")
 
-	selectMenu := promptui.Select{
-		Label:     "Select workspace to switch to",
-		Items:     items,
-		Size:      calculateMenuSize(len(items)),
-		Templates: createSimpleSelectTemplates(),
-		HideHelp:  true,
-	}
-
-	idx, _, err := selectMenu.Run()
+	idx, err := runStringSelect("Select workspace to switch to", items)
 	if err != nil {
 		return nil
 	}
@@ -123,17 +114,13 @@ func runEditManageMenu() error {
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     lang.GetText("menu.titles.edit_manage"),
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
+	// Convert to MenuItem slice for the helper
+	menuItemSlice := make([]MenuItem, len(menuItems))
+	for i, item := range menuItems {
+		menuItemSlice[i] = MenuItem{Label: item.Label, Description: item.Description}
 	}
 
-	idx, _, err := selectMenu.Run()
+	idx, err := runMenuItemSelect(lang.GetText("menu.titles.edit_manage"), menuItemSlice)
 	if err != nil {
 		return nil
 	}

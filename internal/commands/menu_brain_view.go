@@ -18,7 +18,6 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/git"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
 )
 
 // runViewWorkspaceConfig shows and optionally edits the workspace configuration
@@ -215,17 +214,7 @@ func runWorkspaceDetails(workspace Workspace) func() error {
 			},
 		}
 
-		templates := createMenuItemWithCommandTemplates()
-
-		selectMenu := promptui.Select{
-			Label:     "Workspace Actions",
-			Items:     menuItems,
-			Templates: templates,
-			Size:      calculateMenuSize(len(menuItems)),
-			HideHelp:  true,
-		}
-
-		idx, _, err := selectMenu.Run()
+		idx, err := runMenuItemSelect("Workspace Actions", menuItems)
 		if err != nil {
 			return runManageResourcesMenu()
 		}
@@ -424,17 +413,7 @@ func runBrainDetails(brainInfo Brain) func() error {
 			},
 		}
 
-		templates := createMenuItemWithCommandTemplates()
-
-		selectMenu := promptui.Select{
-			Label:     "Brain Actions",
-			Items:     menuItems,
-			Templates: templates,
-			Size:      calculateMenuSize(len(menuItems)),
-			HideHelp:  true,
-		}
-
-		idx, _, err := selectMenu.Run()
+		idx, err := runMenuItemSelect("Brain Actions", menuItems)
 		if err != nil {
 			return runManageBrainsMenu()
 		}

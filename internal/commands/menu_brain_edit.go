@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 )
 
 // runEditWorkspaceMenu shows menu for editing workspaces
@@ -58,15 +58,7 @@ func runEditWorkspaceMenu() error {
 					wsNames = append(wsNames, fmt.Sprintf("%s %s (%d brains)", indicator, ws.Name, len(ws.Brains)))
 				}
 
-				selectWS := promptui.Select{
-					Label:     "Select workspace to view",
-					Items:     wsNames,
-					Size:      calculateMenuSize(len(wsNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectWS.Run()
+				idx, err := runStringSelect("Select workspace to view", wsNames)
 				if err != nil {
 					return runManageResourcesMenu()
 				}
@@ -100,15 +92,7 @@ func runEditWorkspaceMenu() error {
 					wsNames = append(wsNames, ws.Name)
 				}
 
-				selectWS := promptui.Select{
-					Label:     lang.GetText("prompts.select_workspace_rename"),
-					Items:     wsNames,
-					Size:      calculateMenuSize(len(wsNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectWS.Run()
+				idx, err := runStringSelect(lang.GetText("prompts.select_workspace_rename"), wsNames)
 				if err != nil {
 					return nil
 				}
@@ -124,11 +108,7 @@ func runEditWorkspaceMenu() error {
 				}
 
 				// Get new name
-				promptName := promptui.Prompt{
-					Label: lang.GetText("prompts.workspace_name"),
-				}
-
-				newName, err := promptName.Run()
+				newName, err := ui.RunInput(lang.GetText("prompts.workspace_name"), "", "", nil)
 				if err != nil {
 					return nil
 				}
@@ -179,15 +159,7 @@ func runEditWorkspaceMenu() error {
 					wsNames = append(wsNames, ws.Name)
 				}
 
-				selectWS := promptui.Select{
-					Label:     lang.GetText("prompts.select_workspace_remove"),
-					Items:     wsNames,
-					Size:      calculateMenuSize(len(wsNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectWS.Run()
+				idx, err := runStringSelect(lang.GetText("prompts.select_workspace_remove"), wsNames)
 				if err != nil {
 					return nil
 				}
@@ -195,13 +167,8 @@ func runEditWorkspaceMenu() error {
 				wsName := wsNames[idx]
 
 				// Confirm removal
-				promptConfirm := promptui.Prompt{
-					Label:     fmt.Sprintf("Remove workspace '%s'? (yes/no)", wsName),
-					IsConfirm: true,
-				}
-
-				_, err = promptConfirm.Run()
-				if err != nil {
+				confirmed, err := ui.RunConfirm(fmt.Sprintf("Remove workspace '%s'?", wsName), false)
+				if err != nil || !confirmed {
 					fmt.Println("\n❌ Cancelled")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
@@ -224,17 +191,13 @@ func runEditWorkspaceMenu() error {
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     lang.GetText("menu.titles.workspace_management"),
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
+	// Convert to MenuItem slice for the helper
+	menuItemSlice := make([]MenuItem, len(menuItems))
+	for i, item := range menuItems {
+		menuItemSlice[i] = MenuItem{Label: item.Label, Description: item.Description}
 	}
 
-	idx, _, err := selectMenu.Run()
+	idx, err := runMenuItemSelect(lang.GetText("menu.titles.workspace_management"), menuItemSlice)
 	if err != nil {
 		return nil
 	}
@@ -283,15 +246,7 @@ func runEditBrainMenu() error {
 					brainNames = append(brainNames, label)
 				}
 
-				selectBrain := promptui.Select{
-					Label:     "Select brain to view details",
-					Items:     brainNames,
-					Size:      calculateMenuSize(len(brainNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectBrain.Run()
+				idx, err := runStringSelect("Select brain to view details", brainNames)
 				if err != nil {
 					return runEditBrainMenu()
 				}
@@ -488,15 +443,7 @@ func runEditBrainMenu() error {
 					brainNames = append(brainNames, b.Name)
 				}
 
-				selectBrain := promptui.Select{
-					Label:     lang.GetText("prompts.select_brain_rename"),
-					Items:     brainNames,
-					Size:      calculateMenuSize(len(brainNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectBrain.Run()
+				idx, err := runStringSelect(lang.GetText("prompts.select_brain_rename"), brainNames)
 				if err != nil {
 					return nil
 				}
@@ -505,11 +452,7 @@ func runEditBrainMenu() error {
 				oldBrain := ws.Brains[idx]
 
 				// Get new name
-				promptName := promptui.Prompt{
-					Label: lang.GetText("prompts.brain_name"),
-				}
-
-				newName, err := promptName.Run()
+				newName, err := ui.RunInput(lang.GetText("prompts.brain_name"), "", "", nil)
 				if err != nil {
 					return nil
 				}
@@ -519,15 +462,9 @@ func runEditBrainMenu() error {
 				currentDirName := filepath.Base(oldBrain.Path)
 
 				if currentDirName != suggestedPath {
-					promptRenameDir := promptui.Prompt{
-						Label:     fmt.Sprintf("Also rename directory '%s' to '%s'? (yes/no)", currentDirName, suggestedPath),
-						IsConfirm: true,
-					}
+					renameDir, errConfirm := ui.RunConfirm(fmt.Sprintf("Also rename directory '%s' to '%s'?", currentDirName, suggestedPath), false)
 
-					_, errConfirm := promptRenameDir.Run()
-					renameDir := errConfirm == nil
-
-					if renameDir {
+					if errConfirm == nil && renameDir {
 						// Rename the directory
 						parentDir := filepath.Dir(oldBrain.Path)
 						newPath := filepath.Join(parentDir, suggestedPath)
@@ -592,15 +529,7 @@ func runEditBrainMenu() error {
 					items = append(items, label)
 				}
 
-				selectBrain := promptui.Select{
-					Label:     lang.GetText("prompts.select_brain_default_set"),
-					Items:     items,
-					Size:      calculateMenuSize(len(items)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectBrain.Run()
+				idx, err := runStringSelect(lang.GetText("prompts.select_brain_default_set"), items)
 				if err != nil {
 					return nil
 				}
@@ -653,15 +582,7 @@ func runEditBrainMenu() error {
 					brainNames = append(brainNames, b.Name)
 				}
 
-				selectBrain := promptui.Select{
-					Label:     lang.GetText("prompts.select_brain_remove"),
-					Items:     brainNames,
-					Size:      calculateMenuSize(len(brainNames)),
-					Templates: createSimpleSelectTemplates(),
-					HideHelp:  true,
-				}
-
-				idx, _, err := selectBrain.Run()
+				idx, err := runStringSelect(lang.GetText("prompts.select_brain_remove"), brainNames)
 				if err != nil {
 					return nil
 				}
@@ -669,13 +590,8 @@ func runEditBrainMenu() error {
 				brainName := brainNames[idx]
 
 				// Confirm removal
-				promptConfirm := promptui.Prompt{
-					Label:     fmt.Sprintf("Remove brain '%s' from workspace? (yes/no)", brainName),
-					IsConfirm: true,
-				}
-
-				_, err = promptConfirm.Run()
-				if err != nil {
+				confirmed, err := ui.RunConfirm(fmt.Sprintf("Remove brain '%s' from workspace?", brainName), false)
+				if err != nil || !confirmed {
 					fmt.Println("\n❌ Cancelled")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
@@ -742,17 +658,13 @@ func runEditBrainMenu() error {
 		},
 	}
 
-	templates := createMenuItemSelectTemplates()
-
-	selectMenu := promptui.Select{
-		Label:     "Brain Management",
-		Items:     menuItems,
-		Templates: templates,
-		Size:      calculateMenuSize(len(menuItems)),
-		HideHelp:  true,
+	// Convert to MenuItem slice for the helper
+	menuItemSlice := make([]MenuItem, len(menuItems))
+	for i, item := range menuItems {
+		menuItemSlice[i] = MenuItem{Label: item.Label, Description: item.Description}
 	}
 
-	idx, _, err := selectMenu.Run()
+	idx, err := runMenuItemSelect("Brain Management", menuItemSlice)
 	if err != nil {
 		return nil
 	}

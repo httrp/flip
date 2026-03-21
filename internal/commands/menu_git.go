@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/git"
-	"github.com/manifoldco/promptui"
 )
 
 // handleMergeConflicts helps user resolve merge conflicts
@@ -48,13 +47,6 @@ func handleMergeConflicts(brain Brain) {
 
 	fmt.Println("How would you like to proceed?")
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan | bold }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green | bold }}",
-	}
-
 	options := []string{
 		"Merge both versions (SAFE - keeps all content)",
 		"Keep my local version only",
@@ -63,14 +55,7 @@ func handleMergeConflicts(brain Brain) {
 		"Skip - I'll resolve manually",
 	}
 
-	prompt := promptui.Select{
-		Label:     "Choose action",
-		Items:     options,
-		Templates: templates,
-		Size:      len(options),
-	}
-
-	idx, _, err := prompt.Run()
+	idx, err := runStringSelect("Choose action", options)
 	if err != nil {
 		return
 	}
@@ -244,21 +229,7 @@ func checkRemoteUpdatesOnStart() {
 	}
 
 	// Ask if user wants to pull
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan | bold }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green | bold }}",
-	}
-
-	prompt := promptui.Select{
-		Label:     "Would you like to pull these updates now?",
-		Items:     []string{"Yes, pull all", "No, pull later"},
-		Templates: templates,
-		Size:      2,
-	}
-
-	idx, _, err := prompt.Run()
+	idx, err := runStringSelect("Would you like to pull these updates now?", []string{"Yes, pull all", "No, pull later"})
 	if err != nil || idx != 0 {
 		fmt.Println()
 		fmt.Println("💡 You can pull later from the menu")
@@ -360,21 +331,7 @@ func checkUncommittedChangesOnExit() {
 	}
 
 	// Ask if user wants to commit
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan | bold }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green | bold }}",
-	}
-
-	prompt := promptui.Select{
-		Label:     "Would you like to commit these changes now?",
-		Items:     []string{"Yes, commit all", "No, commit later"},
-		Templates: templates,
-		Size:      2,
-	}
-
-	idx, _, err := prompt.Run()
+	idx, err := runStringSelect("Would you like to commit these changes now?", []string{"Yes, commit all", "No, commit later"})
 	if err != nil || idx != 0 {
 		fmt.Println()
 		fmt.Println("💡 You can commit later with: flip brain git-status")

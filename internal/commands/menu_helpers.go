@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"golang.org/x/term"
 )
 
@@ -58,16 +58,6 @@ func truncateString(s string, maxLen int) string {
 }
 
 
-// createSimpleSelectTemplates creates templates without multi-line details
-func createSimpleSelectTemplates() *promptui.SelectTemplates {
-	return &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan | bold }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green | bold }}",
-	}
-}
-
 // MenuItem represents a menu item with label, description, command, and action
 type MenuItem struct {
 	Label       string
@@ -76,65 +66,26 @@ type MenuItem struct {
 	Action      func() error
 }
 
-// ===== Menu Templates =====
+// ===== Menu Helpers =====
 
-// createMenuItemSelectTemplates creates templates for menu items with inline description
-func createMenuItemSelectTemplates() *promptui.SelectTemplates {
-	return &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Label | cyan | bold }}",
-		Inactive: "  {{ .Label }}",
-		Selected: "{{ .Label | green | bold }}",
+// runMenuItemSelect presents a menu of MenuItems using bubbletea and returns the selected index
+func runMenuItemSelect(label string, items []MenuItem) (int, error) {
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item.Label, Value: fmt.Sprintf("%d", i)}
 	}
+	idx, _, err := ui.RunSelect(label, selectItems, calculateMenuSize(len(items)))
+	return idx, err
 }
 
-// createMenuItemWithCommandTemplates creates templates showing commands alongside labels
-// Adapts to terminal width - hides commands on narrow terminals
-func createMenuItemWithCommandTemplates() *promptui.SelectTemplates {
-	width, height := getTerminalSize()
-
-	// Narrow terminal mode (< 80 chars): show only label, no command
-	if width < 80 {
-		return &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ .Label | cyan | bold }}",
-			Inactive: "  {{ .Label }}",
-			Selected: "{{ .Label | green | bold }}",
-			// Compact details for narrow screens
-			Details: "{{ .Command | faint }}",
-		}
+// runStringSelect presents a menu of string items using bubbletea and returns the selected index
+func runStringSelect(label string, items []string) (int, error) {
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
-
-	// Medium terminal (80-120 chars): compact command display
-	if width < 120 {
-		maxLabelWidth := width - 35
-		if maxLabelWidth < 25 {
-			maxLabelWidth = 25
-		}
-		return &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   fmt.Sprintf("▸ {{ printf \"%%-%ds\" .Label | cyan | bold }} {{ .Command | faint }}", maxLabelWidth),
-			Inactive: fmt.Sprintf("  {{ printf \"%%-%ds\" .Label }} {{ .Command | faint }}", maxLabelWidth),
-			Selected: "{{ .Label | green | bold }}",
-			// No details section to save vertical space
-		}
-	}
-
-	// Wide terminal (≥120 chars): full display with description
-	maxLabelWidth := 45
-	// Only show details section if we have enough vertical space
-	detailsSection := ""
-	if height > 20 {
-		detailsSection = "\n{{ \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\" | faint }}\n{{ .Description | faint }}"
-	}
-
-	return &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   fmt.Sprintf("▸ {{ printf \"%%-%ds\" .Label | cyan | bold }}  {{ .Command | faint }}", maxLabelWidth),
-		Inactive: fmt.Sprintf("  {{ printf \"%%-%ds\" .Label }}  {{ .Command | faint }}", maxLabelWidth),
-		Selected: "{{ .Label | green | bold }}",
-		Details:  detailsSection,
-	}
+	idx, _, err := ui.RunSelect(label, selectItems, calculateMenuSize(len(items)))
+	return idx, err
 }
 
 // ===== Menu Size Helpers =====
