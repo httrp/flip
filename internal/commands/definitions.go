@@ -33,8 +33,6 @@ func NewDefinitionsCommand() *cobra.Command {
 func runDefinitionsMenu() error {
 	for {
 		fmt.Println("\n📚 Task Definitions")
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println()
 
 		items := []string{
 			lang.GetText("menu.definitions.organizations_label"),
@@ -78,20 +76,14 @@ func runDefinitionsMenu() error {
 			if err := runDefinitionsScan(); err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
-			fmt.Println(lang.GetText("prompts.continue"))
-			fmt.Scanln()
 		case 5:
 			if err := runDefinitionsExportToNote(); err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
-			fmt.Println(lang.GetText("prompts.continue"))
-			fmt.Scanln()
 		case 6:
 			if err := runDefinitionsOpenFile(); err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
-			fmt.Println(lang.GetText("prompts.continue"))
-			fmt.Scanln()
 		case 7:
 			return nil
 		}

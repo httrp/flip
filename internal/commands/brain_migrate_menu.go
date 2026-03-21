@@ -32,8 +32,6 @@ func runBrainMigrationMenu() error {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("🔄 Brain Migration")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 	fmt.Println("Migrate notes and assets between different brain types:")
 	fmt.Println("  • Logseq → Flip")
 	fmt.Println("  • Obsidian → Flip")
@@ -136,8 +134,6 @@ func runBrainMigrationMenu() error {
 		sourcePath = strings.TrimSpace(sourcePath)
 		if sourcePath == "" {
 			fmt.Println("\n❌ Source path required")
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 
@@ -145,8 +141,6 @@ func runBrainMigrationMenu() error {
 		sourceAbs, _ = filepath.Abs(sourcePath)
 		if _, err := os.Stat(sourceAbs); os.IsNotExist(err) {
 			fmt.Printf("\n❌ Source brain not found: %s\n", sourceAbs)
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 
@@ -172,8 +166,6 @@ func runBrainMigrationMenu() error {
 		targetPath = strings.TrimSpace(targetPath)
 		if targetPath == "" {
 			fmt.Println("\n❌ Target path required")
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 
@@ -204,8 +196,6 @@ func runBrainMigrationMenu() error {
 		availableFolders := listFoldersInBrain(sourceAbs)
 		if len(availableFolders) == 0 {
 			fmt.Println("\n⚠️  No folders found in source brain")
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 
@@ -243,8 +233,6 @@ func runBrainMigrationMenu() error {
 		
 		if len(folders) == 0 {
 			fmt.Println("\n❌ No folders specified")
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 		
@@ -255,8 +243,6 @@ func runBrainMigrationMenu() error {
 		note, err = ui.RunInput("Note name or path", "", "", nil)
 		if err != nil || note == "" {
 			fmt.Println("\n❌ Note required for single mode")
-			fmt.Println("Press Enter to continue...")
-			fmt.Scanln()
 			return nil
 		}
 	}
@@ -276,8 +262,6 @@ func runBrainMigrationMenu() error {
 	plan, err := planner.BuildPlan(mode, note, folders, 0)
 	if err != nil {
 		fmt.Printf("\n❌ Failed to build plan: %v\n", err)
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
 		return nil
 	}
 
@@ -313,8 +297,6 @@ func runBrainMigrationMenu() error {
 			fmt.Printf("   - %s\n", c)
 		}
 		fmt.Println("\n❌ Cannot proceed with conflicts. Resolve manually and try again.")
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
 		return nil
 	}
 
@@ -335,8 +317,6 @@ func runBrainMigrationMenu() error {
 	execIdx, _, err := ui.RunSelect("Execute migration now?", execItems, 0)
 	if err != nil || execIdx == 2 {
 		fmt.Println("\n❌ Cancelled")
-		fmt.Println("Press Enter to continue...")
-		fmt.Scanln()
 		return nil
 	}
 
@@ -350,8 +330,6 @@ func runBrainMigrationMenu() error {
 			fmt.Println("   You can review and execute later with:")
 			fmt.Printf("   flip brain migrate --execute --source %s --target %s\n", sourceAbs, targetAbs)
 		}
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return nil
 	}
 
@@ -398,8 +376,5 @@ func runBrainMigrationMenu() error {
 		fmt.Println("\n💡 To rollback this migration:")
 		fmt.Printf("   flip brain migrate rollback %s\n", targetAbs)
 	}
-
-	fmt.Println("\nPress Enter to continue...")
-	fmt.Scanln()
 	return nil
 }

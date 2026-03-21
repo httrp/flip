@@ -65,8 +65,6 @@ func runManageResourcesMenu() error {
 				if err := runBrainGitStatus(false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runManageResourcesMenu()
 			},
 		},
@@ -76,8 +74,6 @@ func runManageResourcesMenu() error {
 			Command:     "",
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runManageResourcesMenu()
 			},
 		},
@@ -87,8 +83,6 @@ func runManageResourcesMenu() error {
 			Command:     "",
 			Action: func() error {
 				checkUncommittedChangesOnExit()
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runManageResourcesMenu()
 			},
 		},
@@ -123,9 +117,7 @@ func runManageResourcesMenu() error {
 
 // runManageBrainsMenu shows submenu for brain management
 func runManageBrainsMenu() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	menuItems := []struct {
 		Label       string
@@ -140,15 +132,11 @@ func runManageBrainsMenu() error {
 				workspace, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageResourcesMenu()
 				}
 
 				if len(workspace.Brains) == 0 {
 					fmt.Println("\n🧠 No brains in active workspace.")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageResourcesMenu()
 				}
 
@@ -180,8 +168,6 @@ func runManageBrainsMenu() error {
 				if err := runNewBrain(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -195,16 +181,12 @@ func runManageBrainsMenu() error {
 				path, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
 					fmt.Printf("\n❌ Selection cancelled\n")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageBrainsMenu()
 				}
 
 				if err := runDirectoryInit(path, "", false); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runManageBrainsMenu()
 			},
 		},
@@ -218,16 +200,12 @@ func runManageBrainsMenu() error {
 				scanPath, err := BrowseDirectoryWithCommonPaths(true, commonPaths)
 				if err != nil {
 					fmt.Printf("\n❌ Selection cancelled\n")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageBrainsMenu()
 				}
 
 				if err := runScan(scanPath); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runManageBrainsMenu()
 			},
 		},

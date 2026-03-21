@@ -22,15 +22,11 @@ import (
 
 // runViewWorkspaceConfig shows and optionally edits the workspace configuration
 func runViewWorkspaceConfig() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	configPath, err := getConfigPath()
 	if err != nil {
 		fmt.Printf("\n%s Error: Failed to get config path: %v\n", IconError, err)
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
 		return runManageResourcesMenu()
 	}
 
@@ -39,8 +35,6 @@ func runViewWorkspaceConfig() error {
 		fmt.Printf("%s Workspace configuration not found\n", IconWarning)
 		fmt.Printf("   Expected at: %s\n", configPath)
 		fmt.Printf("\n%s Configuration will be created when you add your first workspace or brain.\n", IconInfo)
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
 		return runManageResourcesMenu()
 	}
 
@@ -48,17 +42,15 @@ func runViewWorkspaceConfig() error {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		fmt.Printf("\n%s Error reading config: %v\n", IconError, err)
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
 		return runManageResourcesMenu()
 	}
 
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	fmt.Println("📋 Workspace Configuration")
 	fmt.Printf("File: %s\n", configPath)
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	fmt.Println(string(content))
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 
 	fmt.Println("\nOptions:")
 	fmt.Println("  e) Edit configuration (ADVANCED - BE CAREFUL!)")
@@ -70,9 +62,9 @@ func runViewWorkspaceConfig() error {
 	choice = strings.TrimSpace(strings.ToLower(choice))
 
 	if choice == "e" {
-		fmt.Println("\n" + strings.Repeat("━", 60))
+		fmt.Println("\n" + strings.Repeat("━", 40))
 		fmt.Println("⚠️  DANGER: Manual Configuration Editing")
-		fmt.Println(strings.Repeat("━", 60))
+		fmt.Println(strings.Repeat("━", 40))
 		fmt.Println("⚠️  Editing this file incorrectly can BREAK flip completely!")
 		fmt.Println()
 		fmt.Println("This file contains:")
@@ -89,7 +81,7 @@ func runViewWorkspaceConfig() error {
 		fmt.Println("  • flip workspace add/remove/switch")
 		fmt.Println("  • flip brain add/remove/rename")
 		fmt.Println("  • Menu options for all operations")
-		fmt.Println(strings.Repeat("━", 60))
+		fmt.Println(strings.Repeat("━", 40))
 		fmt.Printf("\n⚠️  Are you ABSOLUTELY SURE you want to edit this? (type 'YES' to confirm): ")
 		confirm, _ := reader.ReadString('\n')
 		confirm = strings.TrimSpace(confirm)
@@ -132,9 +124,6 @@ func runViewWorkspaceConfig() error {
 			fmt.Println("\n✓ Cancelled. Good decision!")
 		}
 	}
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
 	return runManageResourcesMenu()
 }
 
@@ -353,8 +342,6 @@ func runBrainDetails(brainInfo Brain) func() error {
 					} else {
 						fmt.Printf("❌ Error checking brain: %v\n", err)
 					}
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runBrainDetails(brainInfo)()
 				},
 			},
@@ -366,8 +353,6 @@ func runBrainDetails(brainInfo Brain) func() error {
 					// Show git status
 					if !git.IsGitRepo(brainInfo.Path) {
 						fmt.Println("\n⚠️  Not a git repository")
-						fmt.Println(lang.GetText("prompts.continue"))
-						fmt.Scanln()
 						return runBrainDetails(brainInfo)()
 					}
 
@@ -383,9 +368,6 @@ func runBrainDetails(brainInfo Brain) func() error {
 					} else {
 						fmt.Println("  ✅ No uncommitted changes")
 					}
-
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runBrainDetails(brainInfo)()
 				},
 			},

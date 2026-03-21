@@ -86,7 +86,7 @@ func NewTaskListCommand() *cobra.Command {
 // runListTasks lists and filters tasks
 func runListTasks(filter tasks.TaskFilter, groupByFile bool) error {
 	fmt.Println("\n📋 Task List")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Load workspace config
 	config, err := loadWorkspaceConfig()
@@ -155,9 +155,7 @@ func runListTasks(filter tasks.TaskFilter, groupByFile bool) error {
 	laterTasks := filterLater(results)
 
 	// Display grouped tasks
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	totalShown := 0
 

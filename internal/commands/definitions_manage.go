@@ -14,8 +14,6 @@ import (
 // runDefinitionsExportToNote exports definitions to a new note
 func runDefinitionsExportToNote() error {
 	fmt.Println("\n📝 Export Definitions to Note")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	defs, err := loadTaskDefinitions()
 	if err != nil {
@@ -316,7 +314,7 @@ func runDefinitionsList() error {
 	}
 
 	fmt.Println("\n🏢 Organizations")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	if len(defs.Organizations) == 0 {
 		fmt.Println("  (none)")
 	} else {
@@ -355,7 +353,7 @@ func runDefinitionsList() error {
 	}
 
 	fmt.Println("\n📁 Projects")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	if len(defs.Projects) == 0 {
 		fmt.Println("  (none)")
 	} else {
@@ -398,7 +396,7 @@ func runDefinitionsList() error {
 	}
 
 	fmt.Println("\n🏷️  Contexts")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	if len(defs.Contexts) == 0 {
 		fmt.Println("  (none)")
 	} else {
@@ -438,7 +436,7 @@ func runDefinitionsList() error {
 
 	// Add People section
 	fmt.Println("\n👥 People")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	if len(defs.People) == 0 {
 		fmt.Println("  (none)")
 	} else {
@@ -491,7 +489,7 @@ func runDefinitionsList() error {
 // runDefinitionsAddOrg adds a new organization
 func runDefinitionsAddOrg() error {
 	fmt.Println("\n➕ Add Organization")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Prompt for abbreviation
@@ -541,7 +539,7 @@ func runDefinitionsAddOrg() error {
 // runDefinitionsAddProject adds a new project
 func runDefinitionsAddProject() error {
 	fmt.Println("\n➕ Add Project")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first to get organizations
@@ -617,7 +615,7 @@ func runDefinitionsAddProject() error {
 // runDefinitionsAddContext adds a new context
 func runDefinitionsAddContext() error {
 	fmt.Println("\n➕ Add Context")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first
@@ -702,7 +700,7 @@ func runDefinitionsAddContext() error {
 // runDefinitionsAddPerson adds a new person
 func runDefinitionsAddPerson() error {
 	fmt.Println("\n➕ Add Person")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Load definitions first
@@ -907,7 +905,7 @@ func runDefinitionsRemove() error {
 // runDefinitionsScan scans tasks for organizations, projects, and contexts
 func runDefinitionsScan() error {
 	fmt.Println("\n🔍 Scanning Tasks & Checking Consistency")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Get active brain
 	brain, err := getActiveBrain()

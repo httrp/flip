@@ -221,7 +221,7 @@ func PerformRelocation(sourcePath string, destPath string, dryRun bool, force bo
 }
 
 func displayRelocateResult(result *RelocateResult) {
-	fmt.Printf("%s\n", strings.Repeat("━", 60))
+	fmt.Printf("%s\n", strings.Repeat("━", 40))
 
 	if result.Success {
 		fmt.Printf("✅ RELOCATION SUCCESSFUL\n\n")
@@ -244,7 +244,7 @@ func displayRelocateResult(result *RelocateResult) {
 		}
 	}
 
-	fmt.Printf("%s\n", strings.Repeat("━", 60))
+	fmt.Printf("%s\n", strings.Repeat("━", 40))
 }
 
 // expandPath expands ~ to home directory

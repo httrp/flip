@@ -404,8 +404,6 @@ tags: %s
 // runCreateNote creates a new note in the active brain
 func runCreateNote() error {
 	fmt.Println("\n📝 Create New Note")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Load config
 	config, err := loadWorkspaceConfig()
@@ -534,8 +532,7 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 	// If there's only one brain, use it directly
 	if len(ws.Brains) == 1 {
 		brain := &ws.Brains[0]
-		fmt.Printf("📍 Using brain: %s (%s)\n", brain.Name, brain.Type)
-		fmt.Printf("   Path: %s\n\n", brain.Path)
+		fmt.Printf("📍 %s (%s)\n", brain.Name, brain.Type)
 		return brain, nil
 	}
 
@@ -571,7 +568,6 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 	}
 
 	selectedBrain := &ws.Brains[brainIdx]
-	fmt.Printf("   Path: %s\n\n", selectedBrain.Path)
 
 	return selectedBrain, nil
 }

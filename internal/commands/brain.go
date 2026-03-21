@@ -632,8 +632,6 @@ func runBrainGitStatus(showAll bool) error {
 	}
 
 	fmt.Println("\n🔍 Git Status")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Determine which brains to show
 	var brainsToShow []Brain
@@ -719,7 +717,7 @@ func runBrainGitLog(count int, showAll bool) error {
 	}
 
 	fmt.Printf("\n📚 Git Commit History (last %d commits)\n", count)
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 
 	// Determine which brains to show

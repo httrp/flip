@@ -143,8 +143,6 @@ func NewQuickstartCommand() *cobra.Command {
 func runQuickstart() error {
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("  " + getText("welcome_banner"))
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Load existing config first to show current status
 	config, err := loadWorkspaceConfig()
@@ -451,8 +449,6 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		fmt.Println(getText("quickstart.logseq_type"))
 		fmt.Println(getText("quickstart.dendron_type"))
 		fmt.Println(getText("quickstart.foam_type"))
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println()
 		fmt.Println("🔍 Scanning for existing brains...")
 		fmt.Println("   Looking for: Flip, Obsidian, Logseq, Dendron, Foam brains")
 		fmt.Println("   (Ignoring generic markdown folders)")
@@ -469,8 +465,6 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		}
 
 		// After scan, offer to add a brain
-		fmt.Println()
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println()
 
 		afterScanOptions := []string{
@@ -577,8 +571,6 @@ func runAddBrainStep(config *WorkspaceConfig, wsName string) error {
 		fmt.Println(getText("quickstart.logseq_type"))
 		fmt.Println(getText("quickstart.dendron_type"))
 		fmt.Println(getText("quickstart.foam_type"))
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println()
 		fmt.Println("📂 Where is your existing brain located?")
 		fmt.Println()
 

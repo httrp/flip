@@ -412,8 +412,6 @@ func runInteractiveMenuV2() error {
 		}
 
 		// Wait for user to read command output before returning to menu
-		fmt.Print("\n↩  Press Enter to return to menu...")
-		fmt.Scanln()
 
 		// Return to the menu the user was in when they selected the command
 		startMenu = lastMenu

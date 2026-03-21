@@ -40,8 +40,6 @@ func NewTaskCommand() *cobra.Command {
 // runTaskMenu shows an interactive task management menu
 func runTaskMenu() error {
 	fmt.Println("\n📋 Task Management")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 	fmt.Println("Use 'flip task --help' to see all available commands")
 	fmt.Println()
 	fmt.Println("Quick commands:")

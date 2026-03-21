@@ -251,8 +251,6 @@ func coalesce(a, b string) string {
 // runCreateMeeting creates a new meeting note
 func runCreateMeeting() error {
 	fmt.Println("\n📅 Create Meeting Note")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Get active workspace
 	activeWs, err := getActiveWorkspace()

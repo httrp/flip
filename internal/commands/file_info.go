@@ -294,7 +294,7 @@ func detectBrainPath(filePath string) string {
 func printFileInfo(info *FileInfo) {
 	fmt.Println()
 	fmt.Println("📄 File Information")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	fmt.Printf("   Path:      %s\n", info.Path)
 	fmt.Printf("   File:      %s\n", info.FileName)

@@ -182,7 +182,7 @@ type healthJSONRepairPayload struct {
 
 func runBrainCheck(fix, verbose bool) error {
 	fmt.Println("🔍 Brain Health Check")
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 
 	config, err := loadWorkspaceConfig()
 	if err != nil {
@@ -229,7 +229,7 @@ func runBrainCheck(fix, verbose bool) error {
 	}
 
 	// Summary
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	fmt.Printf("Summary: %d brain(s) checked, %d OK, %d with issues\n", brainCount, okCount, brainCount-okCount)
 
 	if len(issues) > 0 {
@@ -560,7 +560,7 @@ func runBrainHealthCheck(brainPath string, jsonOutput, fix, dryRun bool, repairT
 	// Handle --fix mode
 	if fix && len(result.Issues) > 0 {
 		fmt.Println()
-		fmt.Println(strings.Repeat("━", 60))
+		fmt.Println(strings.Repeat("━", 40))
 
 		if dryRun {
 			fmt.Println("🔍 DRY RUN - Previewing repairs (no changes will be made)")

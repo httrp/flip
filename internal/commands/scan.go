@@ -343,9 +343,7 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 	}
 
 	// Display found brains with summary
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 	fmt.Printf("✓ Found %d brain(s)\n\n", len(foundBrains))
 
 	// Interactive loop to browse and add brains

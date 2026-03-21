@@ -18,22 +18,16 @@ import (
 
 // runSwitchWorkspaceMenu shows menu to switch workspace
 func runSwitchWorkspaceMenu() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		fmt.Printf("Error loading workspaces: %v\n", err)
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
 		return nil
 	}
 
 	if len(config.Workspaces) == 0 {
 		fmt.Println(lang.GetText("errors.no_workspaces"))
-		fmt.Println(lang.GetText("prompts.continue"))
-		fmt.Scanln()
 		return nil
 	}
 
@@ -68,17 +62,12 @@ func runSwitchWorkspaceMenu() error {
 			fmt.Printf("\n✓ Switched to workspace '%s'\n", selectedWS.Name)
 		}
 	}
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
 	return nil
 }
 
 // runEditManageMenu shows submenu for editing and managing resources
 func runEditManageMenu() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	menuItems := []struct {
 		Label       string
@@ -102,8 +91,6 @@ func runEditManageMenu() error {
 				if err := runTemplateMenu(); err != nil {
 					fmt.Printf("\n❌ Error: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},

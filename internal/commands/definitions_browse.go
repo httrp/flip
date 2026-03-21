@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/httrp/flip/internal/lang"
 	ui "github.com/httrp/flip/internal/ui"
 )
 
@@ -56,16 +55,13 @@ func runDefinitionsBrowseOrganizations() error {
 
 	// Show details of selected organization
 	org := defs.Organizations[idx]
-	fmt.Println("\n" + strings.Repeat("━", 60))
+	fmt.Println("\n" + strings.Repeat("━", 40))
 	fmt.Printf("Organization: [%s] %s\n", org.Abbreviation, org.Name)
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	if org.Description != "" {
 		fmt.Printf("Description: %s\n", org.Description)
 	}
-	fmt.Println(strings.Repeat("━", 60))
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
+	fmt.Println(strings.Repeat("━", 40))
 	return nil
 }
 
@@ -121,19 +117,16 @@ func runDefinitionsBrowseProjects() error {
 
 	// Show details of selected project
 	proj := defs.Projects[idx]
-	fmt.Println("\n" + strings.Repeat("━", 60))
+	fmt.Println("\n" + strings.Repeat("━", 40))
 	fmt.Printf("Project: [%s] %s\n", proj.Abbreviation, proj.Name)
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	if proj.Organization != "" {
 		fmt.Printf("Organization: %s\n", proj.Organization)
 	}
 	if proj.Description != "" {
 		fmt.Printf("Description: %s\n", proj.Description)
 	}
-	fmt.Println(strings.Repeat("━", 60))
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
+	fmt.Println(strings.Repeat("━", 40))
 	return nil
 }
 
@@ -185,16 +178,13 @@ func runDefinitionsBrowseContexts() error {
 
 	// Show details of selected context
 	ctx := defs.Contexts[idx]
-	fmt.Println("\n" + strings.Repeat("━", 60))
+	fmt.Println("\n" + strings.Repeat("━", 40))
 	fmt.Printf("Context: [%s] %s\n", ctx.Abbreviation, ctx.Name)
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	if ctx.Description != "" {
 		fmt.Printf("Description: %s\n", ctx.Description)
 	}
-	fmt.Println(strings.Repeat("━", 60))
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
+	fmt.Println(strings.Repeat("━", 40))
 	return nil
 }
 
@@ -250,9 +240,9 @@ func runDefinitionsBrowsePeople() error {
 
 	// Show details of selected person
 	person := defs.People[idx]
-	fmt.Println("\n" + strings.Repeat("━", 60))
+	fmt.Println("\n" + strings.Repeat("━", 40))
 	fmt.Printf("Person: [%s] %s\n", person.Abbreviation, person.Name)
-	fmt.Println(strings.Repeat("━", 60))
+	fmt.Println(strings.Repeat("━", 40))
 	if person.Organization != "" {
 		fmt.Printf("Organization: %s\n", person.Organization)
 	}
@@ -265,9 +255,6 @@ func runDefinitionsBrowsePeople() error {
 	if person.Email != "" {
 		fmt.Printf("Email: %s\n", person.Email)
 	}
-	fmt.Println(strings.Repeat("━", 60))
-
-	fmt.Println(lang.GetText("prompts.continue"))
-	fmt.Scanln()
+	fmt.Println(strings.Repeat("━", 40))
 	return nil
 }

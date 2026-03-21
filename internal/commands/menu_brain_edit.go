@@ -20,9 +20,7 @@ import (
 
 // runEditWorkspaceMenu shows menu for editing workspaces
 func runEditWorkspaceMenu() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	menuItems := []struct {
 		Label       string
@@ -36,15 +34,11 @@ func runEditWorkspaceMenu() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageResourcesMenu()
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runManageResourcesMenu()
 				}
 
@@ -74,15 +68,11 @@ func runEditWorkspaceMenu() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -102,8 +92,6 @@ func runEditWorkspaceMenu() error {
 				// Don't allow renaming default
 				if oldName == DefaultWorkspaceName {
 					fmt.Printf("\n❌ Cannot rename '%s' workspace - it's reserved\n", DefaultWorkspaceName)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -116,9 +104,6 @@ func runEditWorkspaceMenu() error {
 				if err := runWorkspaceRename(oldName, newName); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -129,8 +114,6 @@ func runEditWorkspaceMenu() error {
 				if err := runWorkspaceRepair(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -141,15 +124,11 @@ func runEditWorkspaceMenu() error {
 				config, err := loadWorkspaceConfig()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -170,17 +149,12 @@ func runEditWorkspaceMenu() error {
 				confirmed, err := ui.RunConfirm(fmt.Sprintf("Remove workspace '%s'?", wsName), false)
 				if err != nil || !confirmed {
 					fmt.Println("\n❌ Cancelled")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if err := runWorkspaceRemove(wsName); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -208,9 +182,7 @@ func runEditWorkspaceMenu() error {
 
 // runEditBrainMenu shows menu for editing brains
 func runEditBrainMenu() error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	menuItems := []struct {
 		Label       string
@@ -224,15 +196,11 @@ func runEditBrainMenu() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runEditBrainMenu()
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return runEditBrainMenu()
 				}
 
@@ -254,9 +222,9 @@ func runEditBrainMenu() error {
 				brainItem := ws.Brains[idx]
 
 				// Display brain details
-				fmt.Println("\n" + strings.Repeat("━", 60))
+				fmt.Println("\n" + strings.Repeat("━", 40))
 				fmt.Printf("Brain: %s\n", brainItem.Name)
-				fmt.Println(strings.Repeat("━", 60))
+				fmt.Println(strings.Repeat("━", 40))
 				fmt.Printf("Type:        %s\n", brainItem.Type)
 				fmt.Printf("Description: %s\n", brainItem.Description)
 				fmt.Printf("Path:        %s\n", brainItem.Path)
@@ -278,7 +246,7 @@ func runEditBrainMenu() error {
 					fmt.Printf("Default:     No\n")
 				}
 
-				fmt.Println(strings.Repeat("━", 60))
+				fmt.Println(strings.Repeat("━", 40))
 				fmt.Println("\nOptions:")
 				fmt.Println("  v) View brain config (.flip.yaml)")
 				fmt.Println("  e) Edit path")
@@ -302,12 +270,12 @@ func runEditBrainMenu() error {
 						if err != nil {
 							fmt.Printf("\n%s Error reading config: %v\n", IconError, err)
 						} else {
-							fmt.Println("\n" + strings.Repeat("━", 60))
+							fmt.Println("\n" + strings.Repeat("━", 40))
 							fmt.Printf("Brain Config: %s\n", brainItem.Name)
 							fmt.Printf("File: %s\n", configPath)
-							fmt.Println(strings.Repeat("━", 60))
+							fmt.Println(strings.Repeat("━", 40))
 							fmt.Println(string(content))
-							fmt.Println(strings.Repeat("━", 60))
+							fmt.Println(strings.Repeat("━", 40))
 						}
 					}
 				case "c":
@@ -316,9 +284,9 @@ func runEditBrainMenu() error {
 					if _, err := os.Stat(configPath); os.IsNotExist(err) {
 						fmt.Printf("\n%s Brain config not found: %s\n", IconError, configPath)
 					} else {
-						fmt.Println("\n" + strings.Repeat("━", 60))
+						fmt.Println("\n" + strings.Repeat("━", 40))
 						fmt.Println("⚠️  WARNING: Manual Config Editing")
-						fmt.Println(strings.Repeat("━", 60))
+						fmt.Println(strings.Repeat("━", 40))
 						fmt.Println("Editing config files manually can break your brain setup!")
 						fmt.Println()
 						fmt.Println("Recommended: Use 'flip' commands instead:")
@@ -327,7 +295,7 @@ func runEditBrainMenu() error {
 						fmt.Println("  • Use menu options for safe changes")
 						fmt.Println()
 						fmt.Println("Only proceed if you know what you're doing.")
-						fmt.Println(strings.Repeat("━", 60))
+						fmt.Println(strings.Repeat("━", 40))
 						fmt.Printf("\n? Open config in editor anyway? (yes/no) [default: no]: ")
 						confirm, _ := reader.ReadString('\n')
 						confirm = strings.TrimSpace(strings.ToLower(confirm))
@@ -412,9 +380,6 @@ func runEditBrainMenu() error {
 						fmt.Printf("\n%s Error: Cannot open folder - path does not exist\n", IconError)
 					}
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runEditBrainMenu()
 			},
 		},
@@ -425,15 +390,11 @@ func runEditBrainMenu() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -494,9 +455,6 @@ func runEditBrainMenu() error {
 				if err := runBrainRename(oldName, newName); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -507,15 +465,11 @@ func runEditBrainMenu() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -539,9 +493,6 @@ func runEditBrainMenu() error {
 				if err := runBrainSetDefault(brainName, false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -552,8 +503,6 @@ func runEditBrainMenu() error {
 				if err := runBrainRepair(); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -564,15 +513,11 @@ func runEditBrainMenu() error {
 				ws, err := getActiveWorkspace()
 				if err != nil {
 					fmt.Printf("\nError: %v\n", err)
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
@@ -593,17 +538,12 @@ func runEditBrainMenu() error {
 				confirmed, err := ui.RunConfirm(fmt.Sprintf("Remove brain '%s' from workspace?", brainName), false)
 				if err != nil || !confirmed {
 					fmt.Println("\n❌ Cancelled")
-					fmt.Println(lang.GetText("prompts.continue"))
-					fmt.Scanln()
 					return nil
 				}
 
 				if err := runBrainRemove(brainName, true); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return nil
 			},
 		},
@@ -614,8 +554,6 @@ func runEditBrainMenu() error {
 				if err := runBrainGitStatus(false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runEditBrainMenu()
 			},
 		},
@@ -626,8 +564,6 @@ func runEditBrainMenu() error {
 				if err := runBrainGitLog(10, false); err != nil {
 					fmt.Printf("\nError: %v\n", err)
 				}
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runEditBrainMenu()
 			},
 		},
@@ -636,8 +572,6 @@ func runEditBrainMenu() error {
 			Description: lang.GetText("menu.status.git_commit_desc"),
 			Action: func() error {
 				checkUncommittedChangesOnExit()
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runEditBrainMenu()
 			},
 		},
@@ -646,8 +580,6 @@ func runEditBrainMenu() error {
 			Description: lang.GetText("menu.status.git_pull_desc"),
 			Action: func() error {
 				checkRemoteUpdatesOnStart()
-				fmt.Println(lang.GetText("prompts.continue"))
-				fmt.Scanln()
 				return runEditBrainMenu()
 			},
 		},

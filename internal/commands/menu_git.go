@@ -206,8 +206,6 @@ func checkRemoteUpdatesOnStart() {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("📥 Remote updates available:")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	hasConflictRisk := false
 	for _, bwu := range brainsWithUpdates {
@@ -320,8 +318,6 @@ func checkUncommittedChangesOnExit() {
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("⚠️  Uncommitted changes detected:")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 	for _, bwc := range brainsWithChanges {
 		fmt.Printf("📁 %s\n", bwc.Brain.Name)
 		for _, change := range bwc.Changes {

@@ -163,8 +163,6 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 			absManual, err := filepath.Abs(manualPath)
 			if err != nil {
 				fmt.Printf("\n❌ Invalid path: %v\n", err)
-				fmt.Println("\nPress Enter to continue...")
-				fmt.Scanln()
 				continue
 			}
 
@@ -172,8 +170,6 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 			stat, err := os.Stat(absManual)
 			if err != nil {
 				fmt.Printf("\n❌ Path does not exist: %s\n", absManual)
-				fmt.Println("\nPress Enter to continue...")
-				fmt.Scanln()
 				continue
 			}
 
@@ -184,8 +180,6 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 				return absManual, nil
 			} else if selectDirs && !stat.IsDir() {
 				fmt.Println("\n❌ Selected path is a file, but a directory is required")
-				fmt.Println("\nPress Enter to continue...")
-				fmt.Scanln()
 				continue
 			} else {
 				// File selected but we need a dir, navigate to it
@@ -204,8 +198,6 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 			// File selected
 			if selectDirs {
 				fmt.Println("\n❌ Please select a directory, not a file")
-				fmt.Println("\nPress Enter to continue...")
-				fmt.Scanln()
 				continue
 			}
 			return selected.Path, nil

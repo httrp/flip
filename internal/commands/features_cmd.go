@@ -78,8 +78,6 @@ func newFeaturesDisableCommand() *cobra.Command {
 func runFeaturesList() error {
 	fmt.Println()
 	fmt.Println("Flip Feature Modules")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Core features
 	fmt.Println("🔒 Core Features (always enabled)")

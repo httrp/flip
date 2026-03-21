@@ -21,8 +21,7 @@ var (
 var (
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(ColorPrimary).
-			MarginBottom(1)
+			Foreground(ColorPrimary)
 
 	SubtitleStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted).
@@ -49,8 +48,7 @@ var (
 			Bold(true)
 
 	HelpStyle = lipgloss.NewStyle().
-			Foreground(ColorMuted).
-			MarginTop(1)
+			Foreground(ColorMuted)
 )
 
 // Menu item styles

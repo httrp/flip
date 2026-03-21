@@ -222,8 +222,6 @@ func runCreateQuicknoteNonInteractive(opts QuicknoteOptions) error {
 // runCreateQuicknote creates a quick note with minimal prompts
 func runCreateQuicknote() error {
 	fmt.Println("\n⚡ Create Quick Note")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Get active workspace
 	activeWs, err := getActiveWorkspace()
@@ -248,8 +246,6 @@ func runCreateQuicknote() error {
 	if err != nil {
 		return fmt.Errorf("failed to detect brain type: %w", err)
 	}
-
-	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
 	// Prompt for title (ONLY required field)
 	title, err := ui.RunInput("Note title", "", "", func(input string) error {
@@ -306,8 +302,7 @@ func runCreateQuicknote() error {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
-	fmt.Printf("✅ Quick note created: %s\n\n", filePath)
-	fmt.Println("💡 Tip: Fill in organization, project, and context in the frontmatter later")
+	fmt.Printf("✅ Quick note created: %s\n", filePath)
 
 	// Ask if user wants to add link to journal
 	relPath := relativePathFromBrain(filePath, activeBrain.Path)

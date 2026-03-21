@@ -251,7 +251,7 @@ func parsePriorityString(s string) tasks.Priority {
 // runCreateTaskAtPosition creates a task at a specific file/line (for VS Code integration)
 func runCreateTaskAtPosition(opts TaskNewOptions) error {
 	fmt.Println("\n📝 Create Task at Current Position")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("📄 File: %s\n", opts.File)
 	if opts.Line > 0 {
 		fmt.Printf("📍 Line: %d\n", opts.Line)
@@ -351,8 +351,6 @@ func insertTaskAtLine(filePath string, lineNum int, task *tasks.Task) error {
 // runCreateTask creates a new task interactively
 func runCreateTask() error {
 	fmt.Println("\n📝 Create New Task")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Get task description
 	description, err := ui.RunInput("Task Description", "", "", nil)

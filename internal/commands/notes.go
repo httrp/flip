@@ -333,9 +333,7 @@ func contentMatches(filePath, query string) bool {
 }
 
 func displayAndSelectNotes(notes []NoteFile, title string) error {
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 	fmt.Printf("✓ Found %d note(s)\n\n", len(notes))
 
 	// Create menu items

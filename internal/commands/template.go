@@ -25,8 +25,6 @@ func NewTemplateCommand() *cobra.Command {
 
 func runTemplateMenu() error {
 	fmt.Println("\n🔧 Template Management")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	menuItems := []struct {
 		Label       string
@@ -116,16 +114,12 @@ func editTemplateFlow() error {
 	templatePath, err := templates.GetTemplatePath(brainType, templateType)
 	if err != nil {
 		fmt.Printf("\n❌ Error: %v\n", err)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
 	// Check if template exists
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
 		fmt.Printf("\n❌ Template not found: %s\n", templatePath)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
@@ -144,8 +138,6 @@ func editTemplateFlow() error {
 	// Open in editor
 	if err := openInEditor(templatePath); err != nil {
 		fmt.Printf("❌ Error opening editor: %v\n", err)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 	}
 
 	return runTemplateMenu()
@@ -189,9 +181,6 @@ func listTemplatesFlow() error {
 			}
 		}
 	}
-
-	fmt.Println("\nPress Enter to continue...")
-	fmt.Scanln()
 	return runTemplateMenu()
 }
 
@@ -228,8 +217,6 @@ func viewTemplateFlow() error {
 	content, err := templates.Load(brainType, templateType)
 	if err != nil {
 		fmt.Printf("\n❌ Error loading template: %v\n", err)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
@@ -239,15 +226,11 @@ func viewTemplateFlow() error {
 	fmt.Println(content)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("\nAvailable placeholders: {{title}}, {{date}}, {{time}}, {{tags}}, {{participants}}, {{id}}, {{created}}, {{updated}}")
-	fmt.Println("\nPress Enter to continue...")
-	fmt.Scanln()
 	return runTemplateMenu()
 }
 
 func resetTemplateFlow() error {
 	fmt.Println("\n🔄 Reset Template")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Option to reset all or single template
 	_, scopeChoice, err := ui.RunSelect("What would you like to reset?", []ui.SelectItem{
@@ -278,8 +261,6 @@ func resetTemplateFlow() error {
 		yes, err := ui.RunConfirm(fmt.Sprintf("Reset ALL templates for %s to defaults", brainStr), false)
 		if err != nil || !yes {
 			fmt.Println("\n❌ Cancelled")
-			fmt.Println("\nPress Enter to continue...")
-			fmt.Scanln()
 			return runTemplateMenu()
 		}
 
@@ -288,8 +269,6 @@ func resetTemplateFlow() error {
 		} else {
 			fmt.Printf("\n✅ All %s templates reset to defaults\n", brainStr)
 		}
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
@@ -311,8 +290,6 @@ func resetTemplateFlow() error {
 	yes, err := ui.RunConfirm(fmt.Sprintf("Reset %s template for %s to default", templateStr, brainStr), false)
 	if err != nil || !yes {
 		fmt.Println("\n❌ Cancelled")
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
@@ -321,8 +298,6 @@ func resetTemplateFlow() error {
 	} else {
 		fmt.Printf("\n✅ %s template for %s reset to default\n", templateStr, brainStr)
 	}
-	fmt.Println("\nPress Enter to continue...")
-	fmt.Scanln()
 	return runTemplateMenu()
 }
 
@@ -330,8 +305,6 @@ func showTemplateDirectoryFlow() error {
 	templateDir, err := templates.GetTemplateDir()
 	if err != nil {
 		fmt.Printf("\n❌ Error: %v\n", err)
-		fmt.Println("\nPress Enter to continue...")
-		fmt.Scanln()
 		return runTemplateMenu()
 	}
 
@@ -363,8 +336,6 @@ func showTemplateDirectoryFlow() error {
 	if yes {
 		if err := openInFileManager(templateDir); err != nil {
 			fmt.Printf("\n❌ Error opening directory: %v\n", err)
-			fmt.Println("\nPress Enter to continue...")
-			fmt.Scanln()
 		}
 	}
 

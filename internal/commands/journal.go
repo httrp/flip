@@ -349,8 +349,6 @@ func runCreateJournalNonInteractive(opts JournalOptions) error {
 // runCreateJournal creates or opens a daily journal note (interactive mode)
 func runCreateJournal() error {
 	fmt.Println("\n📔 Daily Journal / Daily Note")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
 
 	// Get active workspace
 	activeWs, err := getActiveWorkspace()

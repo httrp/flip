@@ -517,7 +517,7 @@ func NewTaskStatsCommand() *cobra.Command {
 // runTaskStats shows task statistics
 func runTaskStats() error {
 	fmt.Println("\n📊 Task Statistics")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Load workspace config
 	config, err := loadWorkspaceConfig()
@@ -559,9 +559,7 @@ func runTaskStats() error {
 	index.Build(allTasks)
 	stats := index.Stats()
 
-	fmt.Println()
 	displayStatusHeader()
-	fmt.Println()
 
 	// Display statistics
 	fmt.Printf("📋 Total Tasks:        %d\n\n", stats.Total)

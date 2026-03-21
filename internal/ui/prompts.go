@@ -117,13 +117,13 @@ func (m inputPromptModel) View() string {
 	}
 	var b strings.Builder
 	b.WriteString(TitleStyle.Render(m.prompt))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 	b.WriteString(m.textInput.View())
 	if m.errMsg != "" {
 		b.WriteString("\n")
 		b.WriteString(ErrorStyle.Render("  ✗ " + m.errMsg))
 	}
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 	b.WriteString(HelpStyle.Render("enter: confirm • esc: cancel"))
 	return b.String()
 }
@@ -348,7 +348,7 @@ func (m confirmPromptModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(TitleStyle.Render(m.question))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
 	yes := " Yes "
 	no := " No "
@@ -364,7 +364,7 @@ func (m confirmPromptModel) View() string {
 	b.WriteString(yes)
 	b.WriteString("    ")
 	b.WriteString(no)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 	b.WriteString(HelpStyle.Render("←/→: select • y/n: choose • enter: confirm • esc: cancel"))
 
 	return b.String()
