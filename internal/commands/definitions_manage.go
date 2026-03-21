@@ -8,7 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // runDefinitionsExportToNote exports definitions to a new note
@@ -32,13 +32,12 @@ func runDefinitionsExportToNote() error {
 		"Cancel",
 	}
 
-	selector := promptui.Select{
-		Label: "What would you like to export?",
-		Items: exportOptions,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(exportOptions))
+	for i, opt := range exportOptions {
+		selectItems[i] = ui.SelectItem{Label: opt, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selector.Run()
+	idx, _, err := ui.RunSelect("What would you like to export?", selectItems, 10)
 	if err != nil || idx == len(exportOptions)-1 {
 		return nil
 	}
@@ -117,13 +116,12 @@ func runDefinitionsExportToNote() error {
 			orgItems[i] = fmt.Sprintf("[%s] %s", org.Abbreviation, org.Name)
 		}
 
-		orgSelector := promptui.Select{
-			Label: "Select Organization",
-			Items: orgItems,
-			Size:  10,
+		orgSelectItems := make([]ui.SelectItem, len(orgItems))
+		for i, item := range orgItems {
+			orgSelectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 		}
 
-		orgIdx, _, err := orgSelector.Run()
+		orgIdx, _, err := ui.RunSelect("Select Organization", orgSelectItems, 10)
 		if err != nil {
 			return nil
 		}
@@ -254,13 +252,13 @@ func runDefinitionsExportToNote() error {
 	fmt.Printf("\n✅ Note created: %s\n", notePath)
 
 	// Ask if user wants to open it
-	openPrompt := promptui.Select{
-		Label: "Open note in editor?",
-		Items: []string{"Yes", "No"},
+	openItems := []ui.SelectItem{
+		{Label: "Yes", Value: "yes"},
+		{Label: "No", Value: "no"},
 	}
 
-	openIdx, _, err := openPrompt.Run()
-	if err == nil && openIdx == 0 {
+	_, openVal, err := ui.RunSelect("Open note in editor?", openItems, 3)
+	if err == nil && openVal == "yes" {
 		// Open in editor (cross-platform)
 		if err := openInEditor(notePath); err != nil {
 			fmt.Printf("\n⚠️  Could not open editor: %v\n", err)
@@ -497,10 +495,7 @@ func runDefinitionsAddOrg() error {
 	fmt.Println("💡 Press Ctrl+C to cancel at any time")
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label: "Abbreviation (e.g., WORK, PERS)",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., WORK, PERS)", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -508,10 +503,7 @@ func runDefinitionsAddOrg() error {
 	abbr = strings.TrimSpace(strings.ToUpper(abbr))
 
 	// Prompt for name
-	namePrompt := promptui.Prompt{
-		Label: "Full Name",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Full Name", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -519,11 +511,7 @@ func runDefinitionsAddOrg() error {
 	name = strings.TrimSpace(name)
 
 	// Prompt for description (optional)
-	descPrompt := promptui.Prompt{
-		Label:   "Description (optional)",
-		Default: "",
-	}
-	desc, _ := descPrompt.Run()
+	desc, _ := ui.RunInput("Description (optional)", "", "", nil)
 	desc = strings.TrimSpace(desc)
 
 	// Load, add, save
@@ -574,13 +562,12 @@ func runDefinitionsAddProject() error {
 		orgItems[i] = fmt.Sprintf("[%s] %s", org.Abbreviation, org.Name)
 	}
 
-	orgSelector := promptui.Select{
-		Label: "Select Organization",
-		Items: orgItems,
-		Size:  10,
+	orgSelectItems := make([]ui.SelectItem, len(orgItems))
+	for i, item := range orgItems {
+		orgSelectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	orgIdx, _, err := orgSelector.Run()
+	orgIdx, _, err := ui.RunSelect("Select Organization", orgSelectItems, 10)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -589,10 +576,7 @@ func runDefinitionsAddProject() error {
 	selectedOrg := defs.Organizations[orgIdx].Abbreviation
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label: "Abbreviation (e.g., FLIP, BRAIN)",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., FLIP, BRAIN)", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -600,10 +584,7 @@ func runDefinitionsAddProject() error {
 	abbr = strings.TrimSpace(strings.ToUpper(abbr))
 
 	// Prompt for name
-	namePrompt := promptui.Prompt{
-		Label: "Full Name",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Full Name", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -611,11 +592,7 @@ func runDefinitionsAddProject() error {
 	name = strings.TrimSpace(name)
 
 	// Prompt for description (optional)
-	descPrompt := promptui.Prompt{
-		Label:   "Description (optional)",
-		Default: "",
-	}
-	desc, _ := descPrompt.Run()
+	desc, _ := ui.RunInput("Description (optional)", "", "", nil)
 	desc = strings.TrimSpace(desc)
 
 	// Add project
@@ -650,10 +627,7 @@ func runDefinitionsAddContext() error {
 	}
 
 	// Prompt for name first to check for similar contexts
-	namePrompt := promptui.Prompt{
-		Label: "Context Name",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Context Name", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -669,42 +643,33 @@ func runDefinitionsAddContext() error {
 		}
 		fmt.Println()
 
-		actions := []string{
-			"Create new context anyway",
-			"View/edit existing context",
-			"Cancel",
+		actionItems := []ui.SelectItem{
+			{Label: "Create new context anyway", Value: "create"},
+			{Label: "View/edit existing context", Value: "edit"},
+			{Label: "Cancel", Value: "cancel"},
 		}
 
-		actionPrompt := promptui.Select{
-			Label: "What would you like to do?",
-			Items: actions,
-			Size:  5,
-		}
-
-		idx, _, err := actionPrompt.Run()
+		_, actionVal, err := ui.RunSelect("What would you like to do?", actionItems, 5)
 		if err != nil {
 			fmt.Println("\n⚠️  Cancelled")
 			return nil
 		}
 
-		switch idx {
-		case 1: // View/edit
+		switch actionVal {
+		case "edit": // View/edit
 			// TODO: Implement context editing
 			fmt.Println("\n💡 Context editing not yet implemented. Please use the definitions file directly.")
 			fmt.Println("   Use: flip definitions file")
 			return nil
-		case 2: // Cancel
+		case "cancel": // Cancel
 			fmt.Println("\n⚠️  Cancelled")
 			return nil
 		}
-		// case 0: Continue with creation
+		// case "create": Continue with creation
 	}
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label: "Abbreviation (e.g., MTG, EMAIL)",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., MTG, EMAIL)", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -712,11 +677,7 @@ func runDefinitionsAddContext() error {
 	abbr = strings.TrimSpace(strings.ToUpper(abbr))
 
 	// Prompt for description (optional)
-	descPrompt := promptui.Prompt{
-		Label:   "Description (optional)",
-		Default: "",
-	}
-	desc, _ := descPrompt.Run()
+	desc, _ := ui.RunInput("Description (optional)", "", "", nil)
 	desc = strings.TrimSpace(desc)
 
 	// Add context
@@ -762,13 +723,12 @@ func runDefinitionsAddPerson() error {
 		orgItems[i] = fmt.Sprintf("[%s] %s", org.Abbreviation, org.Name)
 	}
 
-	orgSelector := promptui.Select{
-		Label: "Select Organization",
-		Items: orgItems,
-		Size:  10,
+	orgSelectItems := make([]ui.SelectItem, len(orgItems))
+	for i, item := range orgItems {
+		orgSelectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	orgIdx, _, err := orgSelector.Run()
+	orgIdx, _, err := ui.RunSelect("Select Organization", orgSelectItems, 10)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -777,10 +737,7 @@ func runDefinitionsAddPerson() error {
 	selectedOrg := defs.Organizations[orgIdx].Abbreviation
 
 	// Prompt for last name first
-	lastNamePrompt := promptui.Prompt{
-		Label: "Last Name",
-	}
-	lastName, err := lastNamePrompt.Run()
+	lastName, err := ui.RunInput("Last Name", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -796,42 +753,33 @@ func runDefinitionsAddPerson() error {
 		}
 		fmt.Println()
 
-		actions := []string{
-			"Create new person anyway",
-			"View/edit existing person",
-			"Cancel",
+		actionItems := []ui.SelectItem{
+			{Label: "Create new person anyway", Value: "create"},
+			{Label: "View/edit existing person", Value: "edit"},
+			{Label: "Cancel", Value: "cancel"},
 		}
 
-		actionPrompt := promptui.Select{
-			Label: "What would you like to do?",
-			Items: actions,
-			Size:  5,
-		}
-
-		idx, _, err := actionPrompt.Run()
+		_, actionVal, err := ui.RunSelect("What would you like to do?", actionItems, 5)
 		if err != nil {
 			fmt.Println("\n⚠️  Cancelled")
 			return nil
 		}
 
-		switch idx {
-		case 1: // View/edit
+		switch actionVal {
+		case "edit": // View/edit
 			// TODO: Implement person editing
 			fmt.Println("\n💡 Person editing not yet implemented. Please use the definitions file directly.")
 			fmt.Println("   Use: flip definitions file")
 			return nil
-		case 2: // Cancel
+		case "cancel": // Cancel
 			fmt.Println("\n⚠️  Cancelled")
 			return nil
 		}
-		// case 0: Continue with creation
+		// case "create": Continue with creation
 	}
 
 	// Prompt for first name
-	firstNamePrompt := promptui.Prompt{
-		Label: "First Name",
-	}
-	firstName, err := firstNamePrompt.Run()
+	firstName, err := ui.RunInput("First Name", "", "", nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -841,11 +789,7 @@ func runDefinitionsAddPerson() error {
 	fullName := firstName + " " + lastName
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label:   "Abbreviation (e.g., JD, SELF)",
-		Default: strings.ToUpper(string(firstName[0]) + string(lastName[0])),
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., JD, SELF)", "", strings.ToUpper(string(firstName[0])+string(lastName[0])), nil)
 	if err != nil {
 		fmt.Println("\n⚠️  Cancelled")
 		return nil
@@ -853,27 +797,15 @@ func runDefinitionsAddPerson() error {
 	abbr = strings.TrimSpace(strings.ToUpper(abbr))
 
 	// Prompt for org code (optional)
-	orgCodePrompt := promptui.Prompt{
-		Label:   "Organization Code (optional)",
-		Default: "",
-	}
-	orgCode, _ := orgCodePrompt.Run()
+	orgCode, _ := ui.RunInput("Organization Code (optional)", "", "", nil)
 	orgCode = strings.TrimSpace(orgCode)
 
 	// Prompt for role (optional)
-	rolePrompt := promptui.Prompt{
-		Label:   "Role (optional)",
-		Default: "",
-	}
-	role, _ := rolePrompt.Run()
+	role, _ := ui.RunInput("Role (optional)", "", "", nil)
 	role = strings.TrimSpace(role)
 
 	// Prompt for email (optional)
-	emailPrompt := promptui.Prompt{
-		Label:   "Email (optional)",
-		Default: "",
-	}
-	email, _ := emailPrompt.Run()
+	email, _ := ui.RunInput("Email (optional)", "", "", nil)
 	email = strings.TrimSpace(email)
 
 	// Add person
@@ -922,13 +854,12 @@ func runDefinitionsRemove() error {
 
 	items = append(items, "← Cancel")
 
-	selector := promptui.Select{
-		Label: "Select definition to remove",
-		Items: items,
-		Size:  15,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, selected, err := selector.Run()
+	idx, _, err := ui.RunSelect("Select definition to remove", selectItems, 15)
 	if err != nil {
 		return err
 	}
@@ -938,15 +869,11 @@ func runDefinitionsRemove() error {
 		return nil
 	}
 
-	// Confirm removal
-	confirmPrompt := promptui.Prompt{
-		Label:     fmt.Sprintf("Remove '%s'? (y/N)", selected),
-		Default:   "N",
-		IsConfirm: true,
-	}
+	selected := items[idx]
 
-	result, err := confirmPrompt.Run()
-	if err != nil || (result != "y" && result != "Y") {
+	// Confirm removal
+	confirmed, err := ui.RunConfirm(fmt.Sprintf("Remove '%s'?", selected), false)
+	if err != nil || !confirmed {
 		fmt.Println("Cancelled.")
 		return nil
 	}
@@ -1098,14 +1025,8 @@ func runDefinitionsScan() error {
 	}
 
 	// Ask if user wants to add them
-	confirmPrompt := promptui.Prompt{
-		Label:     "Add these to definitions? (y/N)",
-		Default:   "N",
-		IsConfirm: true,
-	}
-
-	result, err := confirmPrompt.Run()
-	if err != nil || (result != "y" && result != "Y") {
+	confirmed, err := ui.RunConfirm("Add these to definitions?", false)
+	if err != nil || !confirmed {
 		fmt.Println("Scan completed. No changes made.")
 		return nil
 	}
@@ -1226,17 +1147,12 @@ func runDefinitionsPath() error {
 
 // promptOpenDefinitionsFile asks if user wants to open the definitions file
 func promptOpenDefinitionsFile() error {
-	prompt := promptui.Select{
-		Label: "Open definitions file in editor?",
-		Items: []string{"Yes", "No"},
-	}
-
-	idx, _, err := prompt.Run()
+	confirmed, err := ui.RunConfirm("Open definitions file in editor?", false)
 	if err != nil {
 		return nil // Just continue if user cancels
 	}
 
-	if idx == 0 { // Yes
+	if confirmed {
 		path, err := getTaskDefinitionsPath()
 		if err != nil {
 			fmt.Printf("⚠️  Could not get definitions path: %v\n", err)

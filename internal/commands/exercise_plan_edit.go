@@ -7,7 +7,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -67,8 +67,11 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) error {
 			items[i] = fmt.Sprintf("%s — %d items", p.Name, len(p.Items))
 			idxMap[i] = p
 		}
-		sel := promptui.Select{Label: lang.GetText("prompts.select_plan"), Items: items}
-		i, _, err := sel.Run()
+		planItems := make([]ui.SelectItem, len(items))
+		for i, item := range items {
+			planItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
+		}
+		i, _, err := ui.RunSelect(lang.GetText("prompts.select_plan"), planItems, 10)
 		if err != nil {
 			fmt.Println("Cancelled")
 			return nil
@@ -108,15 +111,18 @@ func runExercisePlanEdit(cmd *cobra.Command, args []string) error {
 		}
 		names[len(allExercises)] = lang.GetText("prompts.done")
 
-		sel := promptui.Select{Label: lang.GetText("prompts.add_exercise"), Items: names}
-		_, choice, err := sel.Run()
+		exerciseItems := make([]ui.SelectItem, len(names))
+		for i, name := range names {
+			exerciseItems[i] = ui.SelectItem{Label: name, Value: name}
+		}
+
+		_, choice, err := ui.RunSelect(lang.GetText("prompts.add_exercise"), exerciseItems, 10)
 		if err != nil || choice == lang.GetText("prompts.done") {
 			break
 		}
 		ex := byName[choice]
 
-		tPrompt := promptui.Prompt{Label: lang.GetText("prompts.target_optional")}
-		target, _ := tPrompt.Run()
+		target, _ := ui.RunInput(lang.GetText("prompts.target_optional"), "", "", nil)
 
 		maxOrder++
 		plan.Items = append(plan.Items, exercises.PlanItem{

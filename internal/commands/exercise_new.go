@@ -8,7 +8,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -64,31 +64,24 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	}
 	contexts = append(contexts, "➕ New context", "⊝ No context")
 
-	contextSelect := promptui.Select{
-		Label: "Select context",
-		Items: contexts,
-		Size:  12,
+	contextItems := make([]ui.SelectItem, len(contexts))
+	for i, c := range contexts {
+		contextItems[i] = ui.SelectItem{Label: c, Value: c}
 	}
 
-	_, selectedContext, err := contextSelect.Run()
+	_, selectedContext, err := ui.RunSelect("Select context", contextItems, 12)
 	if err != nil {
 		return fmt.Errorf("selecting context: %w", err)
 	}
 
 	if selectedContext == "➕ New context" {
-		contextPrompt := promptui.Prompt{
-			Label: "New context name (e.g., Sport, Music, Basketball, Drums)",
-		}
-		exercise.Context, _ = contextPrompt.Run()
+		exercise.Context, _ = ui.RunInput("New context name (e.g., Sport, Music, Basketball, Drums)", "", "", nil)
 	} else if selectedContext != "⊝ No context" {
 		exercise.Context = selectedContext
 	}
 
 	// Name
-	namePrompt := promptui.Prompt{
-		Label: "Exercise Name",
-	}
-	exercise.Name, err = namePrompt.Run()
+	exercise.Name, err = ui.RunInput("Exercise Name", "", "", nil)
 	if err != nil {
 		return fmt.Errorf("entering name: %w", err)
 	}
@@ -105,22 +98,19 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	if exactMatch {
 		fmt.Printf("\n⚠️  Exercise '%s' already exists!\n\n", exercise.Name)
 
-		actionPrompt := promptui.Select{
-			Label: "What would you like to do?",
-			Items: []string{
-				"Open existing exercise",
-				"Create anyway with different name",
-				"Cancel",
-			},
+		actionItems := []ui.SelectItem{
+			{Label: "Open existing exercise", Value: "open"},
+			{Label: "Create anyway with different name", Value: "rename"},
+			{Label: "Cancel", Value: "cancel"},
 		}
 
-		actionIdx, _, err := actionPrompt.Run()
-		if err != nil || actionIdx == 2 {
+		_, actionVal, err := ui.RunSelect("What would you like to do?", actionItems, 5)
+		if err != nil || actionVal == "cancel" {
 			fmt.Println("Cancelled")
 			return nil
 		}
 
-		if actionIdx == 0 {
+		if actionVal == "open" {
 			// Find and open existing
 			for _, ex := range allExercises {
 				if strings.EqualFold(ex.Name, exercise.Name) {
@@ -134,10 +124,7 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 		}
 
 		// Ask for new name
-		newNamePrompt := promptui.Prompt{
-			Label: "New exercise name",
-		}
-		exercise.Name, err = newNamePrompt.Run()
+		exercise.Name, err = ui.RunInput("New exercise name", "", "", nil)
 		if err != nil {
 			return nil
 		}
@@ -156,18 +143,19 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 
-		continuePrompt := promptui.Select{
-			Label: "Continue creating new exercise?",
-			Items: []string{"Yes, create new", "No, open similar", "Cancel"},
+		continueItems := []ui.SelectItem{
+			{Label: "Yes, create new", Value: "yes"},
+			{Label: "No, open similar", Value: "open"},
+			{Label: "Cancel", Value: "cancel"},
 		}
 
-		continueIdx, _, err := continuePrompt.Run()
-		if err != nil || continueIdx == 2 {
+		_, continueVal, err := ui.RunSelect("Continue creating new exercise?", continueItems, 5)
+		if err != nil || continueVal == "cancel" {
 			fmt.Println("Cancelled")
 			return nil
 		}
 
-		if continueIdx == 1 {
+		if continueVal == "open" {
 			// Select which similar to open
 			similarNames := make([]string, len(similar))
 			for i, ex := range similar {
@@ -178,12 +166,12 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 				similarNames[i] = fmt.Sprintf("%s (%s)", ex.Name, contextStr)
 			}
 
-			selectPrompt := promptui.Select{
-				Label: "Select exercise to open",
-				Items: similarNames,
+			similarItems := make([]ui.SelectItem, len(similarNames))
+			for i, name := range similarNames {
+				similarItems[i] = ui.SelectItem{Label: name, Value: fmt.Sprintf("%d", i)}
 			}
 
-			idx, _, err := selectPrompt.Run()
+			idx, _, err := ui.RunSelect("Select exercise to open", similarItems, 10)
 			if err == nil && idx < len(similar) {
 				fmt.Printf("Opening: %s\n", similar[idx].FilePath)
 				if err := promptAndOpenEditor(similar[idx].FilePath); err != nil {
@@ -195,22 +183,13 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	}
 
 	// Description
-	descPrompt := promptui.Prompt{
-		Label: "Description (optional)",
-	}
-	exercise.Description, _ = descPrompt.Run()
+	exercise.Description, _ = ui.RunInput("Description (optional)", "", "", nil)
 
 	// Goal
-	goalPrompt := promptui.Prompt{
-		Label: "Goal (optional)",
-	}
-	exercise.Goal, _ = goalPrompt.Run()
+	exercise.Goal, _ = ui.RunInput("Goal (optional)", "", "", nil)
 
 	// Tags
-	tagsPrompt := promptui.Prompt{
-		Label: "Tags (comma-separated, optional)",
-	}
-	tagsInput, _ := tagsPrompt.Run()
+	tagsInput, _ := ui.RunInput("Tags (comma-separated, optional)", "", "", nil)
 	if tagsInput != "" {
 		tags := strings.Split(tagsInput, ",")
 		for _, tag := range tags {
@@ -233,16 +212,10 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 		}
 
 		// Optional variant name
-		varNamePrompt := promptui.Prompt{
-			Label: "Variant Name (optional, e.g., 'Balance & Control')",
-		}
-		variant.Name, _ = varNamePrompt.Run()
+		variant.Name, _ = ui.RunInput("Variant Name (optional, e.g., 'Balance & Control')", "", "", nil)
 
 		// Variant description
-		varDescPrompt := promptui.Prompt{
-			Label: "Description (optional, explain what makes this variant unique)",
-		}
-		variant.Description, _ = varDescPrompt.Run()
+		variant.Description, _ = ui.RunInput("Description (optional, explain what makes this variant unique)", "", "", nil)
 
 		// Tracking properties for this variant
 		propMgr, err := exercises.NewPropertyManager(brainPath)
@@ -256,33 +229,25 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			propOptions := propMgr.GetPropertyNames()
 			propOptions = append(propOptions, "➕ Add new property", "✓ Done")
 
-			selectPrompt := promptui.Select{
-				Label: "Select tracking property",
-				Items: propOptions,
-				Size:  15,
+			propItems := make([]ui.SelectItem, len(propOptions))
+			for i, opt := range propOptions {
+				propItems[i] = ui.SelectItem{Label: opt, Value: opt}
 			}
 
-			_, selected, err := selectPrompt.Run()
+			_, selected, err := ui.RunSelect("Select tracking property", propItems, 15)
 			if err != nil || selected == "✓ Done" {
 				break
 			}
 
 			if selected == "➕ Add new property" {
 				// Create new property
-				namePrompt := promptui.Prompt{
-					Label: "Property name",
-				}
-				propName, err := namePrompt.Run()
+				propName, err := ui.RunInput("Property name", "", "", nil)
 				if err != nil || strings.TrimSpace(propName) == "" {
 					continue
 				}
 				propName = strings.TrimSpace(propName)
 
-				unitPrompt := promptui.Prompt{
-					Label:   "Unit (e.g., bpm, count, kg, text)",
-					Default: "text",
-				}
-				propUnit, err := unitPrompt.Run()
+				propUnit, err := ui.RunInput("Unit (e.g., bpm, count, kg, text)", "", "text", nil)
 				if err != nil {
 					continue
 				}
@@ -314,12 +279,12 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 		}
 
-		addMorePrompt := promptui.Select{
-			Label: "Add another variant?",
-			Items: []string{"Yes", "No"},
+		addMoreItems := []ui.SelectItem{
+			{Label: "Yes", Value: "yes"},
+			{Label: "No", Value: "no"},
 		}
-		addIdx, _, err := addMorePrompt.Run()
-		if err != nil || addIdx == 1 {
+		_, addMoreVal, err := ui.RunSelect("Add another variant?", addMoreItems, 3)
+		if err != nil || addMoreVal == "no" {
 			break
 		}
 
@@ -340,22 +305,22 @@ func runExerciseNew(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Exercise created: %s\n\n", exPath)
 
 	// Ask what to do next
-	nextPrompt := promptui.Select{
-		Label: "What would you like to do next?",
-		Items: []string{"View/Edit in editor", "Done - Track later with 'flip exercise track'"},
+	nextItems := []ui.SelectItem{
+		{Label: "View/Edit in editor", Value: "edit"},
+		{Label: "Done - Track later with 'flip exercise track'", Value: "done"},
 	}
 
-	nextIdx, _, err := nextPrompt.Run()
+	_, nextVal, err := ui.RunSelect("What would you like to do next?", nextItems, 3)
 	if err != nil {
 		return nil
 	}
 
-	switch nextIdx {
-	case 0: // View/Edit
+	switch nextVal {
+	case "edit":
 		if err := promptAndOpenEditor(exPath); err != nil {
 			fmt.Printf("⚠️  Could not open editor: %v\n", err)
 		}
-	case 1: // Done
+	case "done":
 		fmt.Printf("💡 To track a session, run: flip exercise track %s\n", exercise.ID)
 	}
 	return nil

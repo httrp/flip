@@ -11,7 +11,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -68,11 +68,12 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 			exerciseMap[exerciseNames[i]] = ex
 		}
 
-		selectPrompt := promptui.Select{
-			Label: "Select Exercise",
-			Items: exerciseNames,
+		selectItems := make([]ui.SelectItem, len(exerciseNames))
+		for i, name := range exerciseNames {
+			selectItems[i] = ui.SelectItem{Label: name, Value: name}
 		}
-		_, selected, err := selectPrompt.Run()
+
+		_, selected, err := ui.RunSelect("Select Exercise", selectItems, 10)
 		if err != nil {
 			return fmt.Errorf("error selecting exercise: %w", err)
 		}
@@ -114,11 +115,12 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		variantPrompt := promptui.Select{
-			Label: "Select variant",
-			Items: variantLabels,
+		variantItems := make([]ui.SelectItem, len(variantLabels))
+		for i, label := range variantLabels {
+			variantItems[i] = ui.SelectItem{Label: label, Value: fmt.Sprintf("%d", i)}
 		}
-		variantIdx, _, err := variantPrompt.Run()
+
+		variantIdx, _, err := ui.RunSelect("Select variant", variantItems, 10)
 		if err != nil {
 			return fmt.Errorf("error selecting variant: %w", err)
 		}
@@ -130,10 +132,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		if len(selectedVariant.TrackingProperties) > 0 {
 			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
 			for name, unit := range selectedVariant.TrackingProperties {
-				prompt := promptui.Prompt{
-					Label: fmt.Sprintf("%s (%s)", name, unit),
-				}
-				valueStr, err := prompt.Run()
+				valueStr, err := ui.RunInput(fmt.Sprintf("%s (%s)", name, unit), "", "", nil)
 				if err != nil {
 					continue
 				}
@@ -157,10 +156,7 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		if len(variant.TrackingProperties) > 0 {
 			fmt.Println("\nEnter values for tracking properties (leave empty to skip):")
 			for name, unit := range variant.TrackingProperties {
-				prompt := promptui.Prompt{
-					Label: fmt.Sprintf("%s (%s)", name, unit),
-				}
-				valueStr, err := prompt.Run()
+				valueStr, err := ui.RunInput(fmt.Sprintf("%s (%s)", name, unit), "", "", nil)
 				if err != nil {
 					continue
 				}
@@ -178,21 +174,14 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 	}
 
 	// Duration
-	durationPrompt := promptui.Prompt{
-		Label:   "Duration (minutes)",
-		Default: "30",
-	}
-	durationStr, err := durationPrompt.Run()
+	durationStr, err := ui.RunInput("Duration (minutes)", "", "30", nil)
 	if err != nil {
 		return fmt.Errorf("error reading duration: %w", err)
 	}
 	duration, _ := strconv.Atoi(durationStr)
 
 	// Notes (optional)
-	notesPrompt := promptui.Prompt{
-		Label: "Notes (optional)",
-	}
-	notes, _ := notesPrompt.Run()
+	notes, _ := ui.RunInput("Notes (optional)", "", "", nil)
 
 	// Append to journal
 	journalDir := getJournalDirectory(brainPath, detection.Type)

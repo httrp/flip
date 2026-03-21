@@ -7,7 +7,7 @@ import (
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -41,25 +41,16 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) error {
 	}
 
 	// Name
-	namePrompt := promptui.Prompt{
-		Label: "Plan Name",
-	}
-	plan.Name, err = namePrompt.Run()
+	plan.Name, err = ui.RunInput("Plan Name", "", "", nil)
 	if err != nil {
 		return fmt.Errorf("reading plan name: %w", err)
 	}
 
 	// Description
-	descPrompt := promptui.Prompt{
-		Label: "Description (optional)",
-	}
-	plan.Description, _ = descPrompt.Run()
+	plan.Description, _ = ui.RunInput("Description (optional)", "", "", nil)
 
 	// Schedule
-	schedulePrompt := promptui.Prompt{
-		Label: "Schedule (e.g., 'monday, wednesday, friday' or 'daily')",
-	}
-	scheduleInput, _ := schedulePrompt.Run()
+	scheduleInput, _ := ui.RunInput("Schedule (e.g., 'monday, wednesday, friday' or 'daily')", "", "", nil)
 	if scheduleInput != "" {
 		schedule := strings.Split(scheduleInput, ",")
 		for _, day := range schedule {
@@ -93,11 +84,12 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) error {
 		}
 		exerciseNames[len(allExercises)] = "Done adding exercises"
 
-		selectPrompt := promptui.Select{
-			Label: fmt.Sprintf("Exercise #%d", order),
-			Items: exerciseNames,
+		exerciseItems := make([]ui.SelectItem, len(exerciseNames))
+		for i, name := range exerciseNames {
+			exerciseItems[i] = ui.SelectItem{Label: name, Value: name}
 		}
-		_, selected, err := selectPrompt.Run()
+
+		_, selected, err := ui.RunSelect(fmt.Sprintf("Exercise #%d", order), exerciseItems, 10)
 		if err != nil || selected == "Done adding exercises" {
 			break
 		}
@@ -105,10 +97,7 @@ func runExercisePlanNew(cmd *cobra.Command, args []string) error {
 		exercise := exerciseMap[selected]
 
 		// Optional target
-		targetPrompt := promptui.Prompt{
-			Label: "Target (e.g., '3x12 reps', '30 min') - optional",
-		}
-		target, _ := targetPrompt.Run()
+		target, _ := ui.RunInput("Target (e.g., '3x12 reps', '30 min') - optional", "", "", nil)
 
 		plan.Items = append(plan.Items, exercises.PlanItem{
 			ExerciseID: exercise.ID,

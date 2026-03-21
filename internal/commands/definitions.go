@@ -4,7 +4,7 @@ import (
 "fmt"
 
 "github.com/httrp/flip/internal/lang"
-"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 "github.com/spf13/cobra"
 )
 
@@ -47,13 +47,12 @@ func runDefinitionsMenu() error {
 			lang.GetText("menu.definitions.back_label"),
 		}
 
-		selector := promptui.Select{
-			Label: "What would you like to do?",
-			Items: items,
-			Size:  10,
+		selectItems := make([]ui.SelectItem, len(items))
+		for i, item := range items {
+			selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 		}
 
-		idx, _, err := selector.Run()
+		idx, _, err := ui.RunSelect("What would you like to do?", selectItems, 10)
 		if err != nil {
 			return err
 		}

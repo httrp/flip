@@ -10,7 +10,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -72,11 +72,12 @@ func runExerciseShow(cmd *cobra.Command, args []string) error {
 			exerciseMap[exerciseNames[i]] = ex
 		}
 
-		selectPrompt := promptui.Select{
-			Label: "Select Exercise",
-			Items: exerciseNames,
+		selectItems := make([]ui.SelectItem, len(exerciseNames))
+		for i, name := range exerciseNames {
+			selectItems[i] = ui.SelectItem{Label: name, Value: name}
 		}
-		_, selected, err := selectPrompt.Run()
+
+		_, selected, err := ui.RunSelect("Select Exercise", selectItems, 10)
 		if err != nil {
 			return fmt.Errorf("selecting exercise: %w", err)
 		}

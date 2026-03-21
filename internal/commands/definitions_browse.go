@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 )
 
 // runDefinitionsBrowseOrganizations shows and manages organizations
@@ -19,13 +19,13 @@ func runDefinitionsBrowseOrganizations() error {
 		fmt.Println("\n🏢 No organizations defined yet.")
 		fmt.Println("\nWould you like to add one?")
 
-		prompt := promptui.Select{
-			Label: "Add Organization",
-			Items: []string{"Yes", "No"},
+		addItems := []ui.SelectItem{
+			{Label: "Yes", Value: "yes"},
+			{Label: "No", Value: "no"},
 		}
 
-		idx, _, err := prompt.Run()
-		if err != nil || idx == 1 {
+		_, val, err := ui.RunSelect("Add Organization", addItems, 3)
+		if err != nil || val == "no" {
 			return nil
 		}
 
@@ -39,13 +39,12 @@ func runDefinitionsBrowseOrganizations() error {
 	}
 	items[len(items)-1] = "➕ Add New Organization"
 
-	selector := promptui.Select{
-		Label: fmt.Sprintf("Organizations (%d total)", len(defs.Organizations)),
-		Items: items,
-		Size:  15,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selector.Run()
+	idx, _, err := ui.RunSelect(fmt.Sprintf("Organizations (%d total)", len(defs.Organizations)), selectItems, 15)
 	if err != nil {
 		return nil
 	}
@@ -81,13 +80,13 @@ func runDefinitionsBrowseProjects() error {
 		fmt.Println("\n📁 No projects defined yet.")
 		fmt.Println("\nWould you like to add one?")
 
-		prompt := promptui.Select{
-			Label: "Add Project",
-			Items: []string{"Yes", "No"},
+		addItems := []ui.SelectItem{
+			{Label: "Yes", Value: "yes"},
+			{Label: "No", Value: "no"},
 		}
 
-		idx, _, err := prompt.Run()
-		if err != nil || idx == 1 {
+		_, val, err := ui.RunSelect("Add Project", addItems, 3)
+		if err != nil || val == "no" {
 			return nil
 		}
 
@@ -105,13 +104,12 @@ func runDefinitionsBrowseProjects() error {
 	}
 	items[len(items)-1] = "➕ Add New Project"
 
-	selector := promptui.Select{
-		Label: fmt.Sprintf("Projects (%d total)", len(defs.Projects)),
-		Items: items,
-		Size:  15,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selector.Run()
+	idx, _, err := ui.RunSelect(fmt.Sprintf("Projects (%d total)", len(defs.Projects)), selectItems, 15)
 	if err != nil {
 		return nil
 	}
@@ -150,13 +148,13 @@ func runDefinitionsBrowseContexts() error {
 		fmt.Println("\n📂 No contexts defined yet.")
 		fmt.Println("\nWould you like to add one?")
 
-		prompt := promptui.Select{
-			Label: "Add Context",
-			Items: []string{"Yes", "No"},
+		addItems := []ui.SelectItem{
+			{Label: "Yes", Value: "yes"},
+			{Label: "No", Value: "no"},
 		}
 
-		idx, _, err := prompt.Run()
-		if err != nil || idx == 1 {
+		_, val, err := ui.RunSelect("Add Context", addItems, 3)
+		if err != nil || val == "no" {
 			return nil
 		}
 
@@ -170,13 +168,12 @@ func runDefinitionsBrowseContexts() error {
 	}
 	items[len(items)-1] = "➕ Add New Context"
 
-	selector := promptui.Select{
-		Label: fmt.Sprintf("Contexts (%d total)", len(defs.Contexts)),
-		Items: items,
-		Size:  15,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selector.Run()
+	idx, _, err := ui.RunSelect(fmt.Sprintf("Contexts (%d total)", len(defs.Contexts)), selectItems, 15)
 	if err != nil {
 		return nil
 	}
@@ -212,13 +209,13 @@ func runDefinitionsBrowsePeople() error {
 		fmt.Println("\n👥 No people defined yet.")
 		fmt.Println("\nWould you like to add someone?")
 
-		prompt := promptui.Select{
-			Label: "Add Person",
-			Items: []string{"Yes", "No"},
+		addItems := []ui.SelectItem{
+			{Label: "Yes", Value: "yes"},
+			{Label: "No", Value: "no"},
 		}
 
-		idx, _, err := prompt.Run()
-		if err != nil || idx == 1 {
+		_, val, err := ui.RunSelect("Add Person", addItems, 3)
+		if err != nil || val == "no" {
 			return nil
 		}
 
@@ -236,13 +233,12 @@ func runDefinitionsBrowsePeople() error {
 	}
 	items[len(items)-1] = "➕ Add New Person"
 
-	selector := promptui.Select{
-		Label: fmt.Sprintf("People (%d total)", len(defs.People)),
-		Items: items,
-		Size:  15,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selector.Run()
+	idx, _, err := ui.RunSelect(fmt.Sprintf("People (%d total)", len(defs.People)), selectItems, 15)
 	if err != nil {
 		return nil
 	}

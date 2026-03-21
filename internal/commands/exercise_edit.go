@@ -7,7 +7,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -64,11 +64,12 @@ func runExerciseEdit(cmd *cobra.Command, args []string) error {
 			exerciseMap[exerciseNames[i]] = ex
 		}
 
-		selectPrompt := promptui.Select{
-			Label: "Select Exercise to Edit",
-			Items: exerciseNames,
+		selectItems := make([]ui.SelectItem, len(exerciseNames))
+		for i, name := range exerciseNames {
+			selectItems[i] = ui.SelectItem{Label: name, Value: name}
 		}
-		_, selected, err := selectPrompt.Run()
+
+		_, selected, err := ui.RunSelect("Select Exercise to Edit", selectItems, 10)
 		if err != nil {
 			return fmt.Errorf("selecting exercise: %w", err)
 		}
@@ -97,69 +98,48 @@ func runExerciseEdit(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nEditing: %s\n\n", exercise.Name)
 
 	// What to edit
-	editOptions := []string{
-		"Name",
-		"Context",
-		"Description",
-		"Goal",
-		"Variants",
-		"Status",
-		"Cancel",
+	editItems := []ui.SelectItem{
+		{Label: "Name", Value: "name"},
+		{Label: "Context", Value: "context"},
+		{Label: "Description", Value: "description"},
+		{Label: "Goal", Value: "goal"},
+		{Label: "Variants", Value: "variants"},
+		{Label: "Status", Value: "status"},
+		{Label: "Cancel", Value: "cancel"},
 	}
 
-	editPrompt := promptui.Select{
-		Label: "What would you like to edit?",
-		Items: editOptions,
-	}
-
-	editIdx, _, err := editPrompt.Run()
-	if err != nil || editIdx == len(editOptions)-1 {
+	_, editVal, err := ui.RunSelect("What would you like to edit?", editItems, 8)
+	if err != nil || editVal == "cancel" {
 		fmt.Println("Edit cancelled")
 		return nil
 	}
 
-	switch editIdx {
-	case 0: // Name
-		namePrompt := promptui.Prompt{
-			Label:   "Name",
-			Default: exercise.Name,
-		}
-		name, err := namePrompt.Run()
+	switch editVal {
+	case "name":
+		name, err := ui.RunInput("Name", "", exercise.Name, nil)
 		if err == nil && name != "" {
 			exercise.Name = name
 		}
 
-	case 1: // Context
-		contextPrompt := promptui.Prompt{
-			Label:   "Context",
-			Default: exercise.Context,
-		}
-		context, err := contextPrompt.Run()
+	case "context":
+		context, err := ui.RunInput("Context", "", exercise.Context, nil)
 		if err == nil {
 			exercise.Context = context
 		}
 
-	case 2: // Description
-		descPrompt := promptui.Prompt{
-			Label:   "Description",
-			Default: exercise.Description,
-		}
-		desc, err := descPrompt.Run()
+	case "description":
+		desc, err := ui.RunInput("Description", "", exercise.Description, nil)
 		if err == nil {
 			exercise.Description = desc
 		}
 
-	case 3: // Goal
-		goalPrompt := promptui.Prompt{
-			Label:   "Goal",
-			Default: exercise.Goal,
-		}
-		goal, err := goalPrompt.Run()
+	case "goal":
+		goal, err := ui.RunInput("Goal", "", exercise.Goal, nil)
 		if err == nil {
 			exercise.Goal = goal
 		}
 
-	case 4: // Variants
+	case "variants":
 		for {
 			fmt.Printf("\nCurrent variants: %d\n", len(exercise.Variants))
 			for i, v := range exercise.Variants {
@@ -170,25 +150,24 @@ func runExerciseEdit(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			actionPrompt := promptui.Select{
-				Label: lang.GetText("prompts.variants_title"),
-				Items: []string{lang.GetText("prompts.variant_add"), lang.GetText("prompts.open_in_editor"), lang.GetText("prompts.done")},
+			variantActionItems := []ui.SelectItem{
+				{Label: lang.GetText("prompts.variant_add"), Value: "add"},
+				{Label: lang.GetText("prompts.open_in_editor"), Value: "editor"},
+				{Label: lang.GetText("prompts.done"), Value: "done"},
 			}
-			idx, _, err := actionPrompt.Run()
-			if err != nil || idx == 2 {
+			_, actionVal, err := ui.RunSelect(lang.GetText("prompts.variants_title"), variantActionItems, 5)
+			if err != nil || actionVal == "done" {
 				break
 			}
 
-			switch idx {
-			case 0: // Add variant
+			switch actionVal {
+			case "add":
 				// Configure new variant similar to creation flow
 				variant := exercises.ExerciseVariant{TrackingProperties: make(map[string]string)}
 
-				varNamePrompt := promptui.Prompt{Label: "Variant Name (optional)"}
-				variant.Name, _ = varNamePrompt.Run()
+				variant.Name, _ = ui.RunInput("Variant Name (optional)", "", "", nil)
 
-				varDescPrompt := promptui.Prompt{Label: "Description (optional)"}
-				variant.Description, _ = varDescPrompt.Run()
+				variant.Description, _ = ui.RunInput("Description (optional)", "", "", nil)
 
 				propMgr, err := exercises.NewPropertyManager(brainPath)
 				if err != nil {
@@ -199,26 +178,24 @@ func runExerciseEdit(cmd *cobra.Command, args []string) error {
 					propOptions := propMgr.GetPropertyNames()
 					propOptions = append(propOptions, lang.GetText("prompts.property_add_new"), lang.GetText("prompts.property_done"))
 
-					selectPrompt := promptui.Select{
-						Label: lang.GetText("prompts.property_select"),
-						Items: propOptions,
-						Size:  15,
+					propSelectItems := make([]ui.SelectItem, len(propOptions))
+					for i, opt := range propOptions {
+						propSelectItems[i] = ui.SelectItem{Label: opt, Value: opt}
 					}
-					_, selected, err := selectPrompt.Run()
+
+					_, selected, err := ui.RunSelect(lang.GetText("prompts.property_select"), propSelectItems, 15)
 					if err != nil || selected == lang.GetText("prompts.property_done") {
 						break
 					}
 
 					if selected == lang.GetText("prompts.property_add_new") {
-						namePrompt := promptui.Prompt{Label: lang.GetText("prompts.property_name")}
-						propName, err := namePrompt.Run()
+						propName, err := ui.RunInput(lang.GetText("prompts.property_name"), "", "", nil)
 						if err != nil || strings.TrimSpace(propName) == "" {
 							continue
 						}
 						propName = strings.TrimSpace(propName)
 
-						unitPrompt := promptui.Prompt{Label: lang.GetText("prompts.property_unit"), Default: "text"}
-						propUnit, err := unitPrompt.Run()
+						propUnit, err := ui.RunInput(lang.GetText("prompts.property_unit"), "", "text", nil)
 						if err != nil {
 							continue
 						}
@@ -243,20 +220,20 @@ func runExerciseEdit(cmd *cobra.Command, args []string) error {
 				exercise.Variants = append(exercise.Variants, variant)
 				fmt.Println(lang.GetText("prompts.variant_added"))
 
-			case 1: // Open in editor
+			case "editor":
 				if err := promptAndOpenEditor(exercise.FilePath); err != nil {
 					fmt.Printf("⚠️  Could not open editor: %v\n", err)
 				}
 			}
 		}
 
-	case 5: // Status
-		statusOptions := []string{"active", "inactive", "paused"}
-		statusPrompt := promptui.Select{
-			Label: "Status",
-			Items: statusOptions,
+	case "status":
+		statusItems := []ui.SelectItem{
+			{Label: "active", Value: "active"},
+			{Label: "inactive", Value: "inactive"},
+			{Label: "paused", Value: "paused"},
 		}
-		_, status, err := statusPrompt.Run()
+		_, status, err := ui.RunSelect("Status", statusItems, 4)
 		if err == nil {
 			exercise.Status = status
 		}
