@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // PathBrowserOption represents an option in the path browser
@@ -131,22 +131,12 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 		fmt.Printf("📂 Current: %s\n", currentPath)
 		fmt.Println()
 
-		templates := &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ .Display | cyan | bold }}",
-			Inactive: "  {{ .Display }}",
-			Selected: "{{ .Display | green | bold }}",
+		selectItems := make([]ui.SelectItem, len(options))
+		for i, opt := range options {
+			selectItems[i] = ui.SelectItem{Label: opt.Display, Value: fmt.Sprintf("%d", i)}
 		}
 
-		selectPrompt := promptui.Select{
-			Label:     "Select directory or file",
-			Items:     options,
-			Templates: templates,
-			Size:      calculateMenuSize(len(options)),
-			HideHelp:  true,
-		}
-
-		idx, _, err := selectPrompt.Run()
+		idx, _, err := ui.RunSelect("Select directory or file", selectItems, calculateMenuSize(len(options)))
 		if err != nil {
 			return "", fmt.Errorf("selection cancelled: %w", err)
 		}
@@ -159,11 +149,7 @@ func BrowseDirectory(startPath string, selectDirs bool) (string, error) {
 			return "", fmt.Errorf("cancelled by user")
 
 		case strings.Contains(selected.Display, "[Enter path manually]"):
-			prompt := promptui.Prompt{
-				Label:   "Enter full path",
-				Default: currentPath,
-			}
-			manualPath, err := prompt.Run()
+			manualPath, err := ui.RunInput("Enter full path", "", currentPath, nil)
 			if err != nil {
 				continue // Go back to browser
 			}
@@ -247,25 +233,16 @@ func BrowseDirectoryWithCommonPaths(selectDirs bool, commonPaths map[string]stri
 	manualOption := "⌨️  Enter path manually"
 	options = append(options, manualOption)
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan | bold }}",
-		Inactive: "  {{ . }}",
-		Selected: "{{ . | green | bold }}",
+	selectItems := make([]ui.SelectItem, len(options))
+	for i, opt := range options {
+		selectItems[i] = ui.SelectItem{Label: opt, Value: opt}
 	}
 
-	selectPrompt := promptui.Select{
-		Label:     "Choose a starting location",
-		Items:     options,
-		Templates: templates,
-		Size:      calculateMenuSize(len(options)),
-		HideHelp:  true,
-	}
-
-	idx, selected, err := selectPrompt.Run()
+	idx, selected, err := ui.RunSelect("Choose a starting location", selectItems, calculateMenuSize(len(options)))
 	if err != nil {
 		return "", fmt.Errorf("selection cancelled: %w", err)
 	}
+	_ = idx
 
 	switch {
 	case selected == browseOption:
@@ -273,10 +250,7 @@ func BrowseDirectoryWithCommonPaths(selectDirs bool, commonPaths map[string]stri
 		return BrowseDirectory(home, selectDirs)
 
 	case selected == manualOption:
-		prompt := promptui.Prompt{
-			Label: "Enter full path",
-		}
-		path, err := prompt.Run()
+		path, err := ui.RunInput("Enter full path", "", "", nil)
 		if err != nil {
 			return "", err
 		}

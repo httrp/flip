@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -379,35 +379,27 @@ func runCreateJournal() error {
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
 	// Ask for date (today or other)
-	promptDate := promptui.Select{
-		Label: "Journal date",
-		Items: []string{"Today", "Other date"},
-	}
-
-	dateIdx, _, err := promptDate.Run()
+	_, dateChoice, err := ui.RunSelect("Journal date", []ui.SelectItem{
+		{Label: "Today", Value: "today"},
+		{Label: "Other date", Value: "other"},
+	}, 0)
 	if err != nil {
 		return fmt.Errorf("date selection cancelled: %w", err)
 	}
 
 	var targetDate time.Time
-	if dateIdx == 0 {
+	if dateChoice == "today" {
 		// Today
 		targetDate = time.Now()
 	} else {
 		// Other date - prompt for input
-		promptCustomDate := promptui.Prompt{
-			Label:   "Date (YYYY-MM-DD)",
-			Default: time.Now().Format("2006-01-02"),
-			Validate: func(input string) error {
-				_, err := time.Parse("2006-01-02", input)
-				if err != nil {
-					return fmt.Errorf("invalid date format, use YYYY-MM-DD")
-				}
-				return nil
-			},
-		}
-
-		dateStr, err := promptCustomDate.Run()
+		dateStr, err := ui.RunInput("Date (YYYY-MM-DD)", "", time.Now().Format("2006-01-02"), func(input string) error {
+			_, err := time.Parse("2006-01-02", input)
+			if err != nil {
+				return fmt.Errorf("invalid date format, use YYYY-MM-DD")
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("date input cancelled: %w", err)
 		}

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -252,29 +252,19 @@ func runCreateQuicknote() error {
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
 	// Prompt for title (ONLY required field)
-	promptTitle := promptui.Prompt{
-		Label: "Note title",
-		Validate: func(input string) error {
-			if strings.TrimSpace(input) == "" {
-				return fmt.Errorf("title cannot be empty")
-			}
-			return nil
-		},
-	}
-
-	title, err := promptTitle.Run()
+	title, err := ui.RunInput("Note title", "", "", func(input string) error {
+		if strings.TrimSpace(input) == "" {
+			return fmt.Errorf("title cannot be empty")
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("title prompt cancelled: %w", err)
 	}
 	title = strings.TrimSpace(title)
 
 	// Optional tags (quick input)
-	promptTags := promptui.Prompt{
-		Label:   "Tags (comma-separated, optional, press Enter to skip)",
-		Default: "",
-	}
-
-	tags, err := promptTags.Run()
+	tags, err := ui.RunInput("Tags (comma-separated, optional, press Enter to skip)", "", "", nil)
 	if err != nil {
 		return fmt.Errorf("tags prompt cancelled: %w", err)
 	}
@@ -337,13 +327,8 @@ func runCreateQuicknote() error {
 		editor = "code" // Default to VS Code
 	}
 
-	promptOpen := promptui.Prompt{
-		Label:     "Open in editor",
-		IsConfirm: true,
-		Default:   "y",
-	}
-
-	if _, err := promptOpen.Run(); err == nil {
+	yes, err := ui.RunConfirm("Open in editor", true)
+	if err == nil && yes {
 		cmd := exec.Command(editor, filePath)
 		if err := cmd.Start(); err != nil {
 			fmt.Printf("⚠️  Could not open editor: %v\n", err)

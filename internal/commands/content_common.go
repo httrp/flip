@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/brain"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"gopkg.in/yaml.v2"
 )
 
@@ -207,53 +207,34 @@ func promptForSubfolder(baseDir string, brainType brain.BrainType) (string, erro
 	}
 
 	// Build menu items
-	items := []string{"📂 (Notes folder - no subfolder)"}
-	if len(subdirs) > 0 {
-		items = append(items, subdirs...)
+	selectItems := []ui.SelectItem{{Label: "📂 (Notes folder - no subfolder)", Value: "__root__"}}
+	for _, dir := range subdirs {
+		selectItems = append(selectItems, ui.SelectItem{Label: dir, Value: dir})
 	}
-	items = append(items, "+ Create new subfolder")
+	selectItems = append(selectItems, ui.SelectItem{Label: "+ Create new subfolder", Value: "__new__"})
 
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan }}",
-		Inactive: "  {{ . }}",
-		Selected: "📁 {{ . | green }}",
-	}
-
-	prompt := promptui.Select{
-		Label:     "Select target folder (existing subfolders shown alphabetically)",
-		Items:     items,
-		Templates: templates,
-		Size:      10,
-	}
-
-	idx, _, err := prompt.Run()
+	_, choice, err := ui.RunSelect("Select target folder (existing subfolders shown alphabetically)", selectItems, 10)
 	if err != nil {
 		return "", fmt.Errorf("folder selection cancelled: %w", err)
 	}
 
 	// Root directory selected
-	if idx == 0 {
+	if choice == "__root__" {
 		return baseDir, nil
 	}
 
 	// Create new subfolder
-	if idx == len(items)-1 {
-		promptNew := promptui.Prompt{
-			Label: "New subfolder name",
-			Validate: func(input string) error {
-				if strings.TrimSpace(input) == "" {
-					return fmt.Errorf("folder name cannot be empty")
-				}
-				// Check for invalid characters
-				if strings.ContainsAny(input, "/\\:*?\"<>|") {
-					return fmt.Errorf("invalid characters in folder name")
-				}
-				return nil
-			},
-		}
-
-		newFolder, err := promptNew.Run()
+	if choice == "__new__" {
+		newFolder, err := ui.RunInput("New subfolder name", "", "", func(input string) error {
+			if strings.TrimSpace(input) == "" {
+				return fmt.Errorf("folder name cannot be empty")
+			}
+			// Check for invalid characters
+			if strings.ContainsAny(input, "/\\:*?\"<>|") {
+				return fmt.Errorf("invalid characters in folder name")
+			}
+			return nil
+		})
 		if err != nil {
 			return "", fmt.Errorf("folder name prompt cancelled: %w", err)
 		}
@@ -269,7 +250,7 @@ func promptForSubfolder(baseDir string, brainType brain.BrainType) (string, erro
 	}
 
 	// Existing subfolder selected
-	return filepath.Join(baseDir, subdirs[idx-1]), nil
+	return filepath.Join(baseDir, choice), nil
 }
 
 // sanitizeFilename creates a safe filename from a title

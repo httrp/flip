@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -447,17 +447,12 @@ func runCreateNote() error {
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
 	// STEP 2: Prompt for note title
-	promptTitle := promptui.Prompt{
-		Label: "Note title",
-		Validate: func(input string) error {
-			if strings.TrimSpace(input) == "" {
-				return fmt.Errorf("title cannot be empty")
-			}
-			return nil
-		},
-	}
-
-	title, err := promptTitle.Run()
+	title, err := ui.RunInput("Note title", "", "", func(input string) error {
+		if strings.TrimSpace(input) == "" {
+			return fmt.Errorf("title cannot be empty")
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("title prompt cancelled: %w", err)
 	}
@@ -565,22 +560,12 @@ func confirmOrSelectBrain(ws *Workspace) (*Brain, error) {
 	}
 
 	// Show selection with default pre-selected
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ . | cyan }}",
-		Inactive: "  {{ . }}",
-		Selected: "📍 {{ . | green }}",
+	selectItems := make([]ui.SelectItem, len(brainItems))
+	for i, item := range brainItems {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	promptBrain := promptui.Select{
-		Label:     fmt.Sprintf("Select brain (workspace: %s)", ws.Name),
-		Items:     brainItems,
-		Templates: templates,
-		CursorPos: defaultIdx, // Start at default brain
-		Size:      10,
-	}
-
-	brainIdx, _, err := promptBrain.Run()
+	brainIdx, _, err := ui.RunSelect(fmt.Sprintf("Select brain (workspace: %s)", ws.Name), selectItems, 10)
 	if err != nil {
 		return nil, fmt.Errorf("brain selection cancelled: %w", err)
 	}
@@ -659,18 +644,12 @@ func isPromptTargetDir(targetDir string) bool {
 
 // promptAndOpenEditor asks user if they want to edit the note and opens appropriate editor
 func promptAndOpenEditor(filePath string) error {
-	promptEdit := promptui.Select{
-		Label: "Open note in editor?",
-		Items: []string{"Yes", "No"},
-	}
-
-	idx, _, err := promptEdit.Run()
+	yes, err := ui.RunConfirm("Open note in editor?", true)
 	if err != nil {
 		return err
 	}
 
-	if idx != 0 {
-		// User chose "No"
+	if !yes {
 		return nil
 	}
 

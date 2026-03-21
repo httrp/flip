@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/tasks"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -264,30 +264,24 @@ func runCreateTaskAtPosition(opts TaskNewOptions) error {
 	}
 
 	// Get task description
-	descPrompt := promptui.Prompt{
-		Label: "Task Description",
-	}
-	description, err := descPrompt.Run()
+	description, err := ui.RunInput("Task Description", "", "", nil)
 	if err != nil {
 		return err
 	}
 
 	// Get due date (simplified for cursor-based insertion)
-	duePrompt := promptui.Prompt{
-		Label:   "Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)",
-		Default: "",
-	}
-	dueStr, _ := duePrompt.Run()
+	dueStr, _ := ui.RunInput("Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)", "", "", nil)
 	dueDate := parseDueDateString(dueStr)
 
 	// Get priority
-	prioritySelect := promptui.Select{
-		Label:     "Priority",
-		Items:     []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
-		CursorPos: 3, // Default to None for quick inline tasks
+	priorityItems := []ui.SelectItem{
+		{Label: "High ⏫", Value: "high"},
+		{Label: "Medium 🔼", Value: "medium"},
+		{Label: "Low 🔽", Value: "low"},
+		{Label: "None", Value: "none"},
 	}
-	priorityIdx, _, _ := prioritySelect.Run()
-	priority := indexToPriority(priorityIdx)
+	_, priorityVal, _ := ui.RunSelect("Priority", priorityItems, 5)
+	priority := parsePriorityString(priorityVal)
 
 	// Create task object
 	task := &tasks.Task{
@@ -361,30 +355,24 @@ func runCreateTask() error {
 	fmt.Println()
 
 	// Get task description
-	descPrompt := promptui.Prompt{
-		Label: "Task Description",
-	}
-	description, err := descPrompt.Run()
+	description, err := ui.RunInput("Task Description", "", "", nil)
 	if err != nil {
 		return err
 	}
 
 	// Get due date
-	duePrompt := promptui.Prompt{
-		Label:   "Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)",
-		Default: "",
-	}
-	dueStr, _ := duePrompt.Run()
+	dueStr, _ := ui.RunInput("Due Date (YYYY-MM-DD, 'today', 'tomorrow', or leave empty)", "", "", nil)
 	dueDate := parseDueDateString(dueStr)
 
 	// Get priority
-	prioritySelect := promptui.Select{
-		Label:     "Priority",
-		Items:     []string{"High ⏫", "Medium 🔼", "Low 🔽", "None"},
-		CursorPos: 1, // Default to Medium (index 1)
+	priorityItems := []ui.SelectItem{
+		{Label: "High ⏫", Value: "high"},
+		{Label: "Medium 🔼", Value: "medium"},
+		{Label: "Low 🔽", Value: "low"},
+		{Label: "None", Value: "none"},
 	}
-	priorityIdx, _, _ := prioritySelect.Run()
-	priority := indexToPriority(priorityIdx)
+	_, priorityVal, _ := ui.RunSelect("Priority", priorityItems, 5)
+	priority := parsePriorityString(priorityVal)
 
 	// Get organization
 	organization, err := promptForOrganization()
@@ -405,11 +393,7 @@ func runCreateTask() error {
 	}
 
 	// Get tags
-	tagsPrompt := promptui.Prompt{
-		Label:   "Tags (comma-separated, e.g., work,urgent)",
-		Default: "",
-	}
-	tagsStr, _ := tagsPrompt.Run()
+	tagsStr, _ := ui.RunInput("Tags (comma-separated, e.g., work,urgent)", "", "", nil)
 	tagList := parseTagsString(tagsStr)
 
 	// Get active brain and allow selection if multiple brains exist

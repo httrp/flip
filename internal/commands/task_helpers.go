@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/tasks"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -101,13 +101,12 @@ func runTaskDone(args []string) error {
 		items[i] = fmt.Sprintf("%s %s%s | %s", priorityIcon, task.Description, dueInfo, task.Context.FileName)
 	}
 
-	selectPrompt := promptui.Select{
-		Label: "Select task to mark as done",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selectPrompt.Run()
+	idx, _, err := ui.RunSelect("Select task to mark as done", selectItems, 10)
 	if err != nil {
 		return nil // User cancelled
 	}
@@ -216,13 +215,12 @@ func runTaskStart(args []string) error {
 		items[i] = fmt.Sprintf("%s %s%s | %s", priorityIcon, task.Description, dueInfo, task.Context.FileName)
 	}
 
-	selectPrompt := promptui.Select{
-		Label: "Select task to start",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selectPrompt.Run()
+	idx, _, err := ui.RunSelect("Select task to start", selectItems, 10)
 	if err != nil {
 		return nil // User cancelled
 	}
@@ -330,13 +328,12 @@ func runTaskUpdate(args []string) error {
 		items[i] = fmt.Sprintf("%s %s %s%s | %s", statusIcon, priorityIcon, task.Description, dueInfo, task.Context.FileName)
 	}
 
-	selectPrompt := promptui.Select{
-		Label: "Select task to update",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := selectPrompt.Run()
+	idx, _, err := ui.RunSelect("Select task to update", selectItems, 10)
 	if err != nil {
 		return nil // User cancelled
 	}
@@ -344,42 +341,31 @@ func runTaskUpdate(args []string) error {
 	selectedTask := taskList[idx]
 
 	// Property selection
-	propertyPrompt := promptui.Select{
-		Label: "What would you like to update?",
-		Items: []string{
-			"�📝 Description",
-			"📅 Due Date",
-			"⏫ Priority",
-			"🏷️  Tags",
-			"📂 Project",
-			"🔄 Status",
-			"❌ Cancel",
-		},
+	propertyItems := []ui.SelectItem{
+		{Label: "📝 Description", Value: "description"},
+		{Label: "📅 Due Date", Value: "due"},
+		{Label: "⏫ Priority", Value: "priority"},
+		{Label: "🏷️  Tags", Value: "tags"},
+		{Label: "📂 Project", Value: "project"},
+		{Label: "🔄 Status", Value: "status"},
+		{Label: "❌ Cancel", Value: "cancel"},
 	}
 
-	propIdx, _, err := propertyPrompt.Run()
-	if err != nil || propIdx == 6 {
+	_, propVal, err := ui.RunSelect("What would you like to update?", propertyItems, 10)
+	if err != nil || propVal == "cancel" {
 		return nil // User cancelled
 	}
 
-	switch propIdx {
-	case 0: // Description
-		descPrompt := promptui.Prompt{
-			Label:   "New description",
-			Default: selectedTask.Description,
-		}
-		newDesc, err := descPrompt.Run()
+	switch propVal {
+	case "description":
+		newDesc, err := ui.RunInput("New description", "", selectedTask.Description, nil)
 		if err != nil {
 			return nil
 		}
 		selectedTask.Description = strings.TrimSpace(newDesc)
 
-	case 1: // Due Date
-		dueDatePrompt := promptui.Prompt{
-			Label:   "Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next week', or leave empty to remove)",
-			Default: "",
-		}
-		dueDateStr, err := dueDatePrompt.Run()
+	case "due":
+		dueDateStr, err := ui.RunInput("Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next week', or leave empty to remove)", "", "", nil)
 		if err != nil {
 			return nil
 		}
@@ -395,38 +381,22 @@ func runTaskUpdate(args []string) error {
 			selectedTask.Due = &dueDate
 		}
 
-	case 2: // Priority
-		priorityPrompt := promptui.Select{
-			Label: "Select priority",
-			Items: []string{
-				"⏫ High",
-				"🔼 Medium",
-				"🔽 Low",
-				"   None",
-			},
+	case "priority":
+		prioItems := []ui.SelectItem{
+			{Label: "⏫ High", Value: "high"},
+			{Label: "🔼 Medium", Value: "medium"},
+			{Label: "🔽 Low", Value: "low"},
+			{Label: "   None", Value: "none"},
 		}
-		prioIdx, _, err := priorityPrompt.Run()
+		_, prioVal, err := ui.RunSelect("Select priority", prioItems, 5)
 		if err != nil {
 			return nil
 		}
-		switch prioIdx {
-		case 0:
-			selectedTask.Priority = tasks.PriorityHigh
-		case 1:
-			selectedTask.Priority = tasks.PriorityMedium
-		case 2:
-			selectedTask.Priority = tasks.PriorityLow
-		case 3:
-			selectedTask.Priority = tasks.PriorityNone
-		}
+		selectedTask.Priority = parsePriorityString(prioVal)
 
-	case 3: // Tags
+	case "tags":
 		currentTags := strings.Join(selectedTask.Tags, ", ")
-		tagsPrompt := promptui.Prompt{
-			Label:   "Tags (comma-separated)",
-			Default: currentTags,
-		}
-		tagsStr, err := tagsPrompt.Run()
+		tagsStr, err := ui.RunInput("Tags (comma-separated)", "", currentTags, nil)
 		if err != nil {
 			return nil
 		}
@@ -440,43 +410,36 @@ func runTaskUpdate(args []string) error {
 			}
 		}
 
-	case 4: // Project
-		projectPrompt := promptui.Prompt{
-			Label:   "Project name",
-			Default: selectedTask.Project,
-		}
-		project, err := projectPrompt.Run()
+	case "project":
+		project, err := ui.RunInput("Project name", "", selectedTask.Project, nil)
 		if err != nil {
 			return nil
 		}
 		selectedTask.Project = strings.TrimSpace(project)
 
-	case 5: // Status
-		statusPrompt := promptui.Select{
-			Label: "Select status",
-			Items: []string{
-				"⭕ Open",
-				"🔄 In Progress",
-				"✅ Done",
-				"⏸️  Deferred",
-				"❌ Cancelled",
-			},
+	case "status":
+		statusItems := []ui.SelectItem{
+			{Label: "⭕ Open", Value: "open"},
+			{Label: "🔄 In Progress", Value: "in-progress"},
+			{Label: "✅ Done", Value: "done"},
+			{Label: "⏸️  Deferred", Value: "deferred"},
+			{Label: "❌ Cancelled", Value: "cancelled"},
 		}
-		statusIdx, _, err := statusPrompt.Run()
+		_, statusVal, err := ui.RunSelect("Select status", statusItems, 6)
 		if err != nil {
 			return nil
 		}
 		var newStatus tasks.Status
-		switch statusIdx {
-		case 0:
+		switch statusVal {
+		case "open":
 			newStatus = tasks.StatusOpen
-		case 1:
+		case "in-progress":
 			newStatus = tasks.StatusInProgress
-		case 2:
+		case "done":
 			newStatus = tasks.StatusDone
-		case 3:
+		case "deferred":
 			newStatus = tasks.StatusDeferred
-		case 4:
+		case "cancelled":
 			newStatus = tasks.StatusCancelled
 		}
 		if err := tasks.SetTaskStatus(selectedTask, newStatus); err != nil {

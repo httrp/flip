@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/tasks"
-	"github.com/manifoldco/promptui"
+	ui "github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -299,13 +299,12 @@ func selectAndActOnTask(taskList []*tasks.Task) error {
 		items[i] = fmt.Sprintf("%s %s %s%s%s | %s", statusIcon, priorityIcon, frogIcon, task.Description, dueInfo, task.Context.FileName)
 	}
 
-	selectPrompt := promptui.Select{
-		Label: "Select a task",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: fmt.Sprintf("%d", i)}
 	}
 
-	taskIdx, _, err := selectPrompt.Run()
+	taskIdx, _, err := ui.RunSelect("Select a task", selectItems, 10)
 	if err != nil {
 		return nil // User cancelled
 	}
@@ -313,54 +312,49 @@ func selectAndActOnTask(taskList []*tasks.Task) error {
 	selectedTask := taskList[taskIdx]
 
 	// Then show action menu
-	actionItems := []string{
-		"�📝 Open task file in editor",
-		"✅ Mark task as done",
-		"🔄 Mark as in-progress",
-		"⭕ Mark as open",
-		"📋 Update task properties",
-		"◀️  Back",
+	actionItems := []ui.SelectItem{
+		{Label: "📝 Open task file in editor", Value: "open"},
+		{Label: "✅ Mark task as done", Value: "done"},
+		{Label: "🔄 Mark as in-progress", Value: "in-progress"},
+		{Label: "⭕ Mark as open", Value: "mark-open"},
+		{Label: "📋 Update task properties", Value: "update"},
+		{Label: "◀️  Back", Value: "back"},
 	}
 
-	actionPrompt := promptui.Select{
-		Label: "What would you like to do?",
-		Items: actionItems,
-	}
-
-	actionIdx, _, err := actionPrompt.Run()
+	_, actionVal, err := ui.RunSelect("What would you like to do?", actionItems, 7)
 	if err != nil {
 		return nil
 	}
 
-	switch actionIdx {
-	case 0: // Open file
+	switch actionVal {
+	case "open":
 		return openInEditor(selectedTask.Context.FilePath)
 
-	case 1: // Mark done
+	case "done":
 		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusDone); err != nil {
 			return fmt.Errorf("failed to mark task as done: %w", err)
 		}
 		fmt.Printf("\n✅ Task marked as done: %s\n", selectedTask.Description)
 		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
 
-	case 2: // Mark in-progress
+	case "in-progress":
 		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusInProgress); err != nil {
 			return fmt.Errorf("failed to mark task as in-progress: %w", err)
 		}
 		fmt.Printf("\n🔄 Task started: %s\n", selectedTask.Description)
 		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
 
-	case 3: // Mark open
+	case "mark-open":
 		if err := tasks.SetTaskStatus(selectedTask, tasks.StatusOpen); err != nil {
 			return fmt.Errorf("failed to mark task as open: %w", err)
 		}
 		fmt.Printf("\n⭕ Task marked as open: %s\n", selectedTask.Description)
 		fmt.Printf("   📄 File: %s (line %d)\n\n", selectedTask.Context.FilePath, selectedTask.Context.LineNumber)
 
-	case 4: // Update properties
+	case "update":
 		return runTaskUpdateInteractive(selectedTask)
 
-	case 5: // Back
+	case "back":
 		return nil
 	}
 
@@ -369,41 +363,30 @@ func selectAndActOnTask(taskList []*tasks.Task) error {
 
 // runTaskUpdateInteractive updates a task interactively
 func runTaskUpdateInteractive(task *tasks.Task) error {
-	propertyPrompt := promptui.Select{
-		Label: "What would you like to update?",
-		Items: []string{
-			"📝 Description",
-			"📅 Due Date",
-			"⏫ Priority",
-			"🏷️  Tags",
-			"📂 Project",
-			"❌ Cancel",
-		},
+	propertyItems := []ui.SelectItem{
+		{Label: "📝 Description", Value: "description"},
+		{Label: "📅 Due Date", Value: "due"},
+		{Label: "⏫ Priority", Value: "priority"},
+		{Label: "🏷️  Tags", Value: "tags"},
+		{Label: "📂 Project", Value: "project"},
+		{Label: "❌ Cancel", Value: "cancel"},
 	}
 
-	propIdx, _, err := propertyPrompt.Run()
-	if err != nil || propIdx == 5 {
+	_, propVal, err := ui.RunSelect("What would you like to update?", propertyItems, 7)
+	if err != nil || propVal == "cancel" {
 		return nil // User cancelled
 	}
 
-	switch propIdx {
-	case 0: // Description
-		descPrompt := promptui.Prompt{
-			Label:   "New description",
-			Default: task.Description,
-		}
-		newDesc, err := descPrompt.Run()
+	switch propVal {
+	case "description":
+		newDesc, err := ui.RunInput("New description", "", task.Description, nil)
 		if err != nil {
 			return nil
 		}
 		task.Description = strings.TrimSpace(newDesc)
 
-	case 1: // Due Date
-		dueDatePrompt := promptui.Prompt{
-			Label:   "Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next week', or leave empty to remove)",
-			Default: "",
-		}
-		dueDateStr, err := dueDatePrompt.Run()
+	case "due":
+		dueDateStr, err := ui.RunInput("Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next week', or leave empty to remove)", "", "", nil)
 		if err != nil {
 			return nil
 		}
@@ -419,41 +402,25 @@ func runTaskUpdateInteractive(task *tasks.Task) error {
 			task.Due = &dueDate
 		}
 
-	case 2: // Priority
-		priorityPrompt := promptui.Select{
-			Label: "Select priority",
-			Items: []string{
-				"⏫ High",
-				"🔼 Medium",
-				"🔽 Low",
-				"   None",
-			},
+	case "priority":
+		prioItems := []ui.SelectItem{
+			{Label: "⏫ High", Value: "high"},
+			{Label: "🔼 Medium", Value: "medium"},
+			{Label: "🔽 Low", Value: "low"},
+			{Label: "   None", Value: "none"},
 		}
-		prioIdx, _, err := priorityPrompt.Run()
+		_, prioVal, err := ui.RunSelect("Select priority", prioItems, 5)
 		if err != nil {
 			return nil
 		}
-		switch prioIdx {
-		case 0:
-			task.Priority = tasks.PriorityHigh
-		case 1:
-			task.Priority = tasks.PriorityMedium
-		case 2:
-			task.Priority = tasks.PriorityLow
-		case 3:
-			task.Priority = tasks.PriorityNone
-		}
+		task.Priority = parsePriorityString(prioVal)
 
-	case 3: // Tags
+	case "tags":
 		currentTags := ""
 		if len(task.Tags) > 0 {
 			currentTags = "#" + strings.Join(task.Tags, " #")
 		}
-		tagsPrompt := promptui.Prompt{
-			Label:   "Tags (space-separated, with #)",
-			Default: currentTags,
-		}
-		tagsStr, err := tagsPrompt.Run()
+		tagsStr, err := ui.RunInput("Tags (space-separated, with #)", "", currentTags, nil)
 		if err != nil {
 			return nil
 		}
@@ -471,12 +438,8 @@ func runTaskUpdateInteractive(task *tasks.Task) error {
 			}
 		}
 
-	case 4: // Project
-		projectPrompt := promptui.Prompt{
-			Label:   "Project name",
-			Default: task.Project,
-		}
-		project, err := projectPrompt.Run()
+	case "project":
+		project, err := ui.RunInput("Project name", "", task.Project, nil)
 		if err != nil {
 			return nil
 		}

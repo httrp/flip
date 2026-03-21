@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -362,21 +362,12 @@ func displayAndSelectNotes(notes []NoteFile, title string) error {
 	items = append(items, MenuItem{Display: "◀️  Back", Index: -1})
 
 	// Interactive selection
-	templates := &promptui.SelectTemplates{
-		Label:    "{{ . }}",
-		Active:   "▸ {{ .Display | cyan | bold }}",
-		Inactive: "  {{ .Display }}",
-		Selected: "{{ .Display | green | bold }}",
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item.Display, Value: fmt.Sprintf("%d", item.Index)}
 	}
 
-	prompt := promptui.Select{
-		Label:     title,
-		Items:     items,
-		Templates: templates,
-		Size:      15,
-	}
-
-	idx, _, err := prompt.Run()
+	idx, _, err := ui.RunSelect(title, selectItems, 15)
 	if err != nil {
 		return nil
 	}
@@ -403,28 +394,23 @@ func displayAndSelectNotes(notes []NoteFile, title string) error {
 	fmt.Println()
 
 	// Ask what to do
-	actionPrompt := promptui.Select{
-		Label: "What would you like to do?",
-		Items: []string{
-			"📝 Open in editor",
-			"📋 Copy path to clipboard",
-			"◀️  Back to list",
-		},
-	}
-
-	actionIdx, _, err := actionPrompt.Run()
+	_, actionChoice, err := ui.RunSelect("What would you like to do?", []ui.SelectItem{
+		{Label: "📝 Open in editor", Value: "open"},
+		{Label: "📋 Copy path to clipboard", Value: "copy"},
+		{Label: "◀️  Back to list", Value: "back"},
+	}, 0)
 	if err != nil {
 		return nil
 	}
 
-	switch actionIdx {
-	case 0: // Open in editor
+	switch actionChoice {
+	case "open": // Open in editor
 		return openInEditor(selectedNote.Path)
-	case 1: // Copy to clipboard
+	case "copy": // Copy to clipboard
 		fmt.Printf("Path: %s\n", selectedNote.Path)
 		fmt.Println("(Path displayed above - copy manually)")
 		return nil
-	case 2: // Back to list
+	case "back": // Back to list
 		return displayAndSelectNotes(notes, title)
 	}
 

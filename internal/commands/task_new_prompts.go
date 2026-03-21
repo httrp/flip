@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // promptForOrganization prompts for organization with history and definitions
@@ -45,18 +45,15 @@ func promptForOrganization() (string, error) {
 
 	items = append(items, "[New Organization]", "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Organization",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Organization", selectItems, 10)
 	if err != nil {
 		return "", err
 	}
-
-	selected := items[idx]
 
 	// Skip
 	if selected == "[Skip]" {
@@ -91,28 +88,24 @@ func promptForSimpleOrganization() (string, error) {
 	}
 	items = append(items, "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Organization",
-		Items: items,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Organization", selectItems, 0)
 	if err != nil {
 		return "", err
 	}
 
 	// Skip
-	if idx == len(items)-1 {
+	if selected == "[Skip]" {
 		return "", nil
 	}
 
 	// New organization
-	if idx == 0 {
-		prompt := promptui.Prompt{
-			Label:   "Enter Organization (or leave empty to skip)",
-			Default: "",
-		}
-		org, err := prompt.Run()
+	if selected == "[New Organization]" {
+		org, err := ui.RunInput("Enter Organization (or leave empty to skip)", "", "", nil)
 		if err != nil {
 			return "", err
 		}
@@ -120,7 +113,7 @@ func promptForSimpleOrganization() (string, error) {
 	}
 
 	// Selected from history
-	return items[idx], nil
+	return selected, nil
 }
 
 // promptForProject prompts for project with history and definitions
@@ -159,18 +152,15 @@ func promptForProject() (string, error) {
 
 	items = append(items, "[New Project]", "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Project",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Project", selectItems, 10)
 	if err != nil {
 		return "", err
 	}
-
-	selected := items[idx]
 
 	// Skip
 	if selected == "[Skip]" {
@@ -203,28 +193,24 @@ func promptForSimpleProject() (string, error) {
 	}
 	items = append(items, "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Project",
-		Items: items,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Project", selectItems, 0)
 	if err != nil {
 		return "", err
 	}
 
 	// Skip
-	if idx == len(items)-1 {
+	if selected == "[Skip]" {
 		return "", nil
 	}
 
 	// New project
-	if idx == 0 {
-		prompt := promptui.Prompt{
-			Label:   "Enter Project (or leave empty to skip)",
-			Default: "",
-		}
-		proj, err := prompt.Run()
+	if selected == "[New Project]" {
+		proj, err := ui.RunInput("Enter Project (or leave empty to skip)", "", "", nil)
 		if err != nil {
 			return "", err
 		}
@@ -232,7 +218,7 @@ func promptForSimpleProject() (string, error) {
 	}
 
 	// Selected from history
-	return items[idx], nil
+	return selected, nil
 }
 
 // promptForContext prompts for context with history and definitions
@@ -271,18 +257,15 @@ func promptForContext() (string, error) {
 
 	items = append(items, "[New Context]", "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Context",
-		Items: items,
-		Size:  10,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Context", selectItems, 10)
 	if err != nil {
 		return "", err
 	}
-
-	selected := items[idx]
 
 	// Skip
 	if selected == "[Skip]" {
@@ -315,28 +298,24 @@ func promptForSimpleContext() (string, error) {
 	}
 	items = append(items, "[Skip]")
 
-	selector := promptui.Select{
-		Label: "Context",
-		Items: items,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	_, selected, err := ui.RunSelect("Context", selectItems, 10)
 	if err != nil {
 		return "", err
 	}
 
 	// Skip
-	if idx == len(items)-1 {
+	if selected == "[Skip]" {
 		return "", nil
 	}
 
 	// New context
-	if idx == 0 {
-		prompt := promptui.Prompt{
-			Label:   "Enter Context (or leave empty to skip)",
-			Default: "",
-		}
-		ctx, err := prompt.Run()
+	if selected == "[New Context]" {
+		ctx, err := ui.RunInput("Enter Context (or leave empty to skip)", "", "", nil)
 		if err != nil {
 			return "", err
 		}
@@ -344,7 +323,7 @@ func promptForSimpleContext() (string, error) {
 	}
 
 	// Selected from history
-	return items[idx], nil
+	return selected, nil
 }
 
 // promptForTaskFile prompts for task file with smart suggestions
@@ -399,14 +378,12 @@ func promptForTaskFile(brain *Brain) (string, error) {
 	// 6. Custom file
 	items = append(items, "📁 Specify custom file...")
 
-	selector := promptui.Select{
-		Label:     "Where to save the task?",
-		Items:     items,
-		Size:      10,
-		CursorPos: 1, // Default to tasks/tasks.md (index 1)
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
 
-	idx, _, err := selector.Run()
+	idx, selected, err := ui.RunSelect("Where to save the task?", selectItems, 10)
 	if err != nil {
 		return "", err
 	}
@@ -419,13 +396,9 @@ func promptForTaskFile(brain *Brain) (string, error) {
 	case idx == 1:
 		// tasks/tasks.md
 		return filepath.Join(brain.Path, "tasks", "tasks.md"), nil
-	case idx == len(items)-1:
+	case selected == "📁 Specify custom file...":
 		// Custom file
-		filePrompt := promptui.Prompt{
-			Label:   "File path (relative to brain root)",
-			Default: "tasks/tasks.md",
-		}
-		relPath, err := filePrompt.Run()
+		relPath, err := ui.RunInput("File path (relative to brain root)", "", "tasks/tasks.md", nil)
 		if err != nil {
 			return "", err
 		}
@@ -459,11 +432,7 @@ func promptForNewOrganization() (string, error) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label:   "Abbreviation (e.g., WORK, PERS)",
-		Default: "",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., WORK, PERS)", "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -475,11 +444,7 @@ func promptForNewOrganization() (string, error) {
 	}
 
 	// Prompt for full name
-	namePrompt := promptui.Prompt{
-		Label:   "Full Name (e.g., Work, Personal)",
-		Default: "",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Full Name (e.g., Work, Personal)", "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -525,11 +490,7 @@ func promptForNewProject() (string, error) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label:   "Abbreviation (e.g., FLIP, BRAIN)",
-		Default: "",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., FLIP, BRAIN)", "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -541,11 +502,7 @@ func promptForNewProject() (string, error) {
 	}
 
 	// Prompt for full name
-	namePrompt := promptui.Prompt{
-		Label:   "Full Name (e.g., Flip CLI, Brain System)",
-		Default: "",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Full Name (e.g., Flip CLI, Brain System)", "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -591,11 +548,7 @@ func promptForNewContext() (string, error) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Prompt for abbreviation
-	abbrPrompt := promptui.Prompt{
-		Label:   "Abbreviation (e.g., MTG, EMAIL)",
-		Default: "",
-	}
-	abbr, err := abbrPrompt.Run()
+	abbr, err := ui.RunInput("Abbreviation (e.g., MTG, EMAIL)", "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -607,11 +560,7 @@ func promptForNewContext() (string, error) {
 	}
 
 	// Prompt for full name
-	namePrompt := promptui.Prompt{
-		Label:   "Full Name (e.g., Meeting, Email)",
-		Default: "",
-	}
-	name, err := namePrompt.Run()
+	name, err := ui.RunInput("Full Name (e.g., Meeting, Email)", "", "", nil)
 	if err != nil {
 		return "", err
 	}

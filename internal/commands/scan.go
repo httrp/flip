@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -350,7 +350,7 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 
 	// Interactive loop to browse and add brains
 	for {
-		// Create list items for promptui
+		// Create list items for selection
 		type BrainListItem struct {
 			Display string
 			Index   int
@@ -388,21 +388,12 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		items = append(items, BrainListItem{Display: "◀️  Exit", Index: -1})
 
 		// Select a brain to view details
-		templates := &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ .Display | cyan | bold }}",
-			Inactive: "  {{ .Display }}",
-			Selected: "{{ .Display | green | bold }}",
+		selectItems := make([]ui.SelectItem, len(items))
+		for i, item := range items {
+			selectItems[i] = ui.SelectItem{Label: item.Display, Value: fmt.Sprintf("%d", item.Index)}
 		}
 
-		prompt := promptui.Select{
-			Label:     "Select a brain to view details",
-			Items:     items,
-			Templates: templates,
-			Size:      10,
-		}
-
-		idx, _, err := prompt.Run()
+		idx, _, err := ui.RunSelect("Select a brain to view details", selectItems, 10)
 		if err != nil {
 			return nil
 		}
@@ -463,28 +454,23 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 		fmt.Println()
 
 		// Ask what to do with this brain
-		actionItems := []string{}
+		actionItems := []ui.SelectItem{}
 		if !fb.IsInWorkspace {
-			actionItems = append(actionItems, "✨ Initialize and add to workspace")
+			actionItems = append(actionItems, ui.SelectItem{Label: "✨ Initialize and add to workspace", Value: "init"})
 		}
-		actionItems = append(actionItems, "◀️  Back to brain list")
+		actionItems = append(actionItems, ui.SelectItem{Label: "◀️  Back to brain list", Value: "back"})
 
-		actionPrompt := promptui.Select{
-			Label: "What would you like to do?",
-			Items: actionItems,
-		}
-
-		actionIdx, _, err := actionPrompt.Run()
+		_, actionChoice, err := ui.RunSelect("What would you like to do?", actionItems, 0)
 		if err != nil {
 			return nil
 		}
 
-		// If brain is already in workspace, only "Back" is available (index 0)
-		if fb.IsInWorkspace {
+		// If brain is already in workspace, only "Back" is available
+		if fb.IsInWorkspace || actionChoice == "back" {
 			continue // Back to brain list
 		}
 
-		if actionIdx == 0 {
+		if actionChoice == "init" {
 			// Initialize and add brain
 			config, err := ensureActiveWorkspace()
 			if err != nil {
@@ -502,18 +488,13 @@ func runScanWithOptions(scanPath string, options ScanOptions) error {
 			fmt.Printf("✓ Brain '%s' added successfully!\n\n", brainName)
 
 			// Ask if user wants to continue
-			continuePrompt := promptui.Select{
-				Label: "Continue browsing?",
-				Items: []string{"Yes, show brain list", "No, exit"},
-			}
-
-			contIdx, _, err := continuePrompt.Run()
-			if err != nil || contIdx == 1 {
+			continueBrowsing, err := ui.RunConfirm("Continue browsing?", true)
+			if err != nil || !continueBrowsing {
 				fmt.Println("\n✓ Done")
 				return nil
 			}
 		}
-		// If "Back to brain list" selected (actionIdx == 1), loop continues
+		// If "Back to brain list" selected, loop continues
 	}
 }
 

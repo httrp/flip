@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -281,25 +281,17 @@ func runCreateMeeting() error {
 	fmt.Printf("Brain type: %s\n\n", detection.Type)
 
 	// Step 1: Prompt for organization (optional)
-	promptOrg := promptui.Prompt{
-		Label:   "Organization (optional, press Enter to skip)",
-		Default: "",
-	}
-
-	var organization string
-	organization, _ = promptOrg.Run()
+	organization, _ := ui.RunInput("Organization (optional, press Enter to skip)", "", "", nil)
 	organization = strings.TrimSpace(organization)
 	if organization != "" {
 		fmt.Println()
 	}
 
 	// Step 2: Ask if part of a series
-	promptIsSeries := promptui.Select{
-		Label: "Part of a meeting series?",
-		Items: []string{"No, single meeting", "Yes, add to series"},
-	}
-
-	_, isSeries, err := promptIsSeries.Run()
+	_, isSeries, err := ui.RunSelect("Part of a meeting series?", []ui.SelectItem{
+		{Label: "No, single meeting", Value: "No, single meeting"},
+		{Label: "Yes, add to series", Value: "Yes, add to series"},
+	}, 0)
 	if err != nil {
 		return fmt.Errorf("series selection cancelled: %w", err)
 	}
@@ -313,12 +305,10 @@ func runCreateMeeting() error {
 
 	if isSeries == "Yes, add to series" {
 		// Step 2a: New or existing series?
-		promptSeriesChoice := promptui.Select{
-			Label: "Series",
-			Items: []string{"Create new series", "Add to existing series"},
-		}
-
-		_, seriesChoice, err := promptSeriesChoice.Run()
+		_, seriesChoice, err := ui.RunSelect("Series", []ui.SelectItem{
+			{Label: "Create new series", Value: "Create new series"},
+			{Label: "Add to existing series", Value: "Add to existing series"},
+		}, 0)
 		if err != nil {
 			return fmt.Errorf("series choice cancelled: %w", err)
 		}
@@ -340,13 +330,12 @@ func runCreateMeeting() error {
 					seriesNames[i] = fmt.Sprintf("%s (%d meetings)", s.Name, s.Count)
 				}
 
-				promptSelectSeries := promptui.Select{
-					Label: "Select series",
-					Items: seriesNames,
-					Size:  10,
+				selectItems := make([]ui.SelectItem, len(seriesNames))
+				for i, name := range seriesNames {
+					selectItems[i] = ui.SelectItem{Label: name, Value: fmt.Sprintf("%d", i)}
 				}
 
-				idx, _, err := promptSelectSeries.Run()
+				idx, _, err := ui.RunSelect("Select series", selectItems, 10)
 				if err != nil {
 					return fmt.Errorf("series selection cancelled: %w", err)
 				}
@@ -386,17 +375,12 @@ func runCreateMeeting() error {
 
 		if seriesChoice == "Create new series" {
 			// Prompt for series name
-			promptSeriesName := promptui.Prompt{
-				Label: "Series name (e.g., 'Weekly Standup', 'Sprint Planning')",
-				Validate: func(input string) error {
-					if strings.TrimSpace(input) == "" {
-						return fmt.Errorf("series name cannot be empty")
-					}
-					return nil
-				},
-			}
-
-			seriesName, err = promptSeriesName.Run()
+			seriesName, err = ui.RunInput("Series name (e.g., 'Weekly Standup', 'Sprint Planning')", "", "", func(input string) error {
+				if strings.TrimSpace(input) == "" {
+					return fmt.Errorf("series name cannot be empty")
+				}
+				return nil
+			})
 			if err != nil {
 				return fmt.Errorf("series name prompt cancelled: %w", err)
 			}
@@ -408,17 +392,12 @@ func runCreateMeeting() error {
 		title = fmt.Sprintf("%s - %s", seriesName, now.Format("02.01.2006"))
 	} else {
 		// Single meeting: ask for title
-		promptTitle := promptui.Prompt{
-			Label: "Meeting title",
-			Validate: func(input string) error {
-				if strings.TrimSpace(input) == "" {
-					return fmt.Errorf("title cannot be empty")
-				}
-				return nil
-			},
-		}
-
-		title, err = promptTitle.Run()
+		title, err = ui.RunInput("Meeting title", "", "", func(input string) error {
+			if strings.TrimSpace(input) == "" {
+				return fmt.Errorf("title cannot be empty")
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("title prompt cancelled: %w", err)
 		}
@@ -426,12 +405,7 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for participants - optional, can be filled in later (use Default if from series)
-	promptParticipants := promptui.Prompt{
-		Label:   "Participants (optional, press Enter to skip)",
-		Default: participants,
-	}
-
-	participants, err = promptParticipants.Run()
+	participants, err = ui.RunInput("Participants (optional, press Enter to skip)", "", participants, nil)
 	if err != nil {
 		// If cancelled, keep existing value
 	} else {
@@ -439,12 +413,7 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for organization
-	promptOrganization := promptui.Prompt{
-		Label:   "Organization (e.g., P1174, DANORAMA, press Enter to skip)",
-		Default: organization,
-	}
-
-	organization, err = promptOrganization.Run()
+	organization, err = ui.RunInput("Organization (e.g., P1174, DANORAMA, press Enter to skip)", "", organization, nil)
 	if err != nil {
 		// If cancelled, keep existing value
 	} else {
@@ -452,12 +421,7 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for project
-	promptProject := promptui.Prompt{
-		Label:   "Project (press Enter to skip)",
-		Default: project,
-	}
-
-	project, err = promptProject.Run()
+	project, err = ui.RunInput("Project (press Enter to skip)", "", project, nil)
 	if err != nil {
 		// If cancelled, keep existing value
 	} else {
@@ -465,12 +429,7 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for context
-	promptContext := promptui.Prompt{
-		Label:   "Context (e.g., BACKEND, FINANCE, press Enter to skip)",
-		Default: context,
-	}
-
-	context, err = promptContext.Run()
+	context, err = ui.RunInput("Context (e.g., BACKEND, FINANCE, press Enter to skip)", "", context, nil)
 	if err != nil {
 		// If cancelled, keep existing value
 	} else {
@@ -478,12 +437,7 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for tags
-	promptTags := promptui.Prompt{
-		Label:   "Tags (comma-separated, optional)",
-		Default: tags,
-	}
-
-	tags, err = promptTags.Run()
+	tags, err = ui.RunInput("Tags (comma-separated, optional)", "", tags, nil)
 	if err != nil {
 		if tags == "" {
 			tags = "meeting" // Keep default if cancelled and no value yet
@@ -493,22 +447,20 @@ func runCreateMeeting() error {
 	}
 
 	// Prompt for duration
-	promptDuration := promptui.Select{
-		Label: "Meeting duration",
-		Items: []string{"30 min", "45 min", "60 min", "90 min", "120 min", "Custom..."},
-	}
-
-	_, duration, err := promptDuration.Run()
+	_, duration, err := ui.RunSelect("Meeting duration", []ui.SelectItem{
+		{Label: "30 min", Value: "30 min"},
+		{Label: "45 min", Value: "45 min"},
+		{Label: "60 min", Value: "60 min"},
+		{Label: "90 min", Value: "90 min"},
+		{Label: "120 min", Value: "120 min"},
+		{Label: "Custom...", Value: "Custom..."},
+	}, 0)
 	if err != nil {
 		duration = "60 min" // Default if cancelled
 	}
 
 	if duration == "Custom..." {
-		promptCustomDuration := promptui.Prompt{
-			Label:   "Duration (e.g., 45 min, 2h)",
-			Default: "60 min",
-		}
-		duration, err = promptCustomDuration.Run()
+		duration, err = ui.RunInput("Duration (e.g., 45 min, 2h)", "", "60 min", nil)
 		if err != nil {
 			duration = "60 min"
 		}

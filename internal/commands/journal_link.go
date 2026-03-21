@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/brain"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // JournalLinkOptions holds options for adding a link to journal
@@ -32,20 +32,15 @@ func AddLinkToJournal(opts JournalLinkOptions) error {
 	// Only ask in interactive mode
 	if opts.Interactive {
 		// Ask if user wants to skip adding link to journal (default: add it)
-		promptLink := promptui.Select{
-			Label: "Add link to today's journal?",
-			Items: []string{"Add link (default)", "Skip"},
-		}
-
-		idx, _, err := promptLink.Run()
+		addLink, err := ui.RunConfirm("Add link to today's journal?", true)
 		if err != nil {
 			// User cancelled: default to adding link
 		}
 
-		if idx == 1 { // Skip
+		if !addLink {
 			return nil
 		}
-		// idx == 0 or cancelled: add the link (default behavior)
+		// addLink == true or cancelled: add the link (default behavior)
 	}
 
 	// Detect brain type if not provided

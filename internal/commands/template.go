@@ -6,7 +6,7 @@ import (
 
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/templates"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -67,20 +67,12 @@ func runTemplateMenu() error {
 		},
 	}
 
-	prompt := promptui.Select{
-		Label: "What would you like to do?",
-		Items: menuItems,
-		Templates: &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ .Label | cyan }} - {{ .Description }}",
-			Inactive: "  {{ .Label }} - {{ .Description }}",
-			Selected: "{{ .Label | green }}",
-		},
-		Size:     10,
-		HideHelp: true,
+	selectItems := make([]ui.SelectItem, len(menuItems))
+	for i, item := range menuItems {
+		selectItems[i] = ui.SelectItem{Label: fmt.Sprintf("%s - %s", item.Label, item.Description), Value: fmt.Sprintf("%d", i)}
 	}
 
-	idx, _, err := prompt.Run()
+	idx, _, err := ui.RunSelect("What would you like to do?", selectItems, 10)
 	if err != nil {
 		return err
 	}
@@ -94,52 +86,31 @@ func runTemplateMenu() error {
 
 func editTemplateFlow() error {
 	// Select brain type
-	brainTypePrompt := promptui.Select{
-		Label: "Select brain type",
-		Items: []string{"flip", "obsidian", "logseq", "dendron"},
-	}
-
-	brainIdx, brainStr, err := brainTypePrompt.Run()
+	_, brainStr, err := ui.RunSelect("Select brain type", []ui.SelectItem{
+		{Label: "flip", Value: "flip"},
+		{Label: "obsidian", Value: "obsidian"},
+		{Label: "logseq", Value: "logseq"},
+		{Label: "dendron", Value: "dendron"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var brainType brain.BrainType
-	switch brainIdx {
-	case 0:
-		brainType = brain.BrainTypeFlip
-	case 1:
-		brainType = brain.BrainTypeObsidian
-	case 2:
-		brainType = brain.BrainTypeLogseq
-	case 3:
-		brainType = brain.BrainTypeDendron
-	}
+	brainType := parseBrainType(brainStr)
 
 	// Select template type
-	templatePrompt := promptui.Select{
-		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task", "prompt"},
-	}
-
-	templateIdx, _, err := templatePrompt.Run()
+	_, templateStr, err := ui.RunSelect(fmt.Sprintf("Select template type for %s", brainStr), []ui.SelectItem{
+		{Label: "note", Value: "note"},
+		{Label: "meeting", Value: "meeting"},
+		{Label: "journal", Value: "journal"},
+		{Label: "task", Value: "task"},
+		{Label: "prompt", Value: "prompt"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var templateType templates.TemplateType
-	switch templateIdx {
-	case 0:
-		templateType = templates.TemplateTypeNote
-	case 1:
-		templateType = templates.TemplateTypeMeeting
-	case 2:
-		templateType = templates.TemplateTypeJournal
-	case 3:
-		templateType = templates.TemplateTypeTask
-	case 4:
-		templateType = templates.TemplateTypePrompt
-	}
+	templateType := parseTemplateType(templateStr)
 
 	// Get template path
 	templatePath, err := templates.GetTemplatePath(brainType, templateType)
@@ -226,54 +197,32 @@ func listTemplatesFlow() error {
 
 func viewTemplateFlow() error {
 	// Select brain type
-	brainTypePrompt := promptui.Select{
-		Label: "Select brain type",
-		Items: []string{"flip", "obsidian", "logseq", "dendron", "foam"},
-	}
-
-	brainIdx, brainStr, err := brainTypePrompt.Run()
+	_, brainStr, err := ui.RunSelect("Select brain type", []ui.SelectItem{
+		{Label: "flip", Value: "flip"},
+		{Label: "obsidian", Value: "obsidian"},
+		{Label: "logseq", Value: "logseq"},
+		{Label: "dendron", Value: "dendron"},
+		{Label: "foam", Value: "foam"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var brainType brain.BrainType
-	switch brainIdx {
-	case 0:
-		brainType = brain.BrainTypeFlip
-	case 1:
-		brainType = brain.BrainTypeObsidian
-	case 2:
-		brainType = brain.BrainTypeLogseq
-	case 3:
-		brainType = brain.BrainTypeDendron
-	case 4:
-		brainType = brain.BrainTypeFoam
-	}
+	brainType := parseBrainType(brainStr)
 
 	// Select template type
-	templatePrompt := promptui.Select{
-		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task", "prompt"},
-	}
-
-	templateIdx, _, err := templatePrompt.Run()
+	_, templateStr, err := ui.RunSelect(fmt.Sprintf("Select template type for %s", brainStr), []ui.SelectItem{
+		{Label: "note", Value: "note"},
+		{Label: "meeting", Value: "meeting"},
+		{Label: "journal", Value: "journal"},
+		{Label: "task", Value: "task"},
+		{Label: "prompt", Value: "prompt"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var templateType templates.TemplateType
-	switch templateIdx {
-	case 0:
-		templateType = templates.TemplateTypeNote
-	case 1:
-		templateType = templates.TemplateTypeMeeting
-	case 2:
-		templateType = templates.TemplateTypeJournal
-	case 3:
-		templateType = templates.TemplateTypeTask
-	case 4:
-		templateType = templates.TemplateTypePrompt
-	}
+	templateType := parseTemplateType(templateStr)
 
 	// Load and display template
 	content, err := templates.Load(brainType, templateType)
@@ -301,50 +250,33 @@ func resetTemplateFlow() error {
 	fmt.Println()
 
 	// Option to reset all or single template
-	scopePrompt := promptui.Select{
-		Label: "What would you like to reset?",
-		Items: []string{"Single template", "All templates for a brain type", "◀️  Back"},
-	}
-
-	scopeIdx, _, err := scopePrompt.Run()
-	if err != nil || scopeIdx == 2 {
+	_, scopeChoice, err := ui.RunSelect("What would you like to reset?", []ui.SelectItem{
+		{Label: "Single template", Value: "single"},
+		{Label: "All templates for a brain type", Value: "all"},
+		{Label: "◀️  Back", Value: "back"},
+	}, 0)
+	if err != nil || scopeChoice == "back" {
 		return runTemplateMenu()
 	}
 
 	// Select brain type
-	brainTypePrompt := promptui.Select{
-		Label: "Select brain type",
-		Items: []string{"flip", "obsidian", "logseq", "dendron", "foam"},
-	}
-
-	brainIdx, brainStr, err := brainTypePrompt.Run()
+	_, brainStr, err := ui.RunSelect("Select brain type", []ui.SelectItem{
+		{Label: "flip", Value: "flip"},
+		{Label: "obsidian", Value: "obsidian"},
+		{Label: "logseq", Value: "logseq"},
+		{Label: "dendron", Value: "dendron"},
+		{Label: "foam", Value: "foam"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var brainType brain.BrainType
-	switch brainIdx {
-	case 0:
-		brainType = brain.BrainTypeFlip
-	case 1:
-		brainType = brain.BrainTypeObsidian
-	case 2:
-		brainType = brain.BrainTypeLogseq
-	case 3:
-		brainType = brain.BrainTypeDendron
-	case 4:
-		brainType = brain.BrainTypeFoam
-	}
+	brainType := parseBrainType(brainStr)
 
-	if scopeIdx == 1 {
+	if scopeChoice == "all" {
 		// Reset all templates for this brain type
-		confirmPrompt := promptui.Prompt{
-			Label:     fmt.Sprintf("Reset ALL templates for %s to defaults", brainStr),
-			IsConfirm: true,
-		}
-
-		_, err = confirmPrompt.Run()
-		if err != nil {
+		yes, err := ui.RunConfirm(fmt.Sprintf("Reset ALL templates for %s to defaults", brainStr), false)
+		if err != nil || !yes {
 			fmt.Println("\n❌ Cancelled")
 			fmt.Println("\nPress Enter to continue...")
 			fmt.Scanln()
@@ -362,38 +294,22 @@ func resetTemplateFlow() error {
 	}
 
 	// Reset single template
-	templatePrompt := promptui.Select{
-		Label: fmt.Sprintf("Select template type for %s", brainStr),
-		Items: []string{"note", "meeting", "journal", "task", "prompt"},
-	}
-
-	templateIdx, templateStr, err := templatePrompt.Run()
+	_, templateStr, err := ui.RunSelect(fmt.Sprintf("Select template type for %s", brainStr), []ui.SelectItem{
+		{Label: "note", Value: "note"},
+		{Label: "meeting", Value: "meeting"},
+		{Label: "journal", Value: "journal"},
+		{Label: "task", Value: "task"},
+		{Label: "prompt", Value: "prompt"},
+	}, 0)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	var templateType templates.TemplateType
-	switch templateIdx {
-	case 0:
-		templateType = templates.TemplateTypeNote
-	case 1:
-		templateType = templates.TemplateTypeMeeting
-	case 2:
-		templateType = templates.TemplateTypeJournal
-	case 3:
-		templateType = templates.TemplateTypeTask
-	case 4:
-		templateType = templates.TemplateTypePrompt
-	}
+	templateType := parseTemplateType(templateStr)
 
 	// Confirm reset
-	confirmPrompt := promptui.Prompt{
-		Label:     fmt.Sprintf("Reset %s template for %s to default", templateStr, brainStr),
-		IsConfirm: true,
-	}
-
-	_, err = confirmPrompt.Run()
-	if err != nil {
+	yes, err := ui.RunConfirm(fmt.Sprintf("Reset %s template for %s to default", templateStr, brainStr), false)
+	if err != nil || !yes {
 		fmt.Println("\n❌ Cancelled")
 		fmt.Println("\nPress Enter to continue...")
 		fmt.Scanln()
@@ -439,17 +355,12 @@ func showTemplateDirectoryFlow() error {
 	fmt.Println()
 
 	// Offer to open in file browser
-	openPrompt := promptui.Select{
-		Label: "Open template directory in file manager?",
-		Items: []string{"Yes", "No"},
-	}
-
-	idx, _, err := openPrompt.Run()
+	yes, err := ui.RunConfirm("Open template directory in file manager?", false)
 	if err != nil {
 		return runTemplateMenu()
 	}
 
-	if idx == 0 {
+	if yes {
 		if err := openInFileManager(templateDir); err != nil {
 			fmt.Printf("\n❌ Error opening directory: %v\n", err)
 			fmt.Println("\nPress Enter to continue...")
