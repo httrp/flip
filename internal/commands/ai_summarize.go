@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/ai"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -156,10 +156,7 @@ func runAISummarize(opts AISummarizeOptions) error {
 
 	// Get topic interactively if not provided
 	if topic == "" {
-		prompt := promptui.Prompt{
-			Label: "What should be summarized? (request)",
-		}
-		topic, err = prompt.Run()
+		topic, err = ui.RunInput("What should be summarized? (request)", "", "", nil)
 		if err != nil {
 			return err
 		}

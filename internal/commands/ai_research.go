@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/ai"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -162,10 +162,7 @@ func runAIResearch(opts AIResearchOptions) error {
 
 	// Get topic interactively if not provided
 	if topic == "" {
-		prompt := promptui.Prompt{
-			Label: "What do you want to research? (request)",
-		}
-		topic, err = prompt.Run()
+		topic, err = ui.RunInput("What do you want to research? (request)", "", "", nil)
 		if err != nil {
 			return err
 		}

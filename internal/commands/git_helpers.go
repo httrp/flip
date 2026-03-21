@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/httrp/flip/internal/git"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // autoCommitFile attempts to auto-commit a newly created file
@@ -74,23 +74,11 @@ func promptForCommit() bool {
 	}
 
 	// Interactive prompt
-	prompt := promptui.Select{
-		Label: "Commit this change to git?",
-		Items: []string{"Yes", "No"},
-		Templates: &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ . | cyan }}",
-			Inactive: "  {{ . }}",
-			Selected: "{{ . | green }}",
-		},
-		HideHelp: true,
-	}
-
-	idx, _, err := prompt.Run()
+	yes, err := ui.RunConfirm("Commit this change to git?", true)
 	if err != nil {
 		return false
 	}
 
-	return idx == 0
+	return yes
 }
 

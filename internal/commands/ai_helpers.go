@@ -14,7 +14,7 @@ import (
 
 	"github.com/httrp/flip/internal/ai"
 	"github.com/httrp/flip/internal/brain"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // summarySourceNote represents a note used as a source for AI summarization or research.
@@ -332,44 +332,28 @@ func resolvePromptNoteForBrain(brainInfo *Brain, brainType brain.BrainType, over
 
 	if !interactive || len(prompts) == 0 {
 		if interactive && len(prompts) == 0 {
-			createSelector := promptui.Select{
-				Label: "No prompt notes found. Create one?",
-				Items: []string{"Yes", "No"},
-			}
-			_, createChoice, err := createSelector.Run()
+			createYes, err := ui.RunConfirm("No prompt notes found. Create one?", false)
 			if err != nil {
 				return "", nil, err
 			}
-			if createChoice == "Yes" {
-				titlePrompt := promptui.Prompt{
-					Label: "Prompt title",
-					Validate: func(input string) error {
-						if strings.TrimSpace(input) == "" {
-							return fmt.Errorf("title cannot be empty")
-						}
-						return nil
-					},
-				}
-				title, err := titlePrompt.Run()
+			if createYes {
+				title, err := ui.RunInput("Prompt title", "", "", func(input string) error {
+					if strings.TrimSpace(input) == "" {
+						return fmt.Errorf("title cannot be empty")
+					}
+					return nil
+				})
 				if err != nil {
 					return "", nil, err
 				}
-				bodyPrompt := promptui.Prompt{
-					Label: "Prompt instructions",
-				}
-				body, err := bodyPrompt.Run()
+				body, err := ui.RunInput("Prompt instructions", "", "", nil)
 				if err != nil {
 					return "", nil, err
 				}
-				defaultPromptSelect := promptui.Select{
-					Label: "Set as default prompt?",
-					Items: []string{"No", "Yes"},
-				}
-				_, defaultChoice, err := defaultPromptSelect.Run()
+				setDefault, err := ui.RunConfirm("Set as default prompt?", false)
 				if err != nil {
 					return "", nil, err
 				}
-				setDefault := defaultChoice == "Yes"
 				created, err := createPromptNote(brainInfo.Path, brainType, title, body, setDefault)
 				if err != nil {
 					return "", nil, err
@@ -384,25 +368,27 @@ func resolvePromptNoteForBrain(brainInfo *Brain, brainType brain.BrainType, over
 		return "", nil, nil
 	}
 
-	items := []string{"No prompt"}
+	selectItems := []ui.SelectItem{{Label: "No prompt", Value: "__none__"}}
 	for _, prompt := range prompts {
-		items = append(items, prompt.Title)
+		selectItems = append(selectItems, ui.SelectItem{Label: prompt.Title, Value: prompt.Title})
 	}
 
-	selector := promptui.Select{
-		Label: "Select prompt note (optional)",
-		Items: items,
-		Size:  calculateMenuSize(len(items)),
-	}
-	idx, _, err := selector.Run()
+	_, choice, err := ui.RunSelect("Select prompt note (optional)", selectItems, calculateMenuSize(len(selectItems)))
 	if err != nil {
 		return "", nil, err
 	}
-	if idx == 0 {
+	if choice == "__none__" {
 		return "", nil, nil
 	}
 
-	selected := prompts[idx-1]
+	// Find selected prompt by title
+	var selected PromptNoteInfo
+	for _, p := range prompts {
+		if p.Title == choice {
+			selected = p
+			break
+		}
+	}
 	content, err := loadPromptNoteContent(selected.Path)
 	if err != nil {
 		return "", nil, err
@@ -430,21 +416,16 @@ func resolveAITitleAndFilename(topic string, title string, targetDir string, int
 	}
 
 	if interactive {
-		prompt := promptui.Prompt{
-			Label:   "Title",
-			Default: resolvedTitle,
-			Validate: func(input string) error {
-				if strings.TrimSpace(input) == "" {
-					return fmt.Errorf("title cannot be empty")
-				}
-				filename := aiFilenameFromTitle(strings.TrimSpace(input))
-				if aiFileExists(filepath.Join(targetDir, filename)) {
-					return fmt.Errorf("a note with this title already exists")
-				}
-				return nil
-			},
-		}
-		value, err := prompt.Run()
+		value, err := ui.RunInput("Title", "", resolvedTitle, func(input string) error {
+			if strings.TrimSpace(input) == "" {
+				return fmt.Errorf("title cannot be empty")
+			}
+			filename := aiFilenameFromTitle(strings.TrimSpace(input))
+			if aiFileExists(filepath.Join(targetDir, filename)) {
+				return fmt.Errorf("a note with this title already exists")
+			}
+			return nil
+		})
 		if err != nil {
 			return "", "", err
 		}
@@ -593,7 +574,6 @@ func resolveAIModelForRequest(ctx context.Context, client *ai.Client, cfg *ai.Co
 	// Interactive model selection for all providers (when not in JSON mode)
 	if !JSONOutput && len(models) > 1 {
 		items := make([]string, len(models))
-		defaultIdx := 0
 		configuredModel := strings.TrimSpace(cfg.Model)
 		for i, m := range models {
 			desc := m.Name
@@ -605,21 +585,19 @@ func resolveAIModelForRequest(ctx context.Context, client *ai.Client, cfg *ai.Co
 			}
 			items[i] = desc
 			if strings.EqualFold(m.ID, configuredModel) || strings.EqualFold(m.Name, configuredModel) {
-				defaultIdx = i
+				_ = i // future: use as default index
 			}
 		}
 
-		sel := promptui.Select{
-			Label:     "Select model",
-			Items:     items,
-			CursorPos: defaultIdx,
-			Size:      10,
+		selectItems := make([]ui.SelectItem, len(items))
+		for i, item := range items {
+			selectItems[i] = ui.SelectItem{Label: item, Value: models[i].ID}
 		}
-		idx, _, err := sel.Run()
+		_, choice, err := ui.RunSelect("Select model", selectItems, 10)
 		if err != nil {
 			return "", err
 		}
-		return models[idx].ID, nil
+		return choice, nil
 	}
 
 	return "", nil
@@ -774,14 +752,8 @@ func EnsureAISetup(jsonOutput bool) error {
 
 		fmt.Println("⚠️  AI provider and model are not fully configured yet.")
 
-		prompt := promptui.Prompt{
-			Label:     "Would you like to run the setup now?",
-			IsConfirm: true,
-			Default:   "Y",
-		}
-
-		_, err := prompt.Run()
-		if err != nil {
+		yes, err := ui.RunConfirm("Would you like to run the setup now?", true)
+		if err != nil || !yes {
 			return fmt.Errorf("AI configuration is required to use this command")
 		}
 

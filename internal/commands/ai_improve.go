@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/ai"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -101,11 +101,7 @@ func runAIImprove(opts AIImproveOptions) error {
 
 	// Get instruction interactively if not provided
 	if instruction == "" {
-		prompt := promptui.Prompt{
-			Label:   "How should the note be improved?",
-			Default: "improve clarity and structure",
-		}
-		instruction, err = prompt.Run()
+		instruction, err = ui.RunInput("How should the note be improved?", "", "improve clarity and structure", nil)
 		if err != nil {
 			return err
 		}

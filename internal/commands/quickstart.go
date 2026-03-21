@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/lang"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -85,20 +85,30 @@ func simplePrompt(label string, defaultVal string) (string, error) {
 	return input, nil
 }
 
-// selectPrompt wraps promptui.Select with fallback for problematic terminals
+// selectPrompt wraps ui.RunSelect with fallback for problematic terminals
 func selectPrompt(label string, items []string) (int, string, error) {
 	if isProblematicTerminal() {
 		return simpleSelect(label, items)
 	}
 
-	prompt := promptui.Select{
-		Label: label,
-		Items: items,
+	selectItems := make([]ui.SelectItem, len(items))
+	for i, item := range items {
+		selectItems[i] = ui.SelectItem{Label: item, Value: item}
 	}
-	return prompt.Run()
+	_, choice, err := ui.RunSelect(label, selectItems, 0)
+	if err != nil {
+		return 0, "", err
+	}
+	// Find the index of the chosen item
+	for i, item := range items {
+		if item == choice {
+			return i, choice, nil
+		}
+	}
+	return 0, choice, nil
 }
 
-// textPrompt wraps promptui.Prompt with fallback for problematic terminals
+// textPrompt wraps ui.RunInput with fallback for problematic terminals
 func textPrompt(label string, defaultVal string, validate func(string) error) (string, error) {
 	if isProblematicTerminal() {
 		for {
@@ -116,12 +126,7 @@ func textPrompt(label string, defaultVal string, validate func(string) error) (s
 		}
 	}
 
-	prompt := promptui.Prompt{
-		Label:    label,
-		Default:  defaultVal,
-		Validate: validate,
-	}
-	return prompt.Run()
+	return ui.RunInput(label, "", defaultVal, validate)
 }
 
 func NewQuickstartCommand() *cobra.Command {

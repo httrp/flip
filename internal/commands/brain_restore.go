@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/httrp/flip/internal/health"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -145,42 +145,34 @@ func interactiveRestore(restorer *health.Restorer, orphanedFiles []*health.Orpha
 
 	// Selection loop
 	for len(orphanedFiles) > 0 {
-		items := make([]string, len(orphanedFiles))
+		selectItems := make([]ui.SelectItem, len(orphanedFiles))
 		for i, f := range orphanedFiles {
 			journalInfo := ""
 			if f.JournalMatch != "" {
 				journalInfo = fmt.Sprintf(" → %s", f.JournalMatch)
 			}
-			items[i] = fmt.Sprintf("%s/%s%s", f.Category, f.Filename, journalInfo)
+			selectItems[i] = ui.SelectItem{
+				Label: fmt.Sprintf("%s/%s%s", f.Category, f.Filename, journalInfo),
+				Value: fmt.Sprintf("%d", i),
+			}
 		}
-		items = append(items, "✅ Done", "❌ Cancel")
+		selectItems = append(selectItems,
+			ui.SelectItem{Label: "✅ Done", Value: "done"},
+			ui.SelectItem{Label: "❌ Cancel", Value: "cancel"},
+		)
 
-		templates := &promptui.SelectTemplates{
-			Label:    "{{ . }}",
-			Active:   "▸ {{ . | cyan }}",
-			Inactive: "  {{ . }}",
-			Selected: "📌 {{ . | green }}",
-		}
-
-		prompt := promptui.Select{
-			Label:     "Choose a file to restore (or Done/Cancel)",
-			Items:     items,
-			Templates: templates,
-			Size:      15,
-		}
-
-		idx, _, err := prompt.Run()
+		idx, _, err := ui.RunSelect("Choose a file to restore (or Done/Cancel)", selectItems, 15)
 		if err != nil {
 			return fmt.Errorf("selection cancelled: %w", err)
 		}
 
 		// Handle special items
-		if idx == len(items)-2 { // "Done"
+		if idx == len(selectItems)-2 { // "Done"
 			fmt.Println()
 			fmt.Println("✅ All selected files have been restored!")
 			break
 		}
-		if idx == len(items)-1 { // "Cancel"
+		if idx == len(selectItems)-1 { // "Cancel"
 			fmt.Println("❌ Cancelled")
 			return nil
 		}
@@ -191,20 +183,12 @@ func interactiveRestore(restorer *health.Restorer, orphanedFiles []*health.Orpha
 		// Ask if want to link to journal
 		linkToJournal := false
 		if selectedFile.JournalMatch != "" {
-			templates := &promptui.SelectTemplates{
-				Label:    "{{ . }}",
-				Active:   "▸ {{ . | cyan }}",
-				Inactive: "  {{ . }}",
-				Selected: "📌 {{ . | green }}",
+			linkItems := []ui.SelectItem{
+				{Label: "Yes, link to " + selectedFile.JournalMatch, Value: "yes"},
+				{Label: "No, just restore", Value: "no"},
 			}
 
-			linkPrompt := promptui.Select{
-				Label:     "Link to corresponding journal entry?",
-				Items:     []string{"Yes, link to " + selectedFile.JournalMatch, "No, just restore"},
-				Templates: templates,
-			}
-
-			linkIdx, _, err := linkPrompt.Run()
+			linkIdx, _, err := ui.RunSelect("Link to corresponding journal entry?", linkItems, 0)
 			if err == nil {
 				linkToJournal = linkIdx == 0
 			}

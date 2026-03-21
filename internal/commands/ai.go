@@ -17,15 +17,15 @@ package commands
 //   ai_helpers.go   - shared types and utilities
 
 import (
-"github.com/spf13/cobra"
+	"github.com/spf13/cobra"
 )
 
 // NewAICommand creates the AI command group
 func NewAICommand() *cobra.Command {
-cmd := &cobra.Command{
-Use:   "ai",
-Short: "AI-powered features",
-Long: `AI-powered features for note-taking and knowledge management.
+	cmd := &cobra.Command{
+		Use:   "ai",
+		Short: "AI-powered features",
+		Long: `AI-powered features for note-taking and knowledge management.
 
 flip uses AI to help you:
   - Summarize your notes about a topic
@@ -39,15 +39,15 @@ Configuration:
   ANTHROPIC_API_KEY=sk-ant-... (for Anthropic)
   GROQ_API_KEY=gsk_... (for Groq - fast & free)
   MISTRAL_API_KEY=... (for Mistral)`,
-}
+	}
 
-cmd.AddCommand(newAISummarizeCommand())
-cmd.AddCommand(newAIResearchCommand())
-cmd.AddCommand(newAIImproveCommand())
-cmd.AddCommand(newAIStatusCommand())
-cmd.AddCommand(newAIModelsCommand())
-cmd.AddCommand(newAISetupCommand())
-cmd.AddCommand(newAIRenewKeyCommand())
+	cmd.AddCommand(newAISummarizeCommand())
+	cmd.AddCommand(newAIResearchCommand())
+	cmd.AddCommand(newAIImproveCommand())
+	cmd.AddCommand(newAIStatusCommand())
+	cmd.AddCommand(newAIModelsCommand())
+	cmd.AddCommand(newAISetupCommand())
+	cmd.AddCommand(newAIRenewKeyCommand())
 
-return cmd
+	return cmd
 }

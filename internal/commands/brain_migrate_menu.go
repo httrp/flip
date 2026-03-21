@@ -8,7 +8,7 @@ import (
 
 	"github.com/httrp/flip/internal/health"
 	"github.com/httrp/flip/internal/migration"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 )
 
 // listFoldersInBrain lists all directories in a brain (non-recursive, level 1 only)
@@ -49,19 +49,13 @@ func runBrainMigrationMenu() error {
 	fmt.Println()
 
 	// First ask: workspace brains or external paths?
-	scopeSelect := promptui.Select{
-		Label: "Migration scope",
-		Items: []string{
-			"Between workspace brains (recommended)",
-			"Custom paths (external brains)",
-		},
-		Templates: createSimpleSelectTemplates(),
-		Size:      2,
-		HideHelp:  true,
+	scopeItems := []ui.SelectItem{
+		{Label: "Between workspace brains (recommended)", Value: "workspace"},
+		{Label: "Custom paths (external brains)", Value: "custom"},
 	}
-	scopeIdx, _, err := scopeSelect.Run()
+	scopeIdx, _, err := ui.RunSelect("Migration scope", scopeItems, 0)
 	if err != nil {
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	var sourceAbs, targetAbs string
@@ -78,44 +72,36 @@ func runBrainMigrationMenu() error {
 
 		if scopeIdx == 0 {
 			// Select source brain from workspace
-			brainNames := make([]string, len(workspace.Brains))
+			brainItems := make([]ui.SelectItem, len(workspace.Brains))
 			for i, b := range workspace.Brains {
-				brainNames[i] = fmt.Sprintf("%s (%s)", b.Name, b.Path)
+				brainItems[i] = ui.SelectItem{
+					Label: fmt.Sprintf("%s (%s)", b.Name, b.Path),
+					Value: b.Name,
+				}
 			}
 
-			sourceSelect := promptui.Select{
-				Label:     "Source brain",
-				Items:     brainNames,
-				Templates: createSimpleSelectTemplates(),
-				Size:      calculateMenuSize(len(brainNames)),
-				HideHelp:  true,
-			}
-			sourceIdx, _, err := sourceSelect.Run()
+			sourceIdx, _, err := ui.RunSelect("Source brain", brainItems, 0)
 			if err != nil {
-				return runManageResourcesMenu()
+				return nil
 			}
 			sourceAbs = workspace.Brains[sourceIdx].Path
 
 			// Select target brain from workspace (excluding source)
-			targetBrainNames := make([]string, 0, len(workspace.Brains)-1)
+			targetItems := make([]ui.SelectItem, 0, len(workspace.Brains)-1)
 			targetBrainIndices := make([]int, 0, len(workspace.Brains)-1)
 			for i, b := range workspace.Brains {
 				if i != sourceIdx {
-					targetBrainNames = append(targetBrainNames, fmt.Sprintf("%s (%s)", b.Name, b.Path))
+					targetItems = append(targetItems, ui.SelectItem{
+						Label: fmt.Sprintf("%s (%s)", b.Name, b.Path),
+						Value: b.Name,
+					})
 					targetBrainIndices = append(targetBrainIndices, i)
 				}
 			}
 
-			targetSelect := promptui.Select{
-				Label:     "Target brain",
-				Items:     targetBrainNames,
-				Templates: createSimpleSelectTemplates(),
-				Size:      calculateMenuSize(len(targetBrainNames)),
-				HideHelp:  true,
-			}
-			targetIdx, _, err := targetSelect.Run()
+			targetIdx, _, err := ui.RunSelect("Target brain", targetItems, 0)
 			if err != nil {
-				return runManageResourcesMenu()
+				return nil
 			}
 			targetAbs = workspace.Brains[targetBrainIndices[targetIdx]].Path
 		}
@@ -143,20 +129,16 @@ func runBrainMigrationMenu() error {
 		fmt.Println()
 
 		// Ask for source path
-		promptSource := promptui.Prompt{
-			Label:   "Source brain path",
-			Default: "",
-		}
-		sourcePath, err := promptSource.Run()
+		sourcePath, err := ui.RunInput("Source brain path", "", "", nil)
 		if err != nil {
-			return runManageResourcesMenu()
+			return nil
 		}
 		sourcePath = strings.TrimSpace(sourcePath)
 		if sourcePath == "" {
 			fmt.Println("\n❌ Source path required")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 
 		// Resolve and check
@@ -165,7 +147,7 @@ func runBrainMigrationMenu() error {
 			fmt.Printf("\n❌ Source brain not found: %s\n", sourceAbs)
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 
 		// Show all known brains as suggestions for target
@@ -183,40 +165,30 @@ func runBrainMigrationMenu() error {
 		}
 
 		// Ask for target path
-		promptTarget := promptui.Prompt{
-			Label:   "Target brain path",
-			Default: "",
-		}
-		targetPath, err := promptTarget.Run()
+		targetPath, err := ui.RunInput("Target brain path", "", "", nil)
 		if err != nil {
-			return runManageResourcesMenu()
+			return nil
 		}
 		targetPath = strings.TrimSpace(targetPath)
 		if targetPath == "" {
 			fmt.Println("\n❌ Target path required")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 
 		targetAbs, _ = filepath.Abs(targetPath)
 	}
 
 	// Migration mode
-	modeSelect := promptui.Select{
-		Label: "Migration mode",
-		Items: []string{
-			"Full brain - Migrate everything",
-			"Partial - Select specific folders",
-			"Single note - Migrate one note only",
-		},
-		Templates: createSimpleSelectTemplates(),
-		Size:      3,
-		HideHelp:  true,
+	modeItems := []ui.SelectItem{
+		{Label: "Full brain - Migrate everything", Value: "full"},
+		{Label: "Partial - Select specific folders", Value: "partial"},
+		{Label: "Single note - Migrate one note only", Value: "single"},
 	}
-	modeIdx, _, err := modeSelect.Run()
+	modeIdx, _, err := ui.RunSelect("Migration mode", modeItems, 0)
 	if err != nil {
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	var mode migration.MigrationMode
@@ -234,7 +206,7 @@ func runBrainMigrationMenu() error {
 			fmt.Println("\n⚠️  No folders found in source brain")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 
 		fmt.Println("\n📁 Available folders in source brain:")
@@ -273,22 +245,19 @@ func runBrainMigrationMenu() error {
 			fmt.Println("\n❌ No folders specified")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 		
 		fmt.Printf("\n✓ Selected folders: %s\n", strings.Join(folders, ", "))
 	case 2:
 		mode = migration.ModeSingle
 		// Ask for note
-		promptNote := promptui.Prompt{
-			Label: "Note name or path",
-		}
-		note, err = promptNote.Run()
+		note, err = ui.RunInput("Note name or path", "", "", nil)
 		if err != nil || note == "" {
 			fmt.Println("\n❌ Note required for single mode")
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
-			return runManageResourcesMenu()
+			return nil
 		}
 	}
 
@@ -309,7 +278,7 @@ func runBrainMigrationMenu() error {
 		fmt.Printf("\n❌ Failed to build plan: %v\n", err)
 		fmt.Println("Press Enter to continue...")
 		fmt.Scanln()
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	// Show plan summary
@@ -346,7 +315,7 @@ func runBrainMigrationMenu() error {
 		fmt.Println("\n❌ Cannot proceed with conflicts. Resolve manually and try again.")
 		fmt.Println("Press Enter to continue...")
 		fmt.Scanln()
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	if len(plan.Warnings) > 0 {
@@ -358,23 +327,17 @@ func runBrainMigrationMenu() error {
 
 	// Ask to execute
 	fmt.Println()
-	executeSelect := promptui.Select{
-		Label: "Execute migration now?",
-		Items: []string{
-			"Yes - Execute migration",
-			"No - Save plan and exit",
-			"Cancel",
-		},
-		Templates: createSimpleSelectTemplates(),
-		Size:      3,
-		HideHelp:  true,
+	execItems := []ui.SelectItem{
+		{Label: "Yes - Execute migration", Value: "yes"},
+		{Label: "No - Save plan and exit", Value: "save"},
+		{Label: "Cancel", Value: "cancel"},
 	}
-	execIdx, _, err := executeSelect.Run()
+	execIdx, _, err := ui.RunSelect("Execute migration now?", execItems, 0)
 	if err != nil || execIdx == 2 {
 		fmt.Println("\n❌ Cancelled")
 		fmt.Println("Press Enter to continue...")
 		fmt.Scanln()
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	if execIdx == 1 {
@@ -389,7 +352,7 @@ func runBrainMigrationMenu() error {
 		}
 		fmt.Println("\nPress Enter to continue...")
 		fmt.Scanln()
-		return runManageResourcesMenu()
+		return nil
 	}
 
 	// Execute migration
@@ -438,5 +401,5 @@ func runBrainMigrationMenu() error {
 
 	fmt.Println("\nPress Enter to continue...")
 	fmt.Scanln()
-	return runManageResourcesMenu()
+	return nil
 }

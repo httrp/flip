@@ -39,26 +39,26 @@ type SchemaField struct {
 // SchemaSection represents a required section in the note structure
 type SchemaSection struct {
 	Name        string `yaml:"name"`
-	Heading     string `yaml:"heading"`     // e.g., "## Summary"
+	Heading     string `yaml:"heading"` // e.g., "## Summary"
 	Required    bool   `yaml:"required,omitempty"`
 	Description string `yaml:"description,omitempty"`
 }
 
 // SchemaMigration defines a migration from one version to another
 type SchemaMigration struct {
-	FromVersion  string            `yaml:"from_version"`
-	ToVersion    string            `yaml:"to_version"`
-	Description  string            `yaml:"description"`
-	FieldChanges []FieldChange     `yaml:"field_changes,omitempty"`
-	Automatic    bool              `yaml:"automatic"` // Can be auto-applied
+	FromVersion  string        `yaml:"from_version"`
+	ToVersion    string        `yaml:"to_version"`
+	Description  string        `yaml:"description"`
+	FieldChanges []FieldChange `yaml:"field_changes,omitempty"`
+	Automatic    bool          `yaml:"automatic"` // Can be auto-applied
 }
 
 // FieldChange represents a change to a field during migration
 type FieldChange struct {
-	Action   string `yaml:"action"`    // rename, remove, add, transform
-	OldName  string `yaml:"old_name,omitempty"`
-	NewName  string `yaml:"new_name,omitempty"`
-	Default  string `yaml:"default,omitempty"`
+	Action    string `yaml:"action"` // rename, remove, add, transform
+	OldName   string `yaml:"old_name,omitempty"`
+	NewName   string `yaml:"new_name,omitempty"`
+	Default   string `yaml:"default,omitempty"`
 	Transform string `yaml:"transform,omitempty"` // For complex transforms
 }
 
@@ -86,7 +86,7 @@ func NewSchemaManager(brainPath string) *SchemaManager {
 // LoadSchemas loads all schema definitions from the brain
 func (sm *SchemaManager) LoadSchemas() error {
 	schemasDir := filepath.Join(sm.brainPath, "definitions", "schemas")
-	
+
 	// Check if schemas directory exists
 	if _, err := os.Stat(schemasDir); os.IsNotExist(err) {
 		// No schemas defined - that's okay
@@ -143,7 +143,7 @@ func (sm *SchemaManager) computeChecksum(schema *Schema) string {
 	for _, s := range schema.Sections {
 		parts = append(parts, fmt.Sprintf("section:%s:%s:%v", s.Name, s.Heading, s.Required))
 	}
-	
+
 	hash := sha256.Sum256([]byte(strings.Join(parts, "|")))
 	return hex.EncodeToString(hash[:8]) // Short hash
 }
@@ -191,7 +191,7 @@ func (sm *SchemaManager) ValidateNote(notePath string) (*ValidationResult, error
 	schema, ok := sm.schemas[schemaVersion.SchemaName]
 	if !ok {
 		result.Valid = false
-		result.Errors = append(result.Errors, 
+		result.Errors = append(result.Errors,
 			fmt.Sprintf("Unknown schema: %s", schemaVersion.SchemaName))
 		return result, nil
 	}
@@ -459,7 +459,7 @@ func addField(content, name, value string) string {
 			return "---\n" + newFm + content[4+end:]
 		}
 	}
-	
+
 	// Otherwise add as property bullet at top
 	return name + ":: " + value + "\n" + content
 }
@@ -542,7 +542,7 @@ func CreateDefaultSchema(templatePath, name string) (*Schema, error) {
 
 func inferFieldType(value string) string {
 	value = strings.ToLower(value)
-	
+
 	if strings.Contains(value, "{{date}}") || strings.Contains(value, "date") {
 		return "date"
 	}
@@ -552,6 +552,6 @@ func inferFieldType(value string) string {
 	if strings.Contains(value, "true") || strings.Contains(value, "false") {
 		return "boolean"
 	}
-	
+
 	return "string"
 }

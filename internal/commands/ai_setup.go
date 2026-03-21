@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/httrp/flip/internal/ai"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -374,22 +374,18 @@ func runAIRenewKey(targetProvider string) error {
 
 	if targetProvider == "" {
 		// Interactive selection
-		var items []string
-		for _, p := range cloudProviders {
+		selectItems := make([]ui.SelectItem, len(cloudProviders))
+		for i, p := range cloudProviders {
 			label := p.name
 			if p.hasKey {
 				label += fmt.Sprintf(" (current: %s)", p.masked)
 			} else {
 				label += " (not configured)"
 			}
-			items = append(items, label)
+			selectItems[i] = ui.SelectItem{Label: label, Value: p.name}
 		}
 
-		sel := promptui.Select{
-			Label: "Select provider to update API key",
-			Items: items,
-		}
-		idx, _, err := sel.Run()
+		idx, _, err := ui.RunSelect("Select provider to update API key", selectItems, 0)
 		if err != nil {
 			return err
 		}
@@ -409,17 +405,12 @@ func runAIRenewKey(targetProvider string) error {
 		}
 	}
 
-	prompt := promptui.Prompt{
-		Label: "New API key",
-		Mask:  '*',
-		Validate: func(input string) error {
-			if strings.TrimSpace(input) == "" {
-				return fmt.Errorf("key cannot be empty")
-			}
-			return nil
-		},
-	}
-	newKey, err := prompt.Run()
+	newKey, err := ui.RunInput("New API key", "", "", func(input string) error {
+		if strings.TrimSpace(input) == "" {
+			return fmt.Errorf("key cannot be empty")
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -441,12 +432,8 @@ func runAIRenewKey(targetProvider string) error {
 		fmt.Printf("   ❌ %s\n", keyStatus.Message)
 		fmt.Println()
 
-		confirmPrompt := promptui.Prompt{
-			Label:     "Save this key anyway",
-			IsConfirm: true,
-		}
-		_, err := confirmPrompt.Run()
-		if err != nil {
+		confirmed, err := ui.RunConfirm("Save this key anyway?", false)
+		if err != nil || !confirmed {
 			fmt.Println("   Key not saved.")
 			return nil
 		}

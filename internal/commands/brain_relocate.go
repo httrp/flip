@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/httrp/flip/internal/health"
-	"github.com/manifoldco/promptui"
+	"github.com/httrp/flip/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -64,52 +64,40 @@ func runBrainRelocate(args []string, dryRun bool, force bool) error {
 	} else if len(args) == 1 {
 		sourcePath = args[0]
 		// Ask for destination interactively
-		destPrompt := promptui.Prompt{
-			Label: "New destination path",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("destination cannot be empty")
-				}
-				return nil
-			},
-		}
-		dest, err := destPrompt.Run()
+		dest, err := ui.RunInput("New destination path", "", "", func(input string) error {
+			if input == "" {
+				return fmt.Errorf("destination cannot be empty")
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("destination input cancelled")
 		}
 		destPath = dest
 	} else {
 		// Ask for both interactively
-		srcPrompt := promptui.Prompt{
-			Label: "Source brain path",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("source cannot be empty")
-				}
-				// Expand ~ to home
-				expanded := expandPath(input)
-				if _, err := os.Stat(expanded); err != nil {
-					return fmt.Errorf("source path not found")
-				}
-				return nil
-			},
-		}
-		src, err := srcPrompt.Run()
+		src, err := ui.RunInput("Source brain path", "", "", func(input string) error {
+			if input == "" {
+				return fmt.Errorf("source cannot be empty")
+			}
+			// Expand ~ to home
+			expanded := expandPath(input)
+			if _, err := os.Stat(expanded); err != nil {
+				return fmt.Errorf("source path not found")
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("source input cancelled")
 		}
 		sourcePath = expandPath(src)
 
-		destPrompt := promptui.Prompt{
-			Label: "New destination path",
-			Validate: func(input string) error {
-				if input == "" {
-					return fmt.Errorf("destination cannot be empty")
-				}
-				return nil
-			},
-		}
-		dest, err := destPrompt.Run()
+		dest, err := ui.RunInput("New destination path", "", "", func(input string) error {
+			if input == "" {
+				return fmt.Errorf("destination cannot be empty")
+			}
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("destination input cancelled")
 		}
@@ -181,12 +169,8 @@ func PerformRelocation(sourcePath string, destPath string, dryRun bool, force bo
 
 	// Ask for confirmation if not forced
 	if !force {
-		prompt := promptui.Prompt{
-			Label:     "Proceed with relocation",
-			IsConfirm: true,
-		}
-		_, err := prompt.Run()
-		if err != nil {
+		confirmed, err := ui.RunConfirm("Proceed with relocation?", true)
+		if err != nil || !confirmed {
 			result.Error = "relocation cancelled by user"
 			return result
 		}
