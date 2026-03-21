@@ -88,19 +88,19 @@ func buildMenuConfig() ui.MenuConfig {
 
 func buildMainMenuDef() ui.MenuDef {
 	items := []ui.MenuItem{
-		menuNav("✨ "+lang.GetText("menu.main.create_label"),
+		menuNav(lang.GetText("menu.main.create_label"),
 			lang.GetText("menu.main.create_desc"),
 			lang.GetText("menu.main.create_cmd"), "create"),
-		menuNav("🔍 "+lang.GetText("menu.main.browse_label"),
+		menuNav(lang.GetText("menu.main.browse_label"),
 			lang.GetText("menu.main.browse_desc"),
 			lang.GetText("menu.main.browse_cmd"), "browse"),
-		menuNav("⚙️  "+lang.GetText("menu.main.manage_label"),
+		menuNav(lang.GetText("menu.main.manage_label"),
 			lang.GetText("menu.main.manage_desc"),
 			lang.GetText("menu.main.manage_cmd"), "manage"),
-		menuNav("📊 "+lang.GetText("menu.main.status_label"),
+		menuNav(lang.GetText("menu.main.status_label"),
 			lang.GetText("menu.main.status_desc"),
 			lang.GetText("menu.main.status_cmd"), "status"),
-		menuNav("❓ "+lang.GetText("menu.main.help_label"),
+		menuNav(lang.GetText("menu.main.help_label"),
 			lang.GetText("menu.main.help_desc"),
 			lang.GetText("menu.main.help_cmd"), "help"),
 		menuExec("ℹ️  About", "About flip, version info, and credits", "flip about", "about"),
@@ -114,14 +114,14 @@ func buildCreateMenuDef() ui.MenuDef {
 
 	if IsEnabled(FeatureMeetings) {
 		items = append(items,
-			menuExec("📝 "+lang.GetText("menu.create.note_label"),
+			menuExec(lang.GetText("menu.create.note_label"),
 				lang.GetText("menu.create.note_desc"),
 				lang.GetText("menu.create.note_cmd"), "note"),
 			menuExec("⚡ Quick Note", "Quick note with minimal prompts", "flip quicknote", "quicknote"),
-			menuExec("📅 "+lang.GetText("menu.create.meeting_label"),
+			menuExec(lang.GetText("menu.create.meeting_label"),
 				lang.GetText("menu.create.meeting_desc"),
 				lang.GetText("menu.create.meeting_cmd"), "meeting"),
-			menuExec("📓 "+lang.GetText("menu.create.journal_label"),
+			menuExec(lang.GetText("menu.create.journal_label"),
 				lang.GetText("menu.create.journal_desc"),
 				lang.GetText("menu.create.journal_cmd"), "journal"),
 		)
@@ -129,7 +129,7 @@ func buildCreateMenuDef() ui.MenuDef {
 
 	if IsEnabled(FeatureTasks) {
 		items = append(items,
-			menuExec("✅ "+lang.GetText("menu.create.task_label"),
+			menuExec(lang.GetText("menu.create.task_label"),
 				lang.GetText("menu.create.task_desc"),
 				lang.GetText("menu.create.task_cmd"), "task"),
 		)
@@ -144,26 +144,26 @@ func buildCreateMenuDef() ui.MenuDef {
 
 	if IsEnabled(FeatureDefinitions) {
 		items = append(items,
-			menuExec("🏢 "+lang.GetText("menu.create.organization_label"),
+			menuExec(lang.GetText("menu.create.organization_label"),
 				lang.GetText("menu.create.organization_desc"),
 				lang.GetText("menu.create.organization_cmd"), "def-org"),
-			menuExec("📂 "+lang.GetText("menu.create.project_label"),
+			menuExec(lang.GetText("menu.create.project_label"),
 				lang.GetText("menu.create.project_desc"),
 				lang.GetText("menu.create.project_cmd"), "def-project"),
-			menuExec("🔖 "+lang.GetText("menu.create.context_label"),
+			menuExec(lang.GetText("menu.create.context_label"),
 				lang.GetText("menu.create.context_desc"),
 				lang.GetText("menu.create.context_cmd"), "def-context"),
-			menuExec("👤 "+lang.GetText("menu.create.person_label"),
+			menuExec(lang.GetText("menu.create.person_label"),
 				lang.GetText("menu.create.person_desc"),
 				lang.GetText("menu.create.person_cmd"), "def-person"),
 		)
 	}
 
 	items = append(items,
-		menuExec("🧠 "+lang.GetText("menu.create.brain_label"),
+		menuExec(lang.GetText("menu.create.brain_label"),
 			lang.GetText("menu.create.brain_desc"),
 			lang.GetText("menu.create.brain_cmd"), "new-brain"),
-		menuExec("📁 "+lang.GetText("menu.create.workspace_label"),
+		menuExec(lang.GetText("menu.create.workspace_label"),
 			lang.GetText("menu.create.workspace_desc"),
 			lang.GetText("menu.create.workspace_cmd"), "new-workspace"),
 		menuBack(),
@@ -176,17 +176,17 @@ func buildBrowseMenuDef() ui.MenuDef {
 	var items []ui.MenuItem
 
 	items = append(items,
-		menuExec("📄 "+lang.GetText("menu.browse.recent_label"),
+		menuExec(lang.GetText("menu.browse.recent_label"),
 			lang.GetText("menu.browse.recent_desc"),
 			lang.GetText("menu.browse.recent_cmd"), "recent"),
-		menuExec("🔍 "+lang.GetText("menu.browse.search_label"),
+		menuExec(lang.GetText("menu.browse.search_label"),
 			lang.GetText("menu.browse.search_desc"),
 			lang.GetText("menu.browse.search_cmd"), "search"),
 	)
 
 	if IsEnabled(FeatureTasks) {
 		items = append(items,
-			menuExec("✅ "+lang.GetText("menu.browse.task_browser_label"),
+			menuExec(lang.GetText("menu.browse.task_browser_label"),
 				lang.GetText("menu.browse.task_browser_desc"),
 				lang.GetText("menu.browse.task_browser_cmd"), "task-browse"),
 			menuExec("🐸 Eat the Frog", "Important tasks to tackle first", "flip task frog", "task-frog"),
@@ -207,36 +207,36 @@ func buildManageMenuDef() ui.MenuDef {
 	var items []ui.MenuItem
 
 	items = append(items,
-		menuExec("📁 "+lang.GetText("menu.manage.workspaces_label"),
+		menuExec(lang.GetText("menu.manage.workspaces_label"),
 			lang.GetText("menu.manage.workspaces_desc"),
 			lang.GetText("menu.manage.workspaces_cmd"), "manage-workspaces"),
-		menuExec("🧠 "+lang.GetText("menu.manage.brains_label"),
+		menuExec(lang.GetText("menu.manage.brains_label"),
 			lang.GetText("menu.manage.brains_desc"),
 			lang.GetText("menu.manage.brains_cmd"), "manage-brains"),
-		menuExec("📋 "+lang.GetText("menu.manage.config_label"),
+		menuExec(lang.GetText("menu.manage.config_label"),
 			lang.GetText("menu.manage.config_desc"), "", "view-config"),
 	)
 
 	if IsEnabled(FeatureTemplates) {
 		items = append(items,
-			menuExec("📝 "+lang.GetText("menu.manage.templates_label"),
+			menuExec(lang.GetText("menu.manage.templates_label"),
 				lang.GetText("menu.manage.templates_desc"),
 				lang.GetText("menu.manage.templates_cmd"), "manage-templates"),
 		)
 	}
 
 	items = append(items,
-		menuExec("📊 "+lang.GetText("menu.manage.git_status_label"),
+		menuExec(lang.GetText("menu.manage.git_status_label"),
 			lang.GetText("menu.manage.git_status_desc"), "", "git-status"),
-		menuExec("⬇️  "+lang.GetText("menu.manage.git_pull_label"),
+		menuExec(lang.GetText("menu.manage.git_pull_label"),
 			lang.GetText("menu.manage.git_pull_desc"), "", "git-pull"),
-		menuExec("⬆️  "+lang.GetText("menu.manage.git_commit_label"),
+		menuExec(lang.GetText("menu.manage.git_commit_label"),
 			lang.GetText("menu.manage.git_commit_desc"), "", "git-commit"),
 	)
 
 	if IsEnabled(FeatureMigration) {
 		items = append(items,
-			menuExec("🔀 "+lang.GetText("menu.manage.migrate_label"),
+			menuExec(lang.GetText("menu.manage.migrate_label"),
 				lang.GetText("menu.manage.migrate_desc"),
 				lang.GetText("menu.manage.migrate_cmd"), "migrate"),
 		)
@@ -250,26 +250,26 @@ func buildStatusMenuDef() ui.MenuDef {
 	var items []ui.MenuItem
 
 	items = append(items,
-		menuExec("📊 "+lang.GetText("menu.status.overview_label"),
+		menuExec(lang.GetText("menu.status.overview_label"),
 			lang.GetText("menu.status.overview_desc"),
 			lang.GetText("menu.status.overview_cmd"), "status-overview"),
-		menuExec("📊 "+lang.GetText("menu.status.git_status_label"),
+		menuExec(lang.GetText("menu.status.git_status_label"),
 			lang.GetText("menu.status.git_status_desc"),
 			lang.GetText("menu.status.git_status_cmd"), "git-status-all"),
-		menuExec("📜 "+lang.GetText("menu.status.git_log_label"),
+		menuExec(lang.GetText("menu.status.git_log_label"),
 			lang.GetText("menu.status.git_log_desc"),
 			lang.GetText("menu.status.git_log_cmd"), "git-log"),
-		menuExec("⬆️  "+lang.GetText("menu.status.git_commit_label"),
+		menuExec(lang.GetText("menu.status.git_commit_label"),
 			lang.GetText("menu.status.git_commit_desc"),
 			lang.GetText("menu.status.git_commit_cmd"), "git-commit"),
-		menuExec("⬇️  "+lang.GetText("menu.status.git_pull_label"),
+		menuExec(lang.GetText("menu.status.git_pull_label"),
 			lang.GetText("menu.status.git_pull_desc"),
 			lang.GetText("menu.status.git_pull_cmd"), "git-pull"),
 	)
 
 	if IsEnabled(FeatureVSCode) {
 		items = append(items,
-			menuNav("💻 "+lang.GetText("menu.status.vscode_label"),
+			menuNav(lang.GetText("menu.status.vscode_label"),
 				lang.GetText("menu.status.vscode_desc"),
 				lang.GetText("menu.status.vscode_cmd"), "vscode"),
 		)
@@ -283,17 +283,17 @@ func buildVSCodeMenuDef() ui.MenuDef {
 	items := []ui.MenuItem{
 		menuExec("📦 Install Extension", "Install/update the Flip VS Code extension", "flip vscode install-extension", "vscode-install-ext"),
 		menuExec("📊 Extension Status", "Show extension installation status", "flip vscode extension-status", "vscode-ext-status"),
-		menuExec("📥 "+lang.GetText("menu.vscode.install_label"),
+		menuExec(lang.GetText("menu.vscode.install_label"),
 			lang.GetText("menu.vscode.install_desc"),
 			lang.GetText("menu.vscode.install_cmd"), "vscode-install-tasks"),
-		menuExec("📥 "+lang.GetText("menu.vscode.install_local_label"),
+		menuExec(lang.GetText("menu.vscode.install_local_label"),
 			lang.GetText("menu.vscode.install_local_desc"),
 			lang.GetText("menu.vscode.install_local_cmd"), "vscode-install-tasks-local"),
-		menuExec("📋 "+lang.GetText("menu.vscode.status_label"),
+		menuExec(lang.GetText("menu.vscode.status_label"),
 			lang.GetText("menu.vscode.status_desc"),
 			lang.GetText("menu.vscode.status_cmd"), "vscode-status"),
 		menuExec("🗑️  Uninstall Extension", "Remove the Flip VS Code extension", "flip vscode uninstall-extension", "vscode-uninstall-ext"),
-		menuExec("🗑️  "+lang.GetText("menu.vscode.uninstall_label"),
+		menuExec(lang.GetText("menu.vscode.uninstall_label"),
 			lang.GetText("menu.vscode.uninstall_desc"),
 			lang.GetText("menu.vscode.uninstall_cmd"), "vscode-uninstall-tasks"),
 		menuBack(),
@@ -303,16 +303,16 @@ func buildVSCodeMenuDef() ui.MenuDef {
 
 func buildHelpMenuDef() ui.MenuDef {
 	items := []ui.MenuItem{
-		menuExec("🚀 "+lang.GetText("menu.help.quickstart_label"),
+		menuExec(lang.GetText("menu.help.quickstart_label"),
 			lang.GetText("menu.help.quickstart_desc"),
 			lang.GetText("menu.help.quickstart_cmd"), "help-quickstart"),
-		menuExec("📋 "+lang.GetText("menu.help.commands_label"),
+		menuExec(lang.GetText("menu.help.commands_label"),
 			lang.GetText("menu.help.commands_desc"),
 			lang.GetText("menu.help.commands_cmd"), "help-commands"),
-		menuExec("📖 "+lang.GetText("menu.help.intro_label"),
+		menuExec(lang.GetText("menu.help.intro_label"),
 			lang.GetText("menu.help.intro_desc"),
 			lang.GetText("menu.help.intro_cmd"), "help-intro"),
-		menuExec("⚙️  "+lang.GetText("menu.help.config_label"),
+		menuExec(lang.GetText("menu.help.config_label"),
 			lang.GetText("menu.help.config_desc"),
 			lang.GetText("menu.help.config_cmd"), "help-config"),
 		menuBack(),
@@ -539,20 +539,39 @@ func runAboutMenuV2() error {
 	fmt.Println(banner)
 	fmt.Println()
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("  Personal Knowledge Management Tool")
+	fmt.Printf("  flip %s — Personal Knowledge Management\n", FlipVersion)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
-	fmt.Println("  📝 Standard Markdown - no proprietary formats")
-	fmt.Println("  🧠 Multi-brain support - Obsidian, Logseq, Dendron, Foam")
-	fmt.Println("  📂 Workspace organization - group related brains")
-	fmt.Println("  🔄 Built-in Git integration")
-	fmt.Println("  📊 Task & exercise tracking")
-	fmt.Println("  🔀 Brain migration tools")
-	fmt.Println()
-	fmt.Println("  📖 Docs:   flip help / flip intro / flip quickstart")
-	fmt.Println("  🌐 GitHub: github.com/danorama-dh/flip")
+	fmt.Println("  📝 Standard Markdown — no proprietary formats")
+	fmt.Println("  🧠 Multi-brain — Obsidian, Logseq, Dendron, Foam, …")
+	fmt.Println("  📂 Workspaces — group related brains together")
+	fmt.Println("  🔄 Git integration — sync, commit, pull built in")
+	fmt.Println("  🤖 AI features — summarize, research, improve notes")
+	fmt.Println("  💻 VS Code — extension & task runner integration")
 	fmt.Println()
 
+	// Show active features
+	features := GetFeatureInfo()
+	var enabled, disabled []string
+	for _, f := range features {
+		if f.IsCore {
+			continue
+		}
+		if f.Enabled {
+			enabled = append(enabled, string(f.Name))
+		} else {
+			disabled = append(disabled, string(f.Name))
+		}
+	}
+	if len(enabled) > 0 {
+		fmt.Printf("  ✅ Active modules:   %s\n", strings.Join(enabled, ", "))
+	}
+	if len(disabled) > 0 {
+		fmt.Printf("  ⬚  Disabled modules: %s\n", strings.Join(disabled, ", "))
+	}
+	fmt.Println()
+
+	// Show workspace stats
 	config, err := loadWorkspaceConfig()
 	if err == nil && len(config.Workspaces) > 0 {
 		totalBrains := 0
@@ -560,10 +579,16 @@ func runAboutMenuV2() error {
 			totalBrains += len(ws.Brains)
 		}
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Printf("  Your setup: %d workspace(s), %d brain(s)\n", len(config.Workspaces), totalBrains)
+		fmt.Printf("  📂 %d workspace(s), 🧠 %d brain(s)\n", len(config.Workspaces), totalBrains)
+		if config.ActiveWorkspace != "" {
+			fmt.Printf("  ⭐ Active: %s\n", config.ActiveWorkspace)
+		}
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println()
 	}
+
+	fmt.Println("  📖 flip help · flip intro · flip quickstart")
+	fmt.Println()
 	return nil
 }
 
