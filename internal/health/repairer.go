@@ -438,7 +438,8 @@ func replaceLinkTarget(line, oldTarget, newTarget string) string {
 	return line
 }
 
-// repairOrphanedFile moves an orphaned file to .orphaned folder
+// repairOrphanedFile tries to link an orphaned file to a journal entry first.
+// Only if no date can be determined, it moves the file to .orphaned folder.
 func (r *Repairer) repairOrphanedFile(brainPath string, issue Issue) error {
 	if issue.File == "" {
 		return fmt.Errorf("issue missing file information")
@@ -446,7 +447,20 @@ func (r *Repairer) repairOrphanedFile(brainPath string, issue Issue) error {
 
 	srcPath := filepath.Join(brainPath, issue.File)
 
-	// Create .orphaned directory if needed
+	// Step 1: Try to extract a date from the file (frontmatter or filename)
+	dateFromFile := r.extractDateFromFile(srcPath)
+
+	// Step 2: If we have a date, try to add a journal link instead of moving
+	if dateFromFile != nil {
+		journalPath := r.getJournalPath(*dateFromFile)
+		if err := r.addJournalLinkForOrphan(brainPath, issue.File, journalPath); err == nil {
+			// Success! File is now linked, no need to move it
+			return nil
+		}
+		// If linking failed, fall through to moving the file
+	}
+
+	// Step 3: No date found or linking failed - move to .orphaned
 	orphanedDir := filepath.Join(brainPath, ".orphaned")
 	if err := os.MkdirAll(orphanedDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .orphaned directory: %w", err)
@@ -469,6 +483,172 @@ func (r *Repairer) repairOrphanedFile(brainPath string, issue Issue) error {
 	}
 
 	return nil
+}
+
+// extractDateFromFile tries to extract a date from file frontmatter or filename
+func (r *Repairer) extractDateFromFile(filePath string) *time.Time {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+
+	fileContent := string(content)
+
+	// Try to extract from YAML frontmatter
+	if strings.HasPrefix(fileContent, "---") {
+		endIdx := strings.Index(fileContent[3:], "---")
+		if endIdx > 0 {
+			frontmatter := fileContent[3 : 3+endIdx]
+
+			// Look for date, created, or ai_created_at field
+			for _, line := range strings.Split(frontmatter, "\n") {
+				line = strings.TrimSpace(line)
+				for _, prefix := range []string{"date:", "created:", "ai_created_at:", "created-at:"} {
+					if strings.HasPrefix(strings.ToLower(line), prefix) {
+						dateStr := strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+						dateStr = strings.Trim(dateStr, "\"'")
+						// Try various date formats
+						formats := []string{
+							"2006-01-02",
+							"2006-01-02T15:04:05Z07:00",
+							"2006-01-02T15:04:05+01:00",
+							"2006-01-02 15:04:05",
+						}
+						for _, format := range formats {
+							if t, err := time.Parse(format, dateStr); err == nil {
+								return &t
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Try to extract date from filename (YYYY-MM-DD pattern)
+	filename := filepath.Base(filePath)
+	datePattern := regexp.MustCompile(`(\d{4})-(\d{2})-(\d{2})`)
+	if match := datePattern.FindStringSubmatch(filename); match != nil {
+		dateStr := fmt.Sprintf("%s-%s-%s", match[1], match[2], match[3])
+		if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+			return &t
+		}
+	}
+
+	return nil
+}
+
+// getJournalPath returns the journal file path for a given date
+func (r *Repairer) getJournalPath(date time.Time) string {
+	return filepath.Join("journal", date.Format("2006-01-02")+".md")
+}
+
+// addJournalLinkForOrphan adds a link to the orphaned file in the appropriate journal entry
+func (r *Repairer) addJournalLinkForOrphan(brainPath, relFilePath, journalRelPath string) error {
+	journalFullPath := filepath.Join(brainPath, journalRelPath)
+	journalDir := filepath.Dir(journalFullPath)
+
+	// Create journal directory if needed
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		return fmt.Errorf("failed to create journal directory: %w", err)
+	}
+
+	// Read or create journal file
+	var content []byte
+	if _, err := os.Stat(journalFullPath); err != nil {
+		if os.IsNotExist(err) {
+			// Create new journal file
+			dateStr := strings.TrimSuffix(filepath.Base(journalFullPath), ".md")
+			t, _ := time.Parse("2006-01-02", dateStr)
+			weekday := t.Format("Monday")
+			template := fmt.Sprintf(`---
+date: %s
+day: %s
+type: journal
+---
+
+# %s - %s
+
+## Activities
+
+## Meeting-Notes
+
+## New Tasks
+
+## Exercises
+
+`, dateStr, weekday, dateStr, weekday)
+			content = []byte(template)
+		} else {
+			return err
+		}
+	} else {
+		var readErr error
+		content, readErr = os.ReadFile(journalFullPath)
+		if readErr != nil {
+			return readErr
+		}
+	}
+
+	// Build link text (relative from journal to file)
+	journalDir = filepath.Dir(journalFullPath)
+	fileFullPath := filepath.Join(brainPath, relFilePath)
+	relPath, err := filepath.Rel(journalDir, fileFullPath)
+	if err != nil {
+		relPath = "../" + relFilePath
+	}
+
+	filename := filepath.Base(relFilePath)
+	filenameNoExt := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	// Determine emoji based on file type
+	emoji := "📝"
+	if strings.Contains(relFilePath, "meeting") {
+		emoji = "🤝"
+	} else if strings.Contains(relFilePath, "task") {
+		emoji = "📋"
+	} else if strings.Contains(relFilePath, "exercise") {
+		emoji = "💪"
+	}
+
+	linkText := fmt.Sprintf("%s [%s](%s)", emoji, filenameNoExt, relPath)
+
+	// Check if link already exists
+	if strings.Contains(string(content), relPath) || strings.Contains(string(content), filenameNoExt) {
+		// Already linked
+		return nil
+	}
+
+	// Find the Activities section and insert the link there
+	journalContent := string(content)
+	section := "## Activities"
+	if strings.Contains(relFilePath, "meeting") {
+		section = "## Meeting-Notes"
+	} else if strings.Contains(relFilePath, "task") {
+		section = "## New Tasks"
+	} else if strings.Contains(relFilePath, "exercise") {
+		section = "## Exercises"
+	}
+
+	if idx := strings.Index(journalContent, section); idx != -1 {
+		insertPos := idx + len(section)
+		// Skip to end of line
+		for insertPos < len(journalContent) && journalContent[insertPos] != '\n' {
+			insertPos++
+		}
+		if insertPos < len(journalContent) && journalContent[insertPos] == '\n' {
+			insertPos++
+		}
+		newContent := journalContent[:insertPos] + linkText + "\n" + journalContent[insertPos:]
+		return os.WriteFile(journalFullPath, []byte(newContent), 0644)
+	}
+
+	// Fallback: append to end
+	if !strings.HasSuffix(journalContent, "\n") {
+		journalContent += "\n"
+	}
+	journalContent += linkText + "\n"
+	return os.WriteFile(journalFullPath, []byte(journalContent), 0644)
 }
 
 // repairFormatIssue normalizes file formatting

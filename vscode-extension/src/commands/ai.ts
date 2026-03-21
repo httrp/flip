@@ -943,7 +943,7 @@ export async function aiResearchCommand(): Promise<void> {
   if (isCopilotModel(model)) {
     const copilotModelId = extractCopilotModelId(model);
     try {
-      await runCopilotFlow('research', args, copilotModelId);
+      await runCopilotFlow('research', args, copilotModelId, linkMode);
     } catch (err: any) {
       vscode.window.showErrorMessage(`Copilot research failed: ${err.message || err}`);
     }
@@ -1065,7 +1065,7 @@ export async function aiSummarizeCommand(): Promise<void> {
   if (isCopilotModel(model)) {
     const copilotModelId = extractCopilotModelId(model);
     try {
-      await runCopilotFlow('summarize', args, copilotModelId);
+      await runCopilotFlow('summarize', args, copilotModelId, linkMode);
     } catch (err: any) {
       vscode.window.showErrorMessage(`Copilot summarize failed: ${err.message || err}`);
     }
@@ -1392,12 +1392,14 @@ interface PrepareOnlyResult {
  * 1. Call CLI with --prepare-only to get prompts
  * 2. Send to Copilot via vscode.lm
  * 3. Write the result file
- * 4. Open in editor
+ * 4. Add journal link (if requested)
+ * 5. Open in editor
  */
 async function runCopilotFlow(
   action: 'research' | 'summarize',
   cliArgs: string[],
   copilotModelId: string,
+  linkMode: 'link' | 'no-link',
 ): Promise<void> {
   await vscode.window.withProgress(
     {
@@ -1458,7 +1460,20 @@ async function runCopilotFlow(
       }
       fs.writeFileSync(prepared.output_path, finalContent, 'utf-8');
 
-      // Step 4: Open in editor
+      // Step 4: Add journal link (if requested)
+      if (linkMode === 'link') {
+        const client = getFlipClient();
+        const linkRes = await client.addToJournal({
+          file: prepared.output_path,
+          type: 'note',
+          brain: prepared.brain_name,
+        });
+        if (!linkRes.success) {
+          vscode.window.showWarningMessage(`Journal link failed: ${linkRes.error}`);
+        }
+      }
+
+      // Step 5: Open in editor
       const doc = await vscode.workspace.openTextDocument(prepared.output_path);
       await vscode.window.showTextDocument(doc, { preview: false });
 

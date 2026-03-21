@@ -10,6 +10,7 @@ import (
 
 func newBrainRestoreCommand() *cobra.Command {
 	var autoRestore bool
+	var brainName string
 
 	cmd := &cobra.Command{
 		Use:   "restore",
@@ -24,19 +25,21 @@ The tool will:
 
 Examples:
   flip brain restore              # Interactive selection
-  flip brain restore --auto       # Auto-restore all with journal linking`,
+  flip brain restore --auto       # Auto-restore all with journal linking
+  flip brain restore --brain pinky --auto  # Auto-restore for specific brain`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBrainRestore(autoRestore)
+			return runBrainRestore(autoRestore, brainName)
 		},
 	}
 
 	cmd.Flags().BoolVar(&autoRestore, "auto", false, "Automatically restore all orphaned files and link them to journals")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Target brain name (skip selection prompt)")
 
 	return cmd
 }
 
-func runBrainRestore(autoRestore bool) error {
+func runBrainRestore(autoRestore bool, brainName string) error {
 	// Get active brain
 	ws, err := getActiveWorkspace()
 	if err != nil {
@@ -49,7 +52,19 @@ func runBrainRestore(autoRestore bool) error {
 
 	// Select brain
 	var selectedBrain *Brain
-	if len(ws.Brains) == 1 {
+	if brainName != "" {
+		// Find brain by name
+		for i := range ws.Brains {
+			if ws.Brains[i].Name == brainName {
+				selectedBrain = &ws.Brains[i]
+				break
+			}
+		}
+		if selectedBrain == nil {
+			return fmt.Errorf("brain '%s' not found in workspace", brainName)
+		}
+		fmt.Printf("📍 Using brain: %s\n\n", selectedBrain.Name)
+	} else if len(ws.Brains) == 1 {
 		selectedBrain = &ws.Brains[0]
 		fmt.Printf("📍 Using brain: %s\n\n", selectedBrain.Name)
 	} else {

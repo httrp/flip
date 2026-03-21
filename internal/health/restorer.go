@@ -185,14 +185,10 @@ func (r *Restorer) RestoreSingleFile(file *OrphanedFileInfo, linkToJournal bool)
 	if journalDate == nil && file.Date != nil {
 		journalDate = file.Date
 	}
-	if journalDate == nil {
-		// Use today as fallback
-		now := time.Now()
-		journalDate = &now
-	}
 
-	// Always link to journal (create it if needed)
-	if linkToJournal {
+	// Only link to journal if we have a date - don't use today as fallback
+	// Notes without dates are simply restored without journal linking
+	if linkToJournal && journalDate != nil {
 		journalName := journalDate.Format("2006-01-02") + ".md"
 		journalRelPath := filepath.Join("journal", journalName)
 		linkedEntry, err := r.linkToJournal(targetPath, journalRelPath)
@@ -202,6 +198,8 @@ func (r *Restorer) RestoreSingleFile(file *OrphanedFileInfo, linkToJournal bool)
 			result.LinkedToEntry = linkedEntry
 			result.Message += fmt.Sprintf(" and linked in %s", linkedEntry)
 		}
+	} else if linkToJournal && journalDate == nil {
+		result.Message += " (no date found, skipped journal link)"
 	}
 
 	return result
@@ -237,24 +235,35 @@ func (r *Restorer) linkToJournal(restoredPath string, journalPath string) (strin
 		}
 	}
 
-	// Get relative path from brain root for the link
-	relPath, err := filepath.Rel(r.brainPath, restoredPath)
+	// Get relative path from journal to restored file (journalDir already defined above)
+	relFromJournal, err := filepath.Rel(journalDir, restoredPath)
 	if err != nil {
 		return "", err
 	}
 
-	// Extract filename without extension for wiki link
+	// Extract filename without extension for display text
 	filenameWithoutExt := strings.TrimSuffix(filepath.Base(restoredPath), filepath.Ext(restoredPath))
 
-	// Create link based on brain type
+	// Determine emoji based on file type
+	emoji := "📝"
+	if strings.Contains(restoredPath, "meeting") {
+		emoji = "🤝"
+	} else if strings.Contains(restoredPath, "task") {
+		emoji = "📋"
+	} else if strings.Contains(restoredPath, "exercise") {
+		emoji = "💪"
+	}
+
+	// Create link based on brain type - flip uses markdown links, not wikilinks
 	var linkText string
 	switch r.brainType {
-	case "flip":
-		linkText = fmt.Sprintf("[[%s]]", filenameWithoutExt)
 	case "logseq":
 		linkText = fmt.Sprintf("[[%s]]", filenameWithoutExt)
+	case "obsidian":
+		linkText = fmt.Sprintf("[[%s]]", filenameWithoutExt)
 	default:
-		linkText = fmt.Sprintf("[%s](%s)", filenameWithoutExt, relPath)
+		// flip and others: standard markdown link with emoji
+		linkText = fmt.Sprintf("%s [%s](%s)", emoji, filenameWithoutExt, relFromJournal)
 	}
 
 	// Append link to journal (after YAML frontmatter if exists)
