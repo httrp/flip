@@ -84,14 +84,14 @@ func runEditWorkspaceMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Select workspace to rename
@@ -110,7 +110,7 @@ func runEditWorkspaceMenu() error {
 
 				idx, _, err := selectWS.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				oldName := wsNames[idx]
@@ -120,7 +120,7 @@ func runEditWorkspaceMenu() error {
 					fmt.Printf("\n❌ Cannot rename '%s' workspace - it's reserved\n", DefaultWorkspaceName)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Get new name
@@ -130,7 +130,7 @@ func runEditWorkspaceMenu() error {
 
 				newName, err := promptName.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if err := runWorkspaceRename(oldName, newName); err != nil {
@@ -139,7 +139,7 @@ func runEditWorkspaceMenu() error {
 
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -151,7 +151,7 @@ func runEditWorkspaceMenu() error {
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -163,14 +163,14 @@ func runEditWorkspaceMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if len(config.Workspaces) == 0 {
 					fmt.Println("\n📭 No workspaces found.")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Select workspace to remove
@@ -189,7 +189,7 @@ func runEditWorkspaceMenu() error {
 
 				idx, _, err := selectWS.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				wsName := wsNames[idx]
@@ -205,7 +205,7 @@ func runEditWorkspaceMenu() error {
 					fmt.Println("\n❌ Cancelled")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if err := runWorkspaceRemove(wsName); err != nil {
@@ -214,7 +214,7 @@ func runEditWorkspaceMenu() error {
 
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -236,7 +236,7 @@ func runEditWorkspaceMenu() error {
 
 	idx, _, err := selectMenu.Run()
 	if err != nil {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	fmt.Println()
@@ -472,14 +472,14 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Select brain to rename
@@ -498,7 +498,7 @@ func runEditBrainMenu() error {
 
 				idx, _, err := selectBrain.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				oldName := brainNames[idx]
@@ -511,7 +511,7 @@ func runEditBrainMenu() error {
 
 				newName, err := promptName.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Ask if directory should also be renamed
@@ -560,7 +560,7 @@ func runEditBrainMenu() error {
 
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -572,14 +572,14 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Select brain to set as default
@@ -602,7 +602,7 @@ func runEditBrainMenu() error {
 
 				idx, _, err := selectBrain.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				brainName := ws.Brains[idx].Name
@@ -613,7 +613,7 @@ func runEditBrainMenu() error {
 
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -625,7 +625,7 @@ func runEditBrainMenu() error {
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -637,14 +637,14 @@ func runEditBrainMenu() error {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if len(ws.Brains) == 0 {
 					fmt.Println(lang.GetText("errors.no_brains"))
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				// Select brain to remove
@@ -663,7 +663,7 @@ func runEditBrainMenu() error {
 
 				idx, _, err := selectBrain.Run()
 				if err != nil {
-					return runInteractiveMenu()
+					return nil
 				}
 
 				brainName := brainNames[idx]
@@ -679,7 +679,7 @@ func runEditBrainMenu() error {
 					fmt.Println("\n❌ Cancelled")
 					fmt.Println(lang.GetText("prompts.continue"))
 					fmt.Scanln()
-					return runInteractiveMenu()
+					return nil
 				}
 
 				if err := runBrainRemove(brainName, true); err != nil {
@@ -688,7 +688,7 @@ func runEditBrainMenu() error {
 
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
@@ -754,7 +754,7 @@ func runEditBrainMenu() error {
 
 	idx, _, err := selectMenu.Run()
 	if err != nil {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	fmt.Println()

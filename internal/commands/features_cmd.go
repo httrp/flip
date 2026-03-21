@@ -187,7 +187,6 @@ func showFeatureEnableHelp(feature Feature, enable bool) error {
 func RegisterFeatureCommands(rootCmd *cobra.Command) {
 	// Always register core commands
 	rootCmd.AddCommand(NewMenuV2Command()) // Primary bubbletea-based menu
-	rootCmd.AddCommand(NewMenuCommand())   // Legacy promptui menu (menu-legacy)
 	rootCmd.AddCommand(NewStatusCommand())
 	rootCmd.AddCommand(NewQuickstartCommand())
 	rootCmd.AddCommand(NewIntroCommand())

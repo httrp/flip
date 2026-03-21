@@ -28,14 +28,14 @@ func runSwitchWorkspaceMenu() error {
 		fmt.Printf("Error loading workspaces: %v\n", err)
 		fmt.Println(lang.GetText("prompts.continue"))
 		fmt.Scanln()
-		return runInteractiveMenu()
+		return nil
 	}
 
 	if len(config.Workspaces) == 0 {
 		fmt.Println(lang.GetText("errors.no_workspaces"))
 		fmt.Println(lang.GetText("prompts.continue"))
 		fmt.Scanln()
-		return runInteractiveMenu()
+		return nil
 	}
 
 	var items []string
@@ -58,12 +58,12 @@ func runSwitchWorkspaceMenu() error {
 
 	idx, _, err := selectMenu.Run()
 	if err != nil {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	// Check if "Back" was selected
 	if idx == len(items)-1 {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	selectedWS := config.Workspaces[idx]
@@ -80,7 +80,7 @@ func runSwitchWorkspaceMenu() error {
 
 	fmt.Println(lang.GetText("prompts.continue"))
 	fmt.Scanln()
-	return runInteractiveMenu()
+	return nil
 }
 
 // runEditManageMenu shows submenu for editing and managing resources
@@ -113,13 +113,13 @@ func runEditManageMenu() error {
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{
 			Label:       lang.GetText("menu.edit_manage.back_label"),
 			Description: lang.GetText("menu.edit_manage.back_desc"),
-			Action:      runInteractiveMenu,
+			Action: func() error { return nil },
 		},
 	}
 
@@ -135,7 +135,7 @@ func runEditManageMenu() error {
 
 	idx, _, err := selectMenu.Run()
 	if err != nil {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	fmt.Println()

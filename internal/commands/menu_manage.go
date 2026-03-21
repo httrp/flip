@@ -110,7 +110,7 @@ func runManageResourcesMenu() error {
 		Label:       lang.GetText("menu.manage.back_label"),
 		Description: lang.GetText("menu.manage.back_desc"),
 		Command:     "",
-		Action:      runInteractiveMenu,
+		Action: func() error { return nil },
 	})
 
 	templates := createMenuItemWithCommandTemplates()
@@ -125,7 +125,7 @@ func runManageResourcesMenu() error {
 
 	idx, _, err := selectMenu.Run()
 	if err != nil {
-		return runInteractiveMenu()
+		return nil
 	}
 
 	fmt.Println()
@@ -201,7 +201,7 @@ func runManageBrainsMenu() error {
 				}
 				fmt.Println(lang.GetText("prompts.continue"))
 				fmt.Scanln()
-				return runInteractiveMenu()
+				return nil
 			},
 		},
 		{

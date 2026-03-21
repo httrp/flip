@@ -204,7 +204,7 @@ func runWorkspaceDetails(workspace Workspace) func() error {
 					}
 					fmt.Printf("✅ Switched to workspace: %s\n", workspace.Name)
 					time.Sleep(1 * time.Second)
-					return runInteractiveMenu()
+					return nil
 				},
 			},
 			{
