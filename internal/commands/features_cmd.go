@@ -186,8 +186,8 @@ func showFeatureEnableHelp(feature Feature, enable bool) error {
 // Call this from main.go to enable/disable command registration
 func RegisterFeatureCommands(rootCmd *cobra.Command) {
 	// Always register core commands
-	rootCmd.AddCommand(NewMenuCommand())
-	rootCmd.AddCommand(NewMenuV2Command()) // New bubbletea-based menu (testing)
+	rootCmd.AddCommand(NewMenuV2Command()) // Primary bubbletea-based menu
+	rootCmd.AddCommand(NewMenuCommand())   // Legacy promptui menu (menu-legacy)
 	rootCmd.AddCommand(NewStatusCommand())
 	rootCmd.AddCommand(NewQuickstartCommand())
 	rootCmd.AddCommand(NewIntroCommand())

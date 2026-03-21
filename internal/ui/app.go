@@ -6,208 +6,51 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// ViewType represents the current view
-type ViewType int
+// MenuDef defines a single menu (title, breadcrumb, items).
+// Menus are identified by name (e.g. "main", "create", "browse").
+type MenuDef struct {
+	Title      string
+	Breadcrumb []string
+	Items      []MenuItem
+}
 
-const (
-	ViewMainMenu ViewType = iota
-	ViewCreateMenu
-	ViewBrowseMenu
-	ViewManageMenu
-	ViewStatusMenu
-	ViewHelpMenu
-	ViewAboutMenu
-)
+// MenuConfig holds all menu definitions, keyed by name.
+// Built by the caller (commands package) with feature-flag awareness.
+type MenuConfig struct {
+	Menus map[string]MenuDef
+}
 
-// AppModel is the root model that manages navigation between views
+// AppModel is the root model that manages navigation between named menus.
 type AppModel struct {
-	currentView   ViewType
-	viewStack     []ViewType // For back navigation
-	menu          MenuModel
-	status        string // Status header content
-	quitting      bool
-	width         int
-	height        int
-	execCommand   string // Command to execute after quitting
-	pendingAction func() error
+	currentMenu string
+	menuStack   []string // For back navigation
+	menu        MenuModel
+	config      MenuConfig
+	status      string // Status header content
+	quitting    bool
+	width       int
+	height      int
+	execCommand string // Command to execute after quitting
 }
 
-// NewAppModel creates a new application model
-func NewAppModel() AppModel {
-	app := AppModel{
-		currentView: ViewMainMenu,
-		viewStack:   []ViewType{},
+func (m *AppModel) loadMenu(name string) {
+	def, ok := m.config.Menus[name]
+	if !ok {
+		// Fallback to main
+		def = m.config.Menus["main"]
+		name = "main"
 	}
-	app.menu = app.buildMainMenu()
-	return app
+	m.currentMenu = name
+	m.menu = NewMenuModel(def.Title, def.Items, def.Breadcrumb)
+	m.menu.SetStatus(m.status)
 }
 
-// SetStatus sets the status header content
-func (m *AppModel) SetStatus(status string) {
-	m.status = status
-}
-
-// buildMainMenu creates the main menu items
-func (m *AppModel) buildMainMenu() MenuModel {
-	items := []MenuItem{
-		NewMenuItem(
-			"✨ Create New",
-			"Create notes, meetings, tasks...",
-			"flip new",
-			func() tea.Cmd {
-				return func() tea.Msg { return NavigateMsg{Menu: "create"} }
-			},
-		),
-		NewMenuItem(
-			"🔍 Browse & Search",
-			"Find and explore your content",
-			"flip search",
-			func() tea.Cmd {
-				return func() tea.Msg { return NavigateMsg{Menu: "browse"} }
-			},
-		),
-		NewMenuItem(
-			"⚙️  Manage Brains",
-			"Switch brains, manage contexts",
-			"flip brain",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "brain"} }
-			},
-		),
-		NewMenuItem(
-			"📊 Status",
-			"View status overview",
-			"flip status",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "status"} }
-			},
-		),
-		NewMenuItem(
-			"👋 Exit",
-			"Exit flip",
-			"",
-			func() tea.Cmd {
-				return func() tea.Msg { return QuitMsg{} }
-			},
-		),
-	}
-
-	menu := NewMenuModel("flip", items, []string{"Main Menu"})
-	menu.SetStatus(m.status)
-	return menu
-}
-
-// buildCreateMenu creates the create submenu
-func (m *AppModel) buildCreateMenu() MenuModel {
-	items := []MenuItem{
-		NewMenuItem(
-			"📝 Note",
-			"Create a new note",
-			"flip note new",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "note"} }
-			},
-		),
-		NewMenuItem(
-			"⚡ Quick Note",
-			"Quick note with minimal prompts",
-			"flip quicknote",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "quicknote"} }
-			},
-		),
-		NewMenuItem(
-			"📅 Meeting Note",
-			"Create a meeting note",
-			"flip meeting",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "meeting"} }
-			},
-		),
-		NewMenuItem(
-			"📓 Journal",
-			"Open or create today's journal",
-			"flip journal",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "journal"} }
-			},
-		),
-		NewMenuItem(
-			"✅ Task",
-			"Create a new task",
-			"flip task new",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "task"} }
-			},
-		),
-		NewMenuItem(
-			"← Back",
-			"Return to main menu",
-			"",
-			func() tea.Cmd {
-				return func() tea.Msg { return BackMsg{} }
-			},
-		),
-	}
-
-	return NewMenuModel("Create New", items, []string{"Main Menu", "Create"})
-}
-
-// buildBrowseMenu creates the browse submenu
-func (m *AppModel) buildBrowseMenu() MenuModel {
-	items := []MenuItem{
-		NewMenuItem(
-			"📄 Recent Notes",
-			"View recently modified notes",
-			"flip recent",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "recent"} }
-			},
-		),
-		NewMenuItem(
-			"🔍 Search Notes",
-			"Search across all brains",
-			"flip search",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "search"} }
-			},
-		),
-		NewMenuItem(
-			"✅ Task Browser",
-			"Browse and manage tasks",
-			"flip task browse",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "task-browse"} }
-			},
-		),
-		NewMenuItem(
-			"🐸 Eat the Frog",
-			"Important tasks to tackle",
-			"flip task frog",
-			func() tea.Cmd {
-				return func() tea.Msg { return ExecCommandMsg{Command: "task-frog"} }
-			},
-		),
-		NewMenuItem(
-			"← Back",
-			"Return to main menu",
-			"",
-			func() tea.Cmd {
-				return func() tea.Msg { return BackMsg{} }
-			},
-		),
-	}
-
-	return NewMenuModel("Browse & Search", items, []string{"Main Menu", "Browse"})
-}
-
-// ExecCommandMsg requests executing a command (exits bubbletea)
+// ExecCommandMsg requests executing a command (exits bubbletea).
 type ExecCommandMsg struct {
 	Command string
 }
 
 func (m AppModel) Init() tea.Cmd {
-	// Menu is built in NewAppModel
 	return nil
 }
 
@@ -218,26 +61,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case NavigateMsg:
-		// Push current view to stack and navigate
-		m.viewStack = append(m.viewStack, m.currentView)
-
-		switch msg.Menu {
-		case "create":
-			m.currentView = ViewCreateMenu
-			m.menu = m.buildCreateMenu()
-		case "browse":
-			m.currentView = ViewBrowseMenu
-			m.menu = m.buildBrowseMenu()
-			// Add more menus as needed
-		}
+		// Push current menu to stack and navigate
+		m.menuStack = append(m.menuStack, m.currentMenu)
+		m.loadMenu(msg.Menu)
 		return m, nil
 
 	case BackMsg:
 		// Pop from stack and go back
-		if len(m.viewStack) > 0 {
-			m.currentView = m.viewStack[len(m.viewStack)-1]
-			m.viewStack = m.viewStack[:len(m.viewStack)-1]
-			m.menu = m.buildMenuForView(m.currentView)
+		if len(m.menuStack) > 0 {
+			prev := m.menuStack[len(m.menuStack)-1]
+			m.menuStack = m.menuStack[:len(m.menuStack)-1]
+			m.loadMenu(prev)
 		}
 		return m, nil
 
@@ -246,7 +80,6 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case ExecCommandMsg:
-		// Store the command and quit - caller will handle execution
 		m.execCommand = msg.Command
 		m.quitting = true
 		return m, tea.Quit
@@ -259,49 +92,32 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m AppModel) buildMenuForView(view ViewType) MenuModel {
-	switch view {
-	case ViewCreateMenu:
-		return m.buildCreateMenu()
-	case ViewBrowseMenu:
-		return m.buildBrowseMenu()
-	default:
-		return m.buildMainMenu()
-	}
-}
-
 func (m AppModel) View() string {
 	if m.quitting {
 		return ""
 	}
 
 	var b strings.Builder
-
-	// Status header
 	if m.status != "" {
 		b.WriteString(StatusStyle.Render(m.status))
 		b.WriteString("\n\n")
 	}
-
-	// Current menu
 	b.WriteString(m.menu.View())
-
 	return b.String()
 }
 
-// CurrentCommand returns the command that should be executed after quitting
+// CurrentCommand returns the command that should be executed after quitting.
 func (m AppModel) CurrentCommand() string {
 	return m.execCommand
 }
 
-// RunApp runs the interactive menu application
-func RunApp(status string) (string, error) {
+// RunApp runs the interactive menu application with the given menu configuration.
+func RunApp(status string, config MenuConfig) (string, error) {
 	app := AppModel{
-		currentView: ViewMainMenu,
-		viewStack:   []ViewType{},
-		status:      status,
+		config: config,
+		status: status,
 	}
-	app.menu = app.buildMainMenu()
+	app.loadMenu("main")
 
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	finalModel, err := p.Run()
@@ -309,7 +125,6 @@ func RunApp(status string) (string, error) {
 		return "", err
 	}
 
-	// Check if we need to execute a command
 	if model, ok := finalModel.(AppModel); ok {
 		return model.CurrentCommand(), nil
 	}

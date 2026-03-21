@@ -42,7 +42,7 @@ func main() {
 				commands.SetIconTheme(theme)
 			}
 			// If no subcommand provided, run interactive menu
-			return commands.NewMenuCommand().RunE(cmd, args)
+			return commands.NewMenuV2Command().RunE(cmd, args)
 		},
 	}
 

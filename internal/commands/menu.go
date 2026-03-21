@@ -32,8 +32,8 @@ import (
 // NewMenuCommand creates the menu command
 func NewMenuCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "menu",
-		Short: "Interactive main menu",
+		Use:   "menu-legacy",
+		Short: "Interactive main menu (legacy promptui)",
 		Long:  "Start flip with an interactive menu",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInteractiveMenu()
