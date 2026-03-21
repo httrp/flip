@@ -12,6 +12,7 @@ type MenuDef struct {
 	Title      string
 	Breadcrumb []string
 	Items      []MenuItem
+	Parent     string // Parent menu name (empty for root "main")
 }
 
 // MenuConfig holds all menu definitions, keyed by name.
@@ -43,6 +44,21 @@ func (m *AppModel) loadMenu(name string) {
 	m.currentMenu = name
 	m.menu = NewMenuModel(def.Title, def.Items, def.Breadcrumb)
 	m.menu.SetStatus(m.status)
+}
+
+// buildStackForMenu reconstructs a navigation stack by walking up the Parent chain.
+func (m *AppModel) buildStackForMenu(name string) []string {
+	var stack []string
+	current := name
+	for {
+		def, ok := m.config.Menus[current]
+		if !ok || def.Parent == "" {
+			break
+		}
+		stack = append([]string{def.Parent}, stack...)
+		current = def.Parent
+	}
+	return stack
 }
 
 // ExecCommandMsg requests executing a command (exits bubbletea).
@@ -111,23 +127,39 @@ func (m AppModel) CurrentCommand() string {
 	return m.execCommand
 }
 
+// CurrentMenu returns which menu was active when the user made a selection.
+func (m AppModel) CurrentMenu() string {
+	return m.currentMenu
+}
+
 // RunApp runs the interactive menu application with the given menu configuration.
-func RunApp(status string, config MenuConfig) (string, error) {
+// startMenu controls which menu to show initially (use "" for "main").
+// Returns the selected command, the menu that was active, and any error.
+func RunApp(status string, config MenuConfig, startMenu string) (string, string, error) {
+	if startMenu == "" {
+		startMenu = "main"
+	}
+
 	app := AppModel{
 		config: config,
 		status: status,
 	}
-	app.loadMenu("main")
+
+	// Build navigation stack from parent chain so Back works correctly
+	if startMenu != "main" {
+		app.menuStack = app.buildStackForMenu(startMenu)
+	}
+	app.loadMenu(startMenu)
 
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if model, ok := finalModel.(AppModel); ok {
-		return model.CurrentCommand(), nil
+		return model.CurrentCommand(), model.CurrentMenu(), nil
 	}
 
-	return "", nil
+	return "", "", nil
 }

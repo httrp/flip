@@ -106,7 +106,7 @@ func buildMainMenuDef() ui.MenuDef {
 		menuExec("ℹ️  About", "About flip, version info, and credits", "flip about", "about"),
 		menuQuit(),
 	}
-	return ui.MenuDef{Title: "flip", Breadcrumb: []string{"Main Menu"}, Items: items}
+	return ui.MenuDef{Title: "flip", Breadcrumb: []string{"Main Menu"}, Items: items, Parent: ""}
 }
 
 func buildCreateMenuDef() ui.MenuDef {
@@ -169,7 +169,7 @@ func buildCreateMenuDef() ui.MenuDef {
 		menuBack(),
 	)
 
-	return ui.MenuDef{Title: "Create New", Breadcrumb: []string{"Main Menu", "Create"}, Items: items}
+	return ui.MenuDef{Title: "Create New", Breadcrumb: []string{"Main Menu", "Create"}, Items: items, Parent: "main"}
 }
 
 func buildBrowseMenuDef() ui.MenuDef {
@@ -200,7 +200,7 @@ func buildBrowseMenuDef() ui.MenuDef {
 	}
 
 	items = append(items, menuBack())
-	return ui.MenuDef{Title: "Browse & Search", Breadcrumb: []string{"Main Menu", "Browse"}, Items: items}
+	return ui.MenuDef{Title: "Browse & Search", Breadcrumb: []string{"Main Menu", "Browse"}, Items: items, Parent: "main"}
 }
 
 func buildManageMenuDef() ui.MenuDef {
@@ -243,7 +243,7 @@ func buildManageMenuDef() ui.MenuDef {
 	}
 
 	items = append(items, menuBack())
-	return ui.MenuDef{Title: "Manage", Breadcrumb: []string{"Main Menu", "Manage"}, Items: items}
+	return ui.MenuDef{Title: "Manage", Breadcrumb: []string{"Main Menu", "Manage"}, Items: items, Parent: "main"}
 }
 
 func buildStatusMenuDef() ui.MenuDef {
@@ -276,7 +276,7 @@ func buildStatusMenuDef() ui.MenuDef {
 	}
 
 	items = append(items, menuBack())
-	return ui.MenuDef{Title: "Status & Git", Breadcrumb: []string{"Main Menu", "Status"}, Items: items}
+	return ui.MenuDef{Title: "Status & Git", Breadcrumb: []string{"Main Menu", "Status"}, Items: items, Parent: "main"}
 }
 
 func buildVSCodeMenuDef() ui.MenuDef {
@@ -298,7 +298,7 @@ func buildVSCodeMenuDef() ui.MenuDef {
 			lang.GetText("menu.vscode.uninstall_cmd"), "vscode-uninstall-tasks"),
 		menuBack(),
 	}
-	return ui.MenuDef{Title: "VS Code Integration", Breadcrumb: []string{"Main Menu", "Status", "VS Code"}, Items: items}
+	return ui.MenuDef{Title: "VS Code Integration", Breadcrumb: []string{"Main Menu", "Status", "VS Code"}, Items: items, Parent: "status"}
 }
 
 func buildHelpMenuDef() ui.MenuDef {
@@ -317,7 +317,7 @@ func buildHelpMenuDef() ui.MenuDef {
 			lang.GetText("menu.help.config_cmd"), "help-config"),
 		menuBack(),
 	}
-	return ui.MenuDef{Title: "Help & Documentation", Breadcrumb: []string{"Main Menu", "Help"}, Items: items}
+	return ui.MenuDef{Title: "Help & Documentation", Breadcrumb: []string{"Main Menu", "Help"}, Items: items, Parent: "main"}
 }
 
 func buildExercisesMenuDef() ui.MenuDef {
@@ -330,7 +330,7 @@ func buildExercisesMenuDef() ui.MenuDef {
 		menuExec("📋 Show Plan", "View plan details", "flip exercise plan show", "exercise-plan-show"),
 		menuBack(),
 	}
-	return ui.MenuDef{Title: "Exercises", Breadcrumb: []string{"Main Menu", "Browse", "Exercises"}, Items: items}
+	return ui.MenuDef{Title: "Exercises", Breadcrumb: []string{"Main Menu", "Browse", "Exercises"}, Items: items, Parent: "browse"}
 }
 
 // ── Status Builder ──────────────────────────────────────────────────
@@ -388,20 +388,36 @@ func buildStatusStringV2() string {
 // ── Entry Point & Dispatcher ────────────────────────────────────────
 
 func runInteractiveMenuV2() error {
-	status := buildStatusStringV2()
-	config := buildMenuConfig()
+	startMenu := "" // empty = "main"
 
-	execCmd, err := ui.RunApp(status, config)
-	if err != nil {
-		return err
+	for {
+		// Rebuild status & config each iteration (may change after git ops etc.)
+		status := buildStatusStringV2()
+		config := buildMenuConfig()
+
+		execCmd, lastMenu, err := ui.RunApp(status, config, startMenu)
+		if err != nil {
+			return err
+		}
+
+		// User quit (Exit or Ctrl-C)
+		if execCmd == "" {
+			fmt.Println("👋 See you later!")
+			return nil
+		}
+
+		// Execute the selected command
+		if err := executeCommandV2(execCmd); err != nil {
+			fmt.Printf("\n⚠️  %v\n", err)
+		}
+
+		// Wait for user to read command output before returning to menu
+		fmt.Print("\n↩  Press Enter to return to menu...")
+		fmt.Scanln()
+
+		// Return to the menu the user was in when they selected the command
+		startMenu = lastMenu
 	}
-
-	if execCmd != "" {
-		return executeCommandV2(execCmd)
-	}
-
-	fmt.Println("👋 See you later!")
-	return nil
 }
 
 // executeCommandV2 dispatches the command selected from the menu
