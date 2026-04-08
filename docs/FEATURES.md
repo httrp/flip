@@ -30,11 +30,11 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 
 | Type | Detection | Link Style |
 |------|-----------|------------|
-| **Flip** | `.flip/` folder | Markdown `[](path.md)` |
+| **Flip** | `.flip-brain.yaml` or `.flip.yaml` | Markdown `[](path.md)` |
 | **Obsidian** | `.obsidian/` folder | Wikilinks `[[]]` |
-| **Logseq** | `logseq/` folder | Wikilinks `[[]]` |
+| **Logseq** | `.logseq/` folder (or `journals/` + `pages/`) | Wikilinks `[[]]` |
 | **Dendron** | `dendron.yml` | Wikilinks `[[]]` |
-| **Foam** | `.foam/` or `.vscode/foam.json` | Wikilinks `[[]]` |
+| **Foam** | `.foam/` folder | Wikilinks `[[]]` |
 | **Plain** | Just markdown files | Markdown `[](path.md)` |
 
 ---

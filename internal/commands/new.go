@@ -260,9 +260,7 @@ func runNewWorkspace() error {
 		return runNewBrain()
 	case "2":
 		fmt.Println()
-		// TODO: Implement add existing brain flow
-		fmt.Println("→ Add existing brain (not yet implemented)")
-		return nil
+		return runAddExistingBrain(reader)
 	default:
 		return nil
 	}
@@ -565,12 +563,71 @@ Thumbs.db
 		return runNewBrain()
 	case "2":
 		fmt.Println()
-		// TODO: Implement add existing brain flow
-		fmt.Println("→ Add existing brain (not yet implemented)")
-		return nil
+		return runAddExistingBrain(reader)
 	default:
 		return nil
 	}
+}
+
+func runAddExistingBrain(reader *bufio.Reader) error {
+	fmt.Println("+ Add an existing brain")
+	fmt.Println()
+
+	// Ensure workspace exists early so the user gets a clear error before entering data.
+	if _, err := ensureActiveWorkspace(); err != nil {
+		return err
+	}
+
+	home, _ := os.UserHomeDir()
+	fmt.Printf("? Path to existing brain folder (or '0' to cancel): ")
+	path, _ := reader.ReadString('\n')
+	path = strings.TrimSpace(path)
+
+	if path == "0" || strings.EqualFold(path, "cancel") {
+		fmt.Println("\n✗ Cancelled")
+		return nil
+	}
+
+	if path == "" {
+		fmt.Println("\n✗ No path provided")
+		return nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		path = filepath.Join(home, path[2:])
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("path does not exist: %s", absPath)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory: %s", absPath)
+	}
+
+	defaultName := filepath.Base(absPath)
+	fmt.Printf("? Brain name [default: %s]: ", defaultName)
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = defaultName
+	}
+
+	if strings.EqualFold(name, "flap") {
+		fmt.Println("\n✗ 'flap' is reserved for the main folder. Please choose another name.")
+		return nil
+	}
+
+	if err := runBrainAdd(absPath, name, false); err != nil {
+		return fmt.Errorf("failed to add existing brain: %w", err)
+	}
+
+	return nil
 }
 
 // createBrainStructure legt die passende Struktur für den Dialekt an
@@ -611,18 +668,36 @@ func min(a, b int) int {
 	return b
 }
 
-// isInsideExistingBrain checks if a path is inside an existing brain by looking for .flip.yaml in parent directories
+// hasKnownBrainMarker returns true when a directory looks like a supported brain root.
+func hasKnownBrainMarker(path string) bool {
+	fileMarkers := []string{".flip.yaml", ".flip-brain.yaml", "dendron.yml"}
+	for _, marker := range fileMarkers {
+		if _, err := os.Stat(filepath.Join(path, marker)); err == nil {
+			return true
+		}
+	}
+
+	dirMarkers := []string{".obsidian", ".logseq", ".foam"}
+	for _, marker := range dirMarkers {
+		if info, err := os.Stat(filepath.Join(path, marker)); err == nil && info.IsDir() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isInsideExistingBrain checks if a path is inside an existing brain by looking for known markers in parent directories.
 func isInsideExistingBrain(targetPath string) (bool, string, error) {
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
 		return false, "", err
 	}
 
-	// Check each parent directory for .flip.yaml
+	// Check each parent directory for known brain markers.
 	currentPath := filepath.Dir(absPath)
 	for {
-		markerPath := filepath.Join(currentPath, ".flip.yaml")
-		if _, err := os.Stat(markerPath); err == nil {
+		if hasKnownBrainMarker(currentPath) {
 			return true, currentPath, nil
 		}
 
@@ -638,7 +713,7 @@ func isInsideExistingBrain(targetPath string) (bool, string, error) {
 	return false, "", nil
 }
 
-// containsExistingBrain checks if the target path contains any existing brains (subdirectories with .flip.yaml)
+// containsExistingBrain checks if the target path contains any existing brains (subdirectories with known markers).
 func containsExistingBrain(targetPath string) (bool, []string, error) {
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
@@ -652,7 +727,7 @@ func containsExistingBrain(targetPath string) (bool, []string, error) {
 
 	var foundBrains []string
 
-	// Walk through subdirectories looking for .flip.yaml
+	// Walk through subdirectories looking for known brain markers.
 	err = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -663,10 +738,9 @@ func containsExistingBrain(targetPath string) (bool, []string, error) {
 			return nil
 		}
 
-		// Check if this directory has .flip.yaml
+		// Check if this directory has known brain markers.
 		if d.IsDir() {
-			markerPath := filepath.Join(path, ".flip.yaml")
-			if _, err := os.Stat(markerPath); err == nil {
+			if hasKnownBrainMarker(path) {
 				relPath, _ := filepath.Rel(absPath, path)
 				foundBrains = append(foundBrains, relPath)
 				// Don't descend into this brain

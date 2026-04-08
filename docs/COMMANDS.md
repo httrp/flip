@@ -15,20 +15,31 @@
 
 ## Brain Management
 
-Brains are your knowledge bases (folders with notes, tasks, journals).
+Brains are your knowledge bases (folders with notes, tasks, journals). Use **workspaces** to organize multiple brains.
+
+### Create & Add Brains
 
 ```bash
-# List all brains
-flip brain list
-
-# Add existing folder as brain
-flip brain add <path> [--name <name>]
-
-# Create new brain
+# Create new brain interactively
 flip brain new
+# Available from: flip new → brain
+
+# Add an existing folder as a brain
+flip brain add <path> [--name <name>]
+# Available from: flip new → workspace → add existing brain
 
 # Initialize current directory as brain
-flip brain init [<path>]
+flip brain init [<path>]  [--name <name>]
+
+# Scan home folder for existing brains
+flip brain scan
+```
+
+### Manage Brains
+
+```bash
+# List all brains in active workspace
+flip brain list
 
 # Set default brain for new content
 flip brain set-default <name>
@@ -50,19 +61,28 @@ flip brain scan
 
 ## Workspace Management
 
-Workspaces group related brains together.
+**Workspaces** organize multiple brains. Each workspace has its own active brain for content creation.
+
+### Setup
+
+First time getting started?
+```bash
+flip quickstart    # Interactive setup guide (creates workspace + brain)
+```
+
+### Commands
 
 ```bash
-# List workspaces
+# List all workspaces
 flip workspace list
 
-# Create workspace
+# Create new workspace
 flip workspace create <name>
 
 # Switch active workspace
 flip workspace switch <name>
 
-# Remove workspace
+# Remove workspace (brains stay intact)
 flip workspace remove <name>
 
 # Rename workspace

@@ -6,22 +6,46 @@
 
 ## What is Flip?
 
-**Flip** is a CLI tool for managing your personal knowledge base ("brain"). It helps you:
+**Flip** is a CLI tool for managing personal knowledge bases ("brains") in plain Markdown. It helps you:
 
 - 📓 Write **daily journals**
-- 📝 Create **structured notes**
-- ✅ Manage **tasks** with a powerful browser
+- 📝 Create **structured notes** with metadata
+- ✅ Manage **tasks** with a powerful browser & filters
 - 🗓️ Track **meetings** and decisions
-- 🔗 Keep everything **connected**
+- 🔗 Connect everything with **standard Markdown links**
 
-All data is stored as **plain Markdown** files. You own your data forever.
+All data is stored as **plain Markdown** files. No vendor lock-in. No subscriptions. **You own your data forever.**
+
+### Key Concepts
+
+**Brain** = Your personal knowledge base folder
+- Contains notes, tasks, journals, meetings
+- Can be Flip format, Obsidian vault, Logseq graph, Dendron workspace, or plain Markdown
+- Syncs with Dropbox, iCloud, OneDrive, or Git
+
+**Workspace** = A collection of related brains
+- Organize multiple brains (work, personal, projects, learning)
+- Each workspace has an active brain for creating new content
+- Independent configuration per workspace
+
+**Example workflow:**
+```
+You have 3 workspaces:
+  - "work" (active brain: projects)
+  - "personal" (active brain: life)
+  - "learning" (active brain: languages)
+
+flip journal              # Creates entry in active workspace's brain
+flip workspace switch personal
+flip journal              # Now creates entry in "life" brain
+```
 
 ---
 
 ## Installation
 
 ```bash
-# macOS / Linux
+# macOS / Linux / Windows
 go install github.com/httrp/flip/cmd/flip@latest
 
 # Or build from source
@@ -32,49 +56,84 @@ make build
 
 ---
 
-## Your First Brain
+## Quick Setup (Recommended)
 
-### 1. Create a Brain
+Use the interactive quickstart:
 
 ```bash
-flip brain init my-brain
-cd my-brain
+flip quickstart
 ```
 
-This creates:
+This guides you through:
+1. Creating a workspace
+2. Creating or connecting a brain
+3. Writing your first entry
+
+Done in ~2 minutes! 🚀
+
+---
+
+## Manual Setup: Your First Brain
+
+### 1. Create a Workspace
+
+```bash
+flip workspace create work
+flip workspace switch work
+```
+
+**Why workspaces?** Keep your work, personal, and learning separate.
+
+### 2. Create Your First Brain
+
+```bash
+flip brain new
+# Choose: flip (recommended) or another brain type
+# Follow prompts for name & location
+```
+
+Or add an existing folder:
+
+```bash
+flip brain add ~/Documents/my-notes
+```
+
+This creates (for Flip format):
 ```
 my-brain/
-├── .flip-brain.yaml      # Brain configuration
-├── journal/              # Daily entries
-├── notes/                # Your notes
-├── meetings/             # Meeting notes
-├── tasks/                # Task lists
-├── definitions/          # Metadata (orgs, people, projects)
-└── templates/            # Note templates
+├── .flip-brain.yaml      # Brain configuration & metadata
+├── .flip.yaml            # Workspace brain registry
+├── journal/              # Daily journal entries (YYYY-MM-DD.md)
+├── notes/                # Your notes with frontmatter
+├── meetings/             # Meeting notes with attendees/decisions
+├── tasks/                # Todo lists by context (todo.work.md, etc.)
+├── definitions/          # Metadata: organizations, people, projects, contexts
+├── templates/            # Templates for notes, meetings, etc.
+└── assets/               # Images and documents
 ```
 
-### 2. Open Today's Journal
+### 3. Open Today's Journal
 
 ```bash
 flip journal
 # Opens 2025-12-21.md in your editor
 ```
 
-### 3. Create a Note
+### 4. Create a Note
 
 ```bash
 flip note "My First Idea"
 # Creates notes/my-first-idea.md
 ```
 
-### 4. Add a Task
+### 5. Add a Task
 
 ```bash
 flip task add "Learn flip basics" --due tomorrow --priority high
 # Adds to your task list
 ```
 
-### 5. Browse Tasks
+### 6. Browse Tasks
 
 ```bash
 flip task browse

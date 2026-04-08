@@ -71,7 +71,28 @@ flip vscode install
 # Then: Cmd+Shift+P → "Tasks: Run Task" → "Flip: ..."
 ```
 
+## Getting Started
+
+**First time?** Run the interactive quickstart:
+
+```bash
+flip quickstart
+```
+
+This walks you through:
+1. Creating or joining a workspace
+2. Creating a new brain or connecting an existing one
+3. Writing your first journal entry
+
+For manual setup, see [QUICKSTART.md](docs/QUICKSTART.md).
+
 ## Development
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup & build instructions
+- Testing & lint
+- Adding new commands
+- VS Code extension development
 
 ```bash
 # Build
@@ -87,27 +108,79 @@ make lint
 make dev-link
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+## Core Concepts
+
+### Brain
+A **brain** is a folder containing your knowledge base (notes, tasks, journals, meetings). Flip works with plain Markdown files and supports multiple brain formats:
+- **Flip** (`flip` native format with `.flip-brain.yaml`)
+- **Obsidian** (`.obsidian/` vaults)
+- **Logseq** (`.logseq/` graphs)
+- **Dendron** (`dendron.yml` workspaces)
+- **Foam** (`.foam/` setups)
+- **Plain Markdown** (any folder with `.md` files)
+
+### Workspace
+A **workspace** groups related brains together. Each workspace has:
+- An **active brain** (used for `flip journal`, `flip note`, etc.)
+- Multiple brains you can switch between
+- Independent configuration per workspace
+
+**Example:**
+```
+Workspace "work":
+  - brain: project-alpha (default)
+  - brain: project-beta
+  - brain: documentation
+
+Workspace "personal":
+  - brain: life (default)
+  - brain: learning
+```
 
 ## Architecture
 
 ```
 flip/
-├── cmd/flip/           # CLI entry point
+├── cmd/flip/                # CLI entry point
 ├── internal/
-│   ├── commands/       # Cobra commands
-│   ├── tasks/          # Task system
-│   ├── exercises/      # Exercise tracking
-│   ├── brain/          # Brain detection
-│   ├── health/         # Health checks
-│   └── lang/           # Localization
-├── docs/               # Documentation
-└── vscode-extension/   # VS Code extension (TypeScript)
+│   ├── commands/            # Cobra CLI commands (brain, task, journal, etc.)
+│   ├── brain/               # Brain detection & creation
+│   │   ├── detector.go      # Identify brain types (Obsidian, Logseq, etc.)
+│   │   └── creator.go       # Create new brains
+│   ├── tasks/               # Task scanning & management
+│   ├── exercises/           # Exercise tracking
+│   ├── health/              # Brain validation & repair
+│   ├── ai/                  # AI integrations (OpenAI, Anthropic, etc.)
+│   ├── migration/           # Convert between brain formats
+│   ├── templates/           # Template loading & rendering
+│   ├── platform/            # Cross-platform utilities
+│   ├── ui/                  # Interactive prompts (TUI)
+│   └── lang/                # Multi-language support
+├── vscode-extension/        # VS Code integration (TypeScript)
+├── docs/                    # Documentation & specs
+└── test-brains/            # Test fixtures
 ```
+
+### Key Design Patterns
+
+1. **Workspace Configuration** (`~/.config/flip/workspaces.yaml`)
+   - Manages workspace collections
+   - Tracks active workspace & default brain per workspace
+   - Persisted locally, no cloud sync
+
+2. **Brain Detection**
+   - Automatic brain type identification via marker files
+   - Backward compatible with existing Obsidian, Logseq, etc. setups
+   - Supports nested brain prevention
+
+3. **Health Checks**
+   - Validates path integrity across sync services (iCloud, Dropbox, OneDrive)
+   - Auto-repairs broken links
+   - Checks for duplicate files created by sync conflicts
 
 ## License
 
-MIT
+MIT - see LICENSE.
 
 ---
 
