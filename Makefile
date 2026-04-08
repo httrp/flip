@@ -16,7 +16,7 @@ EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | 
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
 VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install
+.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke public-check install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install
 
 # Default: show help
 help:
@@ -37,6 +37,7 @@ help:
 	@echo "  make setup-hooks         Install git pre-commit hooks"
 	@echo "  make test                Run Go tests"
 	@echo "  make lint                Run Go linter (vet)"
+	@echo "  make public-check        Validate public repo hygiene"
 	@echo "  make smoke               Run smoke tests"
 	@echo "  make clean               Clean all build artifacts"
 	@echo "  make clean-cli           Clean CLI binary only"
@@ -58,12 +59,12 @@ setup: build install install-extension
 	@echo "Next: Reload VS Code window and run 'flip quickstart'"
 
 # Full check before commit (recommended before pushing)
-all: build lint test smoke
+all: public-check build lint test smoke
 	@echo ""
 	@echo "✓ All checks passed! Safe to commit."
 
 # Run exactly what CI runs
-ci: build lint test smoke
+ci: public-check build lint test smoke
 	@echo ""
 	@echo "✓ CI simulation complete"
 
@@ -184,6 +185,9 @@ lint:
 smoke:
 	bash scripts/smoke.sh
 
+public-check:
+	bash scripts/check-public-repo.sh
+
 # Clean everything
 clean: clean-cli clean-extension
 	@echo "✓ All build artifacts cleaned"
@@ -209,6 +213,9 @@ setup-hooks:
 	@echo 'REPO_ROOT="$$(git rev-parse --show-toplevel)"' >> .git/hooks/pre-commit
 	@echo 'if [ -x "$$REPO_ROOT/scripts/check-extension-version.sh" ]; then' >> .git/hooks/pre-commit
 	@echo '    "$$REPO_ROOT/scripts/check-extension-version.sh"' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@echo 'if [ -x "$$REPO_ROOT/scripts/check-public-repo.sh" ]; then' >> .git/hooks/pre-commit
+	@echo '    "$$REPO_ROOT/scripts/check-public-repo.sh"' >> .git/hooks/pre-commit
 	@echo 'fi' >> .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
 	@echo "✓ Git hooks installed"

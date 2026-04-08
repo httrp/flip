@@ -230,6 +230,24 @@ type Task struct {
 - Update `docs/FEATURES.md` for new features
 - Keep README.md concise (link to docs for details)
 
+### Public Repo Hygiene
+
+This repository is mirrored to a public profile. Keep internal working docs out of tracked files.
+
+Do not commit:
+- ad-hoc review docs (for example `CODE_REVIEW_*.md`)
+- AI handoff or planning notes (`docs/AI_*`, `docs/*_PLAN.md`, research scratch files)
+- archived internal notes under `docs/archive/`
+
+Allowed and expected:
+- user-facing docs (`README.md`, `docs/QUICKSTART.md`, `docs/COMMANDS.md`, etc.)
+- test fixtures under `test-brains/`
+- example content under `docs/example-brain/`
+
+Automated enforcement:
+- local: `make public-check`
+- CI: `Public Repo Guard` job step
+
 ---
 
 ## Common Tasks
