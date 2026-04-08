@@ -16,6 +16,14 @@
 
 All data is stored as **plain Markdown** files. No vendor lock-in. No subscriptions. **You own your data forever.**
 
+## Screenshots
+
+### Interactive Menu
+![flip menu](../assets/screenshots/flip-cli-menu.png)
+
+### VS Code Tasks
+![VS Code tasks](../assets/screenshots/flip-vsc-extension.png)
+
 ### Key Concepts
 
 **Brain** = Your personal knowledge base folder

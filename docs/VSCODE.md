@@ -13,6 +13,14 @@ flip vscode install
 
 This creates `.vscode/tasks.json` with all flip commands.
 
+## Screenshots
+
+### VS Code Task Picker
+![VS Code integration](../assets/screenshots/flip-vsc-extension.png)
+
+### Interactive Flip Menu
+![flip menu](../assets/screenshots/flip-cli-menu.png)
+
 ---
 
 ## Using Flip Tasks

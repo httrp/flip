@@ -34,10 +34,10 @@ flip
 ## Screenshots
 
 ### Interactive Menu
-![flip menu](assets/screenshots/flip-menu.png)
+![flip menu](assets/screenshots/flip-cli-menu.png)
 
 ### VS Code Integration
-![VS Code tasks](assets/screenshots/vscode-integration.png)
+![VS Code tasks](assets/screenshots/flip-vsc-extension.png)
 
 ## Common Commands
 
