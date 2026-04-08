@@ -31,6 +31,14 @@ flip brain init ~/my-brain
 flip
 ```
 
+## Screenshots
+
+### Interactive Menu
+![flip menu](assets/screenshots/flip-menu.png)
+
+### VS Code Integration
+![VS Code tasks](assets/screenshots/vscode-integration.png)
+
 ## Common Commands
 
 ```bash
@@ -177,6 +185,17 @@ flip/
    - Validates path integrity across sync services (iCloud, Dropbox, OneDrive)
    - Auto-repairs broken links
    - Checks for duplicate files created by sync conflicts
+
+## Acknowledgments
+
+Flip built on these excellent projects:
+
+- **[Obsidian](https://obsidian.md/)** - Inspiring the vault concept and community
+- **[Logseq](https://logseq.com/)** - Graph-based knowledge organization
+- **[Dendron](https://www.dendron.so/)** - Hierarchical note-taking approach
+- **[Foam](https://foambubble.github.io/)** - Open-source note ecosystem
+
+And the amazing open-source communities behind them. We support these formats to help you work with the tools you love.
 
 ## License
 
