@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.3.21",
+  "version": "0.3.22",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -90,6 +90,14 @@
       {
         "command": "flip.mediaNormalize",
         "title": "Flip: Normalize Media"
+      },
+      {
+        "command": "flip.export",
+        "title": "Flip: Export Markdown"
+      },
+      {
+        "command": "flip.exportDoctor",
+        "title": "Flip: Check Export Dependencies"
       },
       {
         "command": "flip.switchBrain",
@@ -315,6 +323,21 @@
           "type": "boolean",
           "default": true,
           "description": "Show flip status in status bar"
+        },
+        "flip.export.defaultFormat": {
+          "type": "string",
+          "default": "pdf",
+          "enum": [
+            "pdf",
+            "html",
+            "docx"
+          ],
+          "description": "Default export format for Flip export command"
+        },
+        "flip.export.openAfterExport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open exported files automatically after conversion"
         }
       }
     }

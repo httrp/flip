@@ -268,6 +268,57 @@
         "clear": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Flip: Export Markdown (PDF)",
+      "type": "shell",
+      "command": "flip",
+      "args": ["export", "convert", "${file}", "--format", "pdf"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Export Markdown (HTML)",
+      "type": "shell",
+      "command": "flip",
+      "args": ["export", "convert", "${file}", "--format", "html"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Export Markdown (DOCX)",
+      "type": "shell",
+      "command": "flip",
+      "args": ["export", "convert", "${file}", "--format", "docx"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flip: Export Doctor",
+      "type": "shell",
+      "command": "flip",
+      "args": ["export", "doctor"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
     }
   ]
 }

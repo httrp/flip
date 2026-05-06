@@ -13,6 +13,7 @@
 - 🔗 **Multi-Brain** - Connect and switch between knowledge bases
 - 🎨 **VS Code Integration** - Tasks, commands, status bar
 - 🤖 **AI Assist** - Research, summaries, and improvements
+- 📤 **Markdown Export** - Convert notes to PDF/HTML/DOCX with template support
 
 ## Quick Start
 
@@ -47,6 +48,8 @@ flip note "My Idea"       # New note
 flip task new             # New task
 flip task browse          # Task browser (TUI)
 flip exercise new         # New exercise
+flip export convert notes/idea.md --format pdf
+flip export doctor
 flip status               # Overview
 ```
 

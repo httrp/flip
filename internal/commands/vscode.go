@@ -16,7 +16,7 @@ import (
 
 // TasksVersion is incremented when tasks.json changes
 // This allows flip to detect outdated installations
-const TasksVersion = "1.1.1"
+const TasksVersion = "1.2.0"
 
 // getVSCodeTasksJSON returns the embedded VS Code tasks configuration.
 // Uses go:embed via the assets package for cleaner separation.

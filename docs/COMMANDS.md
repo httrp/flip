@@ -141,6 +141,58 @@ flip meeting-note
 
 ---
 
+## Export
+
+Convert markdown files to shareable formats without cluttering your brain folders.
+
+```bash
+# Convert markdown to PDF (default output: ~/Desktop/flip-output)
+flip export convert notes/my-note.md --format pdf
+
+# Convert to HTML or DOCX
+flip export convert notes/my-note.md --format html
+flip export convert notes/my-note.md --format docx
+
+# Override output directory
+flip export convert notes/my-note.md --format pdf --output-dir ~/Documents/exports
+
+# Use landscape PDF layout
+flip export convert notes/my-note.md --format pdf --landscape
+
+# Use specific template name or path
+flip export convert notes/my-note.md --format pdf --template eisvogel
+flip export convert notes/my-note.md --format pdf --template /path/to/eisvogel.latex
+
+# DOCX style via reference document
+flip export convert notes/my-note.md --format docx --reference-doc /path/to/reference.docx
+
+# Discover templates and reference docs
+flip export template list --format pdf
+flip export template list --format html
+flip export template list --format docx
+
+# Check dependencies and install hints
+flip export doctor --format pdf
+```
+
+### Export Output Behavior
+
+- By default, exports are written to `~/Desktop/flip-output`
+- If the input belongs to a known brain, export paths include brain name and date
+- Use `--output` or `--output-dir` to override defaults
+
+### Template Discovery
+
+Flip searches templates in:
+
+- `PANDOC_DATA_DIR/templates`
+- `pandoc --data-dir` + `/templates`
+- `./templates` (current working directory)
+- `~/.pandoc/templates` (legacy)
+- `~/.local/share/pandoc/templates`
+
+---
+
 ## AI Commands
 
 AI-powered research, summaries, and improvements.

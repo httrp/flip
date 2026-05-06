@@ -399,6 +399,39 @@ export interface HealthReport {
   repairs?: HealthRepairPayload;
 }
 
+export interface ExportTemplate {
+  name: string;
+  path: string;
+  source: string;
+  kind: 'latex' | 'html' | 'docx';
+}
+
+export interface ExportTemplateListResult {
+  format: 'pdf' | 'html' | 'docx';
+  count: number;
+  templates: ExportTemplate[];
+}
+
+export interface ExportConvertResult {
+  input: string;
+  output: string;
+  format: 'pdf' | 'html' | 'docx';
+  template?: string;
+  brain_name?: string;
+  output_root: string;
+}
+
+export interface ExportDoctorResult {
+  pandoc_available: boolean;
+  pandoc_path?: string;
+  xelatex_available: boolean;
+  xelatex_path?: string;
+  output_dir_default: string;
+  template_count: number;
+  templates?: ExportTemplate[];
+  install_hints?: string[];
+}
+
 /**
  * Exercise item from exercises list
  */
@@ -1104,6 +1137,59 @@ export class FlipClient {
       args.push('--dry-run');
     }
     return this.execute<HealthReport>(args);
+  }
+
+  /**
+   * List discovered export templates.
+   */
+  async listExportTemplates(format: 'pdf' | 'html' | 'docx'): Promise<FlipResult<ExportTemplateListResult>> {
+    return this.execute<ExportTemplateListResult>(['export', 'template', 'list', '--format', format]);
+  }
+
+  /**
+   * Run export dependency checks.
+   */
+  async exportDoctor(format: 'pdf' | 'html' | 'docx' = 'pdf'): Promise<FlipResult<ExportDoctorResult>> {
+    return this.execute<ExportDoctorResult>(['export', 'doctor', '--format', format]);
+  }
+
+  /**
+   * Convert markdown file via flip export convert.
+   */
+  async exportConvert(options: {
+    input: string;
+    format: 'pdf' | 'html' | 'docx';
+    template?: string;
+    referenceDoc?: string;
+    landscape?: boolean;
+    openAfter?: boolean;
+    output?: string;
+    outputDir?: string;
+    brain?: string;
+  }): Promise<FlipResult<ExportConvertResult>> {
+    const args = ['export', 'convert', options.input, '--format', options.format];
+    if (options.template) {
+      args.push('--template', options.template);
+    }
+    if (options.referenceDoc) {
+      args.push('--reference-doc', options.referenceDoc);
+    }
+    if (options.landscape) {
+      args.push('--landscape');
+    }
+    if (options.openAfter) {
+      args.push('--open');
+    }
+    if (options.output) {
+      args.push('--output', options.output);
+    }
+    if (options.outputDir) {
+      args.push('--output-dir', options.outputDir);
+    }
+    if (options.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<ExportConvertResult>(args, 120000);
   }
 
   /**

@@ -211,6 +211,7 @@ func RegisterFeatureCommands(rootCmd *cobra.Command) {
 	if IsEnabled(FeatureTemplates) {
 		rootCmd.AddCommand(NewTemplateCommand())
 		rootCmd.AddCommand(NewMediaCommand()) // Media is part of templates/content
+		rootCmd.AddCommand(NewExportCommand())
 	}
 
 	if IsEnabled(FeatureVSCode) {

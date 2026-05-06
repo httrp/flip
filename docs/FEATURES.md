@@ -200,6 +200,25 @@ Manage reusable metadata for tasks and notes.
 
 ---
 
+## 📤 Markdown Export
+
+Export markdown notes to shareable document formats with pandoc.
+
+| Command | Description |
+|---------|-------------|
+| `flip export convert <file.md> --format pdf` | Convert markdown to PDF |
+| `flip export convert <file.md> --format html` | Convert markdown to HTML |
+| `flip export convert <file.md> --format docx` | Convert markdown to DOCX |
+| `flip export template list --format pdf` | Discover available templates |
+| `flip export doctor` | Check dependencies and install hints |
+
+### Export Defaults
+- Output defaults to `~/Desktop/flip-output` to keep brains clean.
+- If input is inside a known brain, output path includes brain name and date.
+- PDF auto-detects common templates like Eisvogel when available.
+
+---
+
 ## 🏥 Health Check
 
 Automatic brain health monitoring:

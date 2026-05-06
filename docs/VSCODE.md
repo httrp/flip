@@ -42,6 +42,8 @@ This creates `.vscode/tasks.json` with all flip commands.
 | **Flip: New Note** | Create new note | `Cmd+N` |
 | **Flip: Quick Note** | Quick note (minimal prompts) | — |
 | **Flip: Search Notes** | Search all notes | `Cmd+F` |
+| **Flip: Export Markdown (PDF/HTML/DOCX)** | Export current markdown file | — |
+| **Flip: Export Doctor** | Check pandoc/template dependencies | — |
 | **Flip: File Info** | Info about current file | — |
 | **Flip: Status** | Show brain/workspace status | — |
 | **Flip: Switch Brain** | Change active brain | — |
@@ -57,6 +59,7 @@ For deeper integration, install the flip VS Code extension:
 - Native VS Code dialogs for note/task creation
 - Quick Pick for brain switching
 - AI research/summarize/improve with prompt notes
+- Markdown export to PDF/HTML/DOCX with template picker
 
 ### Installation
 
