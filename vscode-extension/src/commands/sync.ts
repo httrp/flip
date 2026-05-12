@@ -8,35 +8,19 @@ function getSyncOutput(): vscode.OutputChannel {
 }
 
 /**
- * Sync all brains - commit changes with auto-generated messages
+ * Sync all brains bidirectionally.
  */
 export async function syncBrains(): Promise<void> {
   const client = getFlipClient();
 
-  // Ask if user wants to push
-  const pushChoice = await vscode.window.showQuickPick(
-    [
-      { label: '$(git-commit) Commit only', value: false, description: 'Commit changes locally' },
-      { label: '$(cloud-upload) Commit & Push', value: true, description: 'Commit and push to remote' }
-    ],
-    {
-      title: 'Flip: Sync Brains',
-      placeHolder: 'Choose sync mode'
-    }
-  );
-
-  if (!pushChoice) {
-    return;
-  }
-
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: pushChoice.value ? 'Syncing brains (commit & push)...' : 'Committing brain changes...',
+      title: 'Syncing brains...',
       cancellable: false
     },
     async () => {
-      const result = await client.sync({ push: pushChoice.value });
+      const result = await client.sync();
 
       if (!result.success || !result.data) {
         vscode.window.showErrorMessage(`Sync failed: ${result.error || 'Unknown error'}`);
@@ -44,27 +28,24 @@ export async function syncBrains(): Promise<void> {
       }
 
       const brains = result.data.brains;
-      
-      // Count results
-      const committed = brains.filter(b => b.committed);
-      const noChanges = brains.filter(b => !b.has_changes && !b.error);
+      const synced = brains.filter(b => b.pulled || b.committed || b.pushed);
+      const conflicts = brains.filter(b => b.has_conflicts);
       const errors = brains.filter(b => b.error);
 
-      // Show summary
       if (errors.length > 0) {
-        const errorDetails = errors.map(b => `${b.name}: ${b.error}`).join('\n');
         vscode.window.showWarningMessage(
-          `Sync completed with errors: ${committed.length} committed, ${errors.length} failed`,
+          conflicts.length > 0
+            ? `Sync needs attention: ${conflicts.length} brain(s) have conflicts`
+            : `Sync completed with errors: ${errors.length} brain(s) failed`,
           'Show Details'
         ).then(selection => {
           if (selection === 'Show Details') {
             showSyncDetails(brains);
           }
         });
-      } else if (committed.length > 0) {
-        const pushMsg = pushChoice.value ? ' and pushed' : '';
+      } else if (synced.length > 0) {
         vscode.window.showInformationMessage(
-          `✅ ${committed.length} brain(s) committed${pushMsg}`,
+          `✅ ${synced.length} brain(s) synced`,
           'Show Details'
         ).then(selection => {
           if (selection === 'Show Details') {
@@ -72,7 +53,7 @@ export async function syncBrains(): Promise<void> {
           }
         });
       } else {
-        vscode.window.showInformationMessage('No changes to commit in any brain');
+        vscode.window.showInformationMessage('Brains are already up to date');
       }
     }
   );
@@ -91,7 +72,7 @@ export async function quickSync(): Promise<void> {
       cancellable: false
     },
     async () => {
-      const result = await client.sync({ push: false });
+      const result = await client.sync();
 
       if (!result.success || !result.data) {
         vscode.window.showErrorMessage(`Sync failed: ${result.error || 'Unknown error'}`);
@@ -99,12 +80,20 @@ export async function quickSync(): Promise<void> {
       }
 
       const brains = result.data.brains;
-      const committed = brains.filter(b => b.committed);
+      const synced = brains.filter(b => b.pulled || b.committed || b.pushed);
+      const conflicts = brains.filter(b => b.has_conflicts);
 
-      if (committed.length > 0) {
-        vscode.window.showInformationMessage(`✅ ${committed.length} brain(s) committed`);
+      if (conflicts.length > 0) {
+        vscode.window.showWarningMessage(`Sync needs attention: ${conflicts.length} brain(s) have conflicts`, 'Show Details')
+          .then(selection => {
+            if (selection === 'Show Details') {
+              showSyncDetails(brains);
+            }
+          });
+      } else if (synced.length > 0) {
+        vscode.window.showInformationMessage(`✅ ${synced.length} brain(s) synced`);
       } else {
-        vscode.window.showInformationMessage('No changes to commit');
+        vscode.window.showInformationMessage('Brains are already up to date');
       }
     }
   );
@@ -114,45 +103,7 @@ export async function quickSync(): Promise<void> {
  * Sync and push all brains
  */
 export async function syncAndPush(): Promise<void> {
-  const client = getFlipClient();
-
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: 'Syncing and pushing brains...',
-      cancellable: false
-    },
-    async () => {
-      const result = await client.sync({ push: true });
-
-      if (!result.success || !result.data) {
-        vscode.window.showErrorMessage(`Sync failed: ${result.error || 'Unknown error'}`);
-        return;
-      }
-
-      const brains = result.data.brains;
-      const pushed = brains.filter(b => b.pushed);
-      const committed = brains.filter(b => b.committed && !b.pushed);
-      const errors = brains.filter(b => b.error);
-
-      if (errors.length > 0) {
-        vscode.window.showWarningMessage(
-          `Sync completed with errors: ${pushed.length} pushed, ${errors.length} failed`,
-          'Show Details'
-        ).then(selection => {
-          if (selection === 'Show Details') {
-            showSyncDetails(brains);
-          }
-        });
-      } else if (pushed.length > 0) {
-        vscode.window.showInformationMessage(`✅ ${pushed.length} brain(s) synced and pushed`);
-      } else if (committed.length > 0) {
-        vscode.window.showInformationMessage(`✅ ${committed.length} brain(s) committed (no remote)`);
-      } else {
-        vscode.window.showInformationMessage('No changes to sync');
-      }
-    }
-  );
+  await syncBrains();
 }
 
 /**
@@ -166,13 +117,25 @@ function showSyncDetails(brains: BrainSyncResult[]): void {
   for (const brain of brains) {
     output.appendLine(`📁 ${brain.name}`);
     output.appendLine(`   Path: ${brain.path}`);
-    
-    if (!brain.has_changes && !brain.error) {
-      output.appendLine('   Status: No changes');
-    } else if (brain.error) {
+
+    if (brain.error) {
       output.appendLine(`   Status: ❌ Error - ${brain.error}`);
-    } else if (brain.committed) {
-      output.appendLine('   Status: ✅ Committed');
+      if (brain.conflict_files && brain.conflict_files.length > 0) {
+        output.appendLine('   Conflict files:');
+        for (const file of brain.conflict_files) {
+          output.appendLine(`     - ${file}`);
+        }
+      }
+    } else if (!brain.pulled && !brain.committed && !brain.pushed) {
+      output.appendLine('   Status: Up to date');
+    } else {
+      output.appendLine('   Status: ✅ Synced');
+      if (brain.pulled) {
+        output.appendLine('           ✅ Pulled');
+      }
+      if (brain.committed) {
+        output.appendLine('           ✅ Committed');
+      }
       if (brain.pushed) {
         output.appendLine('           ✅ Pushed');
       }

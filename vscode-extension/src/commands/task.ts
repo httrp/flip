@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { getFlipClient, TaskResult } from '../flip-client';
 
@@ -235,11 +236,11 @@ export async function updateTaskStatus(): Promise<void> {
   }
 
   const statusOptions: { label: string; value: 'open' | 'in-progress' | 'done' | 'deferred' | 'cancelled' }[] = [
-    { label: 'Open', value: 'open' },
-    { label: 'In Progress', value: 'in-progress' },
-    { label: 'Done', value: 'done' },
-    { label: 'Deferred', value: 'deferred' },
-    { label: 'Cancelled', value: 'cancelled' },
+    { label: '⬜ Open', value: 'open' },
+    { label: '🔄 In Progress', value: 'in-progress' },
+    { label: '✅ Done', value: 'done' },
+    { label: '⏸️ Deferred', value: 'deferred' },
+    { label: '❌ Cancelled', value: 'cancelled' },
   ];
 
   const selected = await vscode.window.showQuickPick(statusOptions, {
@@ -273,10 +274,14 @@ export async function updateTaskStatus(): Promise<void> {
       editorInstance.selection = new vscode.Selection(position, position);
       editorInstance.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
 
-      vscode.window.showInformationMessage(`Updated task to ${selected.label} in ${data.brain_name}`);
+      vscode.window.showInformationMessage(`${selected.label} in ${data.brain_name}`);
+
+      // Add status change to today's journal
+      await addTaskStatusChangeToJournal(data, selected.value);
     }
   );
 }
+
 /**
  * Quick toggle: Mark task as done (no prompt)
  * Perfect for keyboard shortcut or quick action
@@ -318,7 +323,60 @@ export async function markTaskDone(): Promise<void> {
       editorInstance.selection = new vscode.Selection(position, position);
       editorInstance.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
 
-      vscode.window.showInformationMessage(`✓ Task marked as done in ${data.brain_name}`);
+      vscode.window.showInformationMessage(`✅ Task marked as done in ${data.brain_name}`);
+
+      // Add status change to today's journal
+      await addTaskStatusChangeToJournal(data, 'done');
     }
   );
+}
+
+/**
+ * Inserts a task status-change entry into today's journal.
+ * Silently ignores errors so it never blocks the main workflow.
+ */
+async function addTaskStatusChangeToJournal(data: TaskResult, newStatus: string): Promise<void> {
+  const client = getFlipClient();
+
+  try {
+    // Ensure today's journal exists (creates if missing)
+    const journalResult = await client.createJournal(data.brain_name);
+    if (!journalResult.success || !journalResult.data) {
+      return;
+    }
+    const journalUri = vscode.Uri.file(journalResult.data.path);
+    const journalDocument = await vscode.workspace.openTextDocument(journalUri);
+
+    const statusIcon: Record<string, string> = {
+      'open': '⬜',
+      'in-progress': '🔄',
+      'done': '✅',
+      'deferred': '⏸️',
+      'cancelled': '❌',
+    };
+    const icon = statusIcon[newStatus] || '📋';
+
+    const journalDir = path.dirname(journalDocument.uri.fsPath);
+    const linkPath = path.relative(journalDir, data.path);
+    const entry = `- ${icon} [${data.description}](${linkPath}) -> **${newStatus}**\n`;
+
+    const content = journalDocument.getText();
+    const tasksMatch = content.match(/^## (?:Tasks|Aufgaben)\s*$/m);
+    const edit = new vscode.WorkspaceEdit();
+
+    if (tasksMatch && tasksMatch.index !== undefined) {
+      const headerLine = journalDocument.positionAt(tasksMatch.index).line;
+      const insertPos = journalDocument.lineAt(headerLine).rangeIncludingLineBreak.end;
+      edit.insert(journalUri, insertPos, entry);
+    } else {
+      const prefix = content.trimEnd().length > 0 ? '\n\n## Tasks\n' : '## Tasks\n';
+      const insertPos = journalDocument.positionAt(content.length);
+      edit.insert(journalUri, insertPos, `${prefix}${entry}`);
+    }
+
+    await vscode.workspace.applyEdit(edit);
+    await journalDocument.save();
+  } catch {
+    // Silently ignore - journal update is best-effort
+  }
 }

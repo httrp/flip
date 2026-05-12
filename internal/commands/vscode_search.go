@@ -49,14 +49,17 @@ type VSCodeSyncResult struct {
 
 // VSCodeBrainSyncResult represents sync result for a single brain
 type VSCodeBrainSyncResult struct {
-	Name          string   `json:"name"`
-	Path          string   `json:"path"`
-	HasChanges    bool     `json:"has_changes"`
-	ChangedFiles  []string `json:"changed_files,omitempty"`
-	Committed     bool     `json:"committed"`
-	CommitMessage string   `json:"commit_message,omitempty"`
-	Pushed        bool     `json:"pushed"`
-	Error         string   `json:"error,omitempty"`
+	Name           string   `json:"name"`
+	Path           string   `json:"path"`
+	Pulled         bool     `json:"pulled"`           // Remote changes were pulled
+	HasChanges     bool     `json:"has_changes"`      // Local uncommitted changes
+	ChangedFiles   []string `json:"changed_files,omitempty"`
+	Committed      bool     `json:"committed"`
+	CommitMessage  string   `json:"commit_message,omitempty"`
+	Pushed         bool     `json:"pushed"`
+	HasConflicts   bool     `json:"has_conflicts"`    // Merge conflicts detected
+	ConflictFiles  []string `json:"conflict_files,omitempty"` // Files with conflicts
+	Error          string   `json:"error,omitempty"`
 }
 
 func newVSCodeSearchCommand() *cobra.Command {
@@ -109,18 +112,16 @@ func newVSCodeRecentCommand() *cobra.Command {
 
 func newVSCodeSyncCommand() *cobra.Command {
 	var brainName string
-	var push bool
 
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Commit and optionally push changes in brains (JSON)",
-		Long:  "Commits all uncommitted changes in brains with auto-generated messages. Optionally pushes to remote.",
+		Short: "Bidirectional sync: pull, commit, and push changes (JSON)",
+		Long:  "Full synchronization workflow: pulls remote changes, commits local changes, and pushes to remote. Detects and reports merge conflicts.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runVSCodeSync(brainName, push)
+			return runVSCodeSync(brainName)
 		},
 	}
 	cmd.Flags().StringVar(&brainName, "brain", "", "Sync specific brain only")
-	cmd.Flags().BoolVar(&push, "push", false, "Push to remote after commit")
 	cmd.Flags().Bool("json", false, "Output as JSON (default behavior)")
 	return cmd
 }
@@ -289,7 +290,7 @@ func runVSCodeRecent(brainName, noteType string, limit int) error {
 	return nil
 }
 
-func runVSCodeSync(brainName string, push bool) error {
+func runVSCodeSync(brainName string) error {
 	config, err := loadWorkspaceConfig()
 	if err != nil {
 		OutputJSONError("vscode-sync", err)
@@ -332,60 +333,57 @@ func runVSCodeSync(brainName string, push bool) error {
 
 		// Check if git repo
 		if !git.IsGitRepo(brain.Path) {
-			brainResult.HasChanges = false
 			brainResult.Error = "not a git repository"
 			result.Brains = append(result.Brains, brainResult)
 			continue
 		}
 
-		// Check for uncommitted changes
-		if !git.HasUncommittedChanges(brain.Path) {
-			brainResult.HasChanges = false
-			result.Brains = append(result.Brains, brainResult)
-			continue
-		}
+		if git.HasUncommittedChanges(brain.Path) {
+			brainResult.HasChanges = true
 
-		brainResult.HasChanges = true
-
-		// Get changed files
-		changes, err := git.GetChangedFiles(brain.Path)
-		if err != nil {
-			brainResult.Error = fmt.Sprintf("failed to get changed files: %v", err)
-			result.Brains = append(result.Brains, brainResult)
-			continue
-		}
-		brainResult.ChangedFiles = changes
-
-		// Generate commit message
-		commitMsg := generateSmartCommitMessage(changes)
-		brainResult.CommitMessage = commitMsg
-
-		// Commit
-		err = git.AddAndCommit(brain.Path, commitMsg)
-		if err != nil {
-			brainResult.Error = fmt.Sprintf("failed to commit: %v", err)
-			result.Brains = append(result.Brains, brainResult)
-			continue
-		}
-		brainResult.Committed = true
-
-		// Push if requested
-		if push {
-			err = git.Pull(brain.Path) // Pull first to avoid conflicts
+			changes, err := git.GetChangedFiles(brain.Path)
 			if err != nil {
-				brainResult.Error = fmt.Sprintf("failed to pull before push: %v", err)
+				brainResult.Error = fmt.Sprintf("failed to get changed files: %v", err)
 				result.Brains = append(result.Brains, brainResult)
 				continue
 			}
+			brainResult.ChangedFiles = changes
 
-			err = gitPush(brain.Path)
+			commitMsg := generateSmartCommitMessage(changes)
+			brainResult.CommitMessage = commitMsg
+
+			err = git.AddAndCommit(brain.Path, commitMsg)
 			if err != nil {
-				brainResult.Error = fmt.Sprintf("failed to push: %v", err)
+				brainResult.Error = fmt.Sprintf("failed to commit: %v", err)
 				result.Brains = append(result.Brains, brainResult)
 				continue
 			}
-			brainResult.Pushed = true
+			brainResult.Committed = true
 		}
+
+		err = git.Pull(brain.Path)
+		if err != nil {
+			if git.HasMergeConflicts(brain.Path) {
+				conflictFiles, _ := git.GetConflictedFiles(brain.Path)
+				brainResult.HasConflicts = true
+				brainResult.ConflictFiles = conflictFiles
+				brainResult.Error = fmt.Sprintf("merge conflicts detected while pulling %q", brain.Name)
+				result.Brains = append(result.Brains, brainResult)
+				continue
+			}
+			brainResult.Error = fmt.Sprintf("failed to pull: %v", err)
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+		brainResult.Pulled = true
+
+		err = gitPush(brain.Path)
+		if err != nil {
+			brainResult.Error = fmt.Sprintf("failed to push: %v", err)
+			result.Brains = append(result.Brains, brainResult)
+			continue
+		}
+		brainResult.Pushed = true
 
 		result.Brains = append(result.Brains, brainResult)
 	}

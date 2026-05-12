@@ -243,24 +243,106 @@ export async function searchWithFilters(): Promise<void> {
 }
 
 /**
- * Open a search result in the editor
+ * Open a search result in the editor.
+ * For meeting notes, shows additional action options first.
  */
 async function openSearchResult(item: SearchItem): Promise<void> {
-  const uri = vscode.Uri.file(item.path);
-  
+  if (item.type === 'meeting') {
+    await handleMeetingAction(item);
+  } else {
+    await openFileAtLine(item.path, item.match_line);
+  }
+}
+
+/**
+ * Show action menu for a meeting note
+ */
+async function handleMeetingAction(item: SearchItem): Promise<void> {
+  const actions = [
+    { label: '$(file-text) Öffnen', description: 'Meeting Note im Editor öffnen', value: 'open' },
+    { label: '$(calendar) Zum Journal hinzufügen', description: 'Link ins heutige Journal einfügen', value: 'journal-today' },
+    { label: '$(calendar) Zum Journal eines bestimmten Datums hinzufügen', description: 'Datum wählen', value: 'journal-date' },
+  ];
+
+  const selected = await vscode.window.showQuickPick(actions, {
+    title: `👥 ${item.title}`,
+    placeHolder: 'Was möchtest du tun?',
+  });
+
+  if (!selected) {
+    return;
+  }
+
+  const client = getFlipClient();
+
+  if (selected.value === 'open') {
+    await openFileAtLine(item.path, item.match_line);
+  } else if (selected.value === 'journal-today') {
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Füge zum Journal hinzu...', cancellable: false },
+      async () => {
+        const result = await client.addToJournal({ file: item.path, title: item.title, type: 'meeting', brain: item.brain_name });
+        if (result.success) {
+          const open = await vscode.window.showInformationMessage(
+            `✓ Meeting "${item.title}" ins Journal eingetragen`, 'Journal öffnen'
+          );
+          if (open) {
+            const journalResult = await client.createJournal(item.brain_name);
+            if (journalResult.success && journalResult.data) {
+              await openFileAtLine(journalResult.data.path);
+            }
+          }
+        } else {
+          vscode.window.showErrorMessage(`Fehler: ${result.error}`);
+        }
+      }
+    );
+  } else if (selected.value === 'journal-date') {
+    const dateInput = await vscode.window.showInputBox({
+      title: 'Datum wählen',
+      prompt: 'Zu welchem Journal-Datum hinzufügen?',
+      placeHolder: new Date().toISOString().split('T')[0],
+      validateInput: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) ? null : 'Format: YYYY-MM-DD',
+    });
+    if (!dateInput) {
+      return;
+    }
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Füge zum Journal hinzu...', cancellable: false },
+      async () => {
+        const result = await client.addToJournal({ file: item.path, title: item.title, type: 'meeting', brain: item.brain_name, date: dateInput });
+        if (result.success) {
+          const open = await vscode.window.showInformationMessage(
+            `✓ Meeting "${item.title}" in Journal ${dateInput} eingetragen`, 'Journal öffnen'
+          );
+          if (open) {
+            const journalResult = await client.createJournal(item.brain_name, dateInput);
+            if (journalResult.success && journalResult.data) {
+              await openFileAtLine(journalResult.data.path);
+            }
+          }
+        } else {
+          vscode.window.showErrorMessage(`Fehler: ${result.error}`);
+        }
+      }
+    );
+  }
+}
+
+/**
+ * Open a file in the editor, optionally jumping to a specific line
+ */
+async function openFileAtLine(filePath: string, matchLine?: number): Promise<void> {
+  const uri = vscode.Uri.file(filePath);
   try {
     const document = await vscode.workspace.openTextDocument(uri);
     const editor = await vscode.window.showTextDocument(document);
 
-    // If there's a match line, go to it
-    if (item.match_line && item.match_line > 0) {
-      const line = Math.max(0, item.match_line - 1);
+    if (matchLine && matchLine > 0) {
+      const line = Math.max(0, matchLine - 1);
       const position = new vscode.Position(line, 0);
       editor.selection = new vscode.Selection(position, position);
-      editor.revealRange(
-        new vscode.Range(position, position),
-        vscode.TextEditorRevealType.InCenter
-      );
+      editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
     }
   } catch (error: any) {
     vscode.window.showErrorMessage(`Failed to open file: ${error.message}`);

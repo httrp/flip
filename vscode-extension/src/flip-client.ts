@@ -542,11 +542,14 @@ export interface TemplateResetResult {
 export interface BrainSyncResult {
   name: string;
   path: string;
+  pulled: boolean;
   has_changes: boolean;
   changed_files?: string[];
   committed: boolean;
   commit_message?: string;
   pushed: boolean;
+  has_conflicts?: boolean;
+  conflict_files?: string[];
   error?: string;
 }
 
@@ -1193,18 +1196,14 @@ export class FlipClient {
   }
 
   /**
-   * Sync (commit and optionally push) changes in brains
+   * Sync brains bidirectionally: commit local changes, pull remote, push result.
    */
   async sync(options?: {
     brain?: string;
-    push?: boolean;
   }): Promise<FlipResult<SyncResult>> {
     const args = ['vscode', 'sync'];
     if (options?.brain) {
       args.push('--brain', options.brain);
-    }
-    if (options?.push) {
-      args.push('--push');
     }
     return this.execute<SyncResult>(args);
   }
