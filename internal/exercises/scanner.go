@@ -297,12 +297,17 @@ func (s *Scanner) getSessionSearchPaths(brainPath, exerciseID string, brainType 
 			filepath.Join(brainPath, "journals"),
 		}
 	default:
+		// For flip/obsidian brains, check both journal/ (new compact format) and
+		// exercises/sessions/ (old individual session files)
+		journalPath := filepath.Join(brainPath, "journal")
 		if exerciseID != "" {
 			return []string{
+				journalPath,
 				filepath.Join(brainPath, "exercises", "sessions", exerciseID),
 			}
 		}
 		return []string{
+			journalPath,
 			filepath.Join(brainPath, "exercises", "sessions"),
 		}
 	}

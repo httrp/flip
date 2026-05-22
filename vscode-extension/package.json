@@ -2,7 +2,7 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.3.24",
+  "version": "0.3.28",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -182,6 +182,10 @@
       {
         "command": "flip.quickTrack",
         "title": "Flip: Quick Track Exercise"
+      },
+      {
+        "command": "flip.exerciseMigrateSessions",
+        "title": "Flip: Migrate Exercise Sessions"
       },
       {
         "command": "flip.templates",

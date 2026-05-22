@@ -19,7 +19,7 @@ import { mediaNormalize, disposeMediaOutput } from './commands/media-normalize';
 import { exportDoctor, exportMarkdown } from './commands/export';
 import { aiStatusCommand, aiSetupCommand, aiResearchCommand, aiSummarizeCommand, aiImproveCommand, disposeAiTerminal } from './commands/ai';
 import { definitionsCommand, addOrganizationCommand, addPersonCommand } from './commands/definitions';
-import { exerciseCommand, newExerciseCommand, quickTrackCommand } from './commands/exercises';
+import { exerciseCommand, newExerciseCommand, quickTrackCommand, migrateExerciseSessionsCommand } from './commands/exercises';
 import { templateCommand, editTemplateCommand, resetTemplateCommand } from './commands/templates';
 import { convertToFlipNote } from './commands/convert-to-note';
 import { showAbout, showHelp } from './commands/about';
@@ -99,6 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('flip.exercises', exerciseCommand),
     vscode.commands.registerCommand('flip.newExercise', newExerciseCommand),
     vscode.commands.registerCommand('flip.quickTrack', quickTrackCommand),
+    vscode.commands.registerCommand('flip.exerciseMigrateSessions', migrateExerciseSessionsCommand),
     
     // Template management
     vscode.commands.registerCommand('flip.templates', templateCommand),

@@ -492,6 +492,21 @@ export interface ExerciseTrackResult {
   date: string;
 }
 
+export interface ExerciseMigrateResult {
+  success: boolean;
+  dry_run: boolean;
+  brain_name?: string;
+  brain_path?: string;
+  files_scanned: number;
+  files_changed: number;
+  sessions_migrated: number;
+  legacy_cli_sessions: number;
+  legacy_vscode_sessions: number;
+  already_compact: number;
+  backups_created: number;
+  errors?: string[];
+}
+
 /**
  * Exercise new result
  */
@@ -1252,6 +1267,7 @@ export class FlipClient {
     duration?: number;
     variant?: string;
     notes?: string;
+    properties?: Record<string, string | number>;
     brain?: string;
   }): Promise<FlipResult<ExerciseTrackResult>> {
     const args = ['vscode', 'exercises', 'track', '--exercise', options.exerciseId];
@@ -1264,10 +1280,42 @@ export class FlipClient {
     if (options.notes) {
       args.push('--notes', options.notes);
     }
+    if (options.properties) {
+      for (const [key, value] of Object.entries(options.properties)) {
+        if (value !== undefined && value !== null && `${value}`.trim() !== '') {
+          args.push('--prop', `${key}=${value}`);
+        }
+      }
+    }
     if (options.brain) {
       args.push('--brain', options.brain);
     }
     return this.execute<ExerciseTrackResult>(args);
+  }
+
+  /**
+   * Migrate legacy exercise journal entries to compact one-line format
+   */
+  async migrateExerciseSessions(options?: {
+    apply?: boolean;
+    backup?: boolean;
+    days?: number;
+    brain?: string;
+  }): Promise<FlipResult<ExerciseMigrateResult>> {
+    const args = ['vscode', 'exercises', 'migrate-sessions'];
+    if (options?.apply) {
+      args.push('--apply');
+    }
+    if (options?.backup === false) {
+      args.push('--backup=false');
+    }
+    if (options?.days && options.days > 0) {
+      args.push('--days', options.days.toString());
+    }
+    if (options?.brain) {
+      args.push('--brain', options.brain);
+    }
+    return this.execute<ExerciseMigrateResult>(args);
   }
 
   /**
@@ -1278,6 +1326,7 @@ export class FlipClient {
     context?: string;
     description?: string;
     goal?: string;
+    variants?: ExerciseVariantResult[];
     brain?: string;
   }): Promise<FlipResult<ExerciseNewResult>> {
     const args = ['vscode', 'exercises', 'new', '--name', options.name];
@@ -1289,6 +1338,9 @@ export class FlipClient {
     }
     if (options.goal) {
       args.push('--goal', options.goal);
+    }
+    if (options.variants && options.variants.length > 0) {
+      args.push('--variants-json', JSON.stringify(options.variants));
     }
     if (options.brain) {
       args.push('--brain', options.brain);

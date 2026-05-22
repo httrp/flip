@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/httrp/flip/internal/brain"
 	"github.com/httrp/flip/internal/exercises"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // ExerciseItemResult represents an exercise for JSON output
@@ -66,6 +69,7 @@ func NewVSCodeExercisesCommand() *cobra.Command {
 	cmd.AddCommand(NewVSCodeExercisesShowCommand())
 	cmd.AddCommand(NewVSCodeExercisesTrackCommand())
 	cmd.AddCommand(NewVSCodeExercisesNewCommand())
+	cmd.AddCommand(NewVSCodeExercisesMigrateSessionsCommand())
 
 	return cmd
 }
@@ -261,6 +265,11 @@ type ExerciseTrackResult struct {
 	Date         string `json:"date"`
 }
 
+type ExerciseMigrateResult struct {
+	Success bool `json:"success"`
+	exerciseMigrationResult
+}
+
 // NewVSCodeExercisesTrackCommand tracks a session
 func NewVSCodeExercisesTrackCommand() *cobra.Command {
 	var jsonOutput bool
@@ -269,6 +278,7 @@ func NewVSCodeExercisesTrackCommand() *cobra.Command {
 	var duration int
 	var variantName string
 	var notes string
+	var properties []string
 
 	cmd := &cobra.Command{
 		Use:   "track",
@@ -324,8 +334,9 @@ func NewVSCodeExercisesTrackCommand() *cobra.Command {
 				return nil
 			}
 
+			parsedProperties := parseExerciseProperties(properties)
 			// Build the session entry
-			sessionEntry := buildExerciseSessionEntry(found, duration, variantName, notes)
+			sessionEntry := buildExerciseSessionEntry(found, journalPath, detection.Type, duration, variantName, notes, parsedProperties)
 
 			// Append to journal in Exercises section
 			if err := appendToJournalSection(journalPath, "## Exercises", sessionEntry); err != nil {
@@ -352,6 +363,7 @@ func NewVSCodeExercisesTrackCommand() *cobra.Command {
 	cmd.Flags().IntVar(&duration, "duration", 0, "Duration in minutes")
 	cmd.Flags().StringVar(&variantName, "variant", "", "Variant name")
 	cmd.Flags().StringVar(&notes, "notes", "", "Session notes")
+	cmd.Flags().StringArrayVar(&properties, "prop", []string{}, "Additional property in key=value format (repeatable)")
 
 	return cmd
 }
@@ -373,6 +385,7 @@ func NewVSCodeExercisesNewCommand() *cobra.Command {
 	var context string
 	var description string
 	var goal string
+	var variantsJSON string
 
 	cmd := &cobra.Command{
 		Use:   "new",
@@ -400,8 +413,16 @@ func NewVSCodeExercisesNewCommand() *cobra.Command {
 			// Generate ID from name
 			id := generateExerciseIDFromName(name)
 
+			variants := []exercises.ExerciseVariant{}
+			if strings.TrimSpace(variantsJSON) != "" {
+				if err := json.Unmarshal([]byte(variantsJSON), &variants); err != nil {
+					OutputJSONError("exercises-new", fmt.Errorf("invalid variants json: %w", err))
+					return nil
+				}
+			}
+
 			// Create the exercise file
-			filePath, err := createExerciseFile(activeBrain.Path, string(detection.Type), id, name, context, description, goal)
+			filePath, err := createExerciseFile(activeBrain.Path, string(detection.Type), id, name, context, description, goal, variants)
 			if err != nil {
 				OutputJSONError("exercises-new", err)
 				return nil
@@ -428,33 +449,90 @@ func NewVSCodeExercisesNewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&context, "context", "", "Context (e.g., Sport, Music)")
 	cmd.Flags().StringVar(&description, "description", "", "Description")
 	cmd.Flags().StringVar(&goal, "goal", "", "Goal")
+	cmd.Flags().StringVar(&variantsJSON, "variants-json", "", "Variants as JSON array")
+
+	return cmd
+}
+
+// NewVSCodeExercisesMigrateSessionsCommand migrates legacy exercise journal entries.
+func NewVSCodeExercisesMigrateSessionsCommand() *cobra.Command {
+	var jsonOutput bool
+	var brainName string
+	var apply bool
+	var backup bool
+	var days int
+
+	cmd := &cobra.Command{
+		Use:   "migrate-sessions",
+		Short: "Migrate legacy exercise journal entries to compact format",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			JSONOutput = jsonOutput
+
+			activeBrain, err := getBrainByNameOrActive(brainName)
+			if err != nil {
+				OutputJSONError("exercises-migrate-sessions", err)
+				return nil
+			}
+
+			detection, err := brain.NewDetector().DetectBrainType(activeBrain.Path)
+			if err != nil {
+				OutputJSONError("exercises-migrate-sessions", err)
+				return nil
+			}
+
+			result, err := migrateExerciseSessionsInBrain(activeBrain.Path, detection.Type, apply, backup, days)
+			if err != nil {
+				OutputJSONError("exercises-migrate-sessions", err)
+				return nil
+			}
+			result.BrainName = activeBrain.Name
+			result.BrainPath = activeBrain.Path
+
+			OutputJSONSuccess("exercises-migrate-sessions", ExerciseMigrateResult{
+				Success:                 true,
+				exerciseMigrationResult: result,
+			})
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&brainName, "brain", "", "Brain to use")
+	cmd.Flags().BoolVar(&apply, "apply", false, "Apply migration (default dry-run)")
+	cmd.Flags().BoolVar(&backup, "backup", true, "Create backups when applying")
+	cmd.Flags().IntVar(&days, "days", 0, "Only process journal files from the last N days (0 = all)")
 
 	return cmd
 }
 
 // Helper functions
 
-func buildExerciseSessionEntry(ex *exercises.Exercise, duration int, variantName, notes string) string {
-	var sb strings.Builder
+func buildExerciseSessionEntry(ex *exercises.Exercise, journalPath string, brainType brain.BrainType, duration int, variantName, notes string, properties map[string]interface{}) string {
+	return buildCompactExerciseEntry(ex.ID, ex.Name, ex.FilePath, journalPath, brainType, variantName, duration, properties, notes)
+}
 
-	// Header with wikilink
-	sb.WriteString(fmt.Sprintf("### 🏋️ [[%s]]\n", ex.Name))
+func parseExerciseProperties(propertyValues []string) map[string]interface{} {
+	parsed := make(map[string]interface{})
+	for _, item := range propertyValues {
+		kv := strings.SplitN(item, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		value := strings.TrimSpace(kv[1])
+		if key == "" || value == "" {
+			continue
+		}
 
-	if variantName != "" {
-		sb.WriteString(fmt.Sprintf("**Variant:** %s\n", variantName))
+		if intVal, err := strconv.Atoi(value); err == nil {
+			parsed[key] = intVal
+		} else if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+			parsed[key] = floatVal
+		} else {
+			parsed[key] = value
+		}
 	}
-
-	if duration > 0 {
-		sb.WriteString(fmt.Sprintf("**Duration:** %d min\n", duration))
-	}
-
-	if notes != "" {
-		sb.WriteString(fmt.Sprintf("\n%s\n", notes))
-	}
-
-	sb.WriteString("\n")
-
-	return sb.String()
+	return parsed
 }
 
 func appendToJournalSection(journalPath, sectionHeader, content string) error {
@@ -511,7 +589,7 @@ func generateExerciseIDFromName(name string) string {
 	return id
 }
 
-func createExerciseFile(brainPath, brainType, id, name, context, description, goal string) (string, error) {
+func createExerciseFile(brainPath, brainType, id, name, context, description, goal string, variants []exercises.ExerciseVariant) (string, error) {
 	// Determine exercises folder
 	exercisesDir := filepath.Join(brainPath, "exercises")
 	if brainType == "logseq" {
@@ -527,31 +605,70 @@ func createExerciseFile(brainPath, brainType, id, name, context, description, go
 	filename := fmt.Sprintf("%s.md", id)
 	filePath := filepath.Join(exercisesDir, filename)
 
+	frontmatter := map[string]interface{}{
+		"id":            id,
+		"type":          "exercise",
+		"name":          name,
+		"status":        "active",
+		"created":       time.Now().Format(time.RFC3339),
+		"session_count": 0,
+	}
+	if context != "" {
+		frontmatter["context"] = context
+	}
+	if description != "" {
+		frontmatter["description"] = description
+	}
+	if goal != "" {
+		frontmatter["goal"] = goal
+	}
+	if len(variants) > 0 {
+		frontmatter["variants"] = variants
+	}
+
+	frontmatterYAML, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return "", err
+	}
+
 	// Build content
 	var sb strings.Builder
 	sb.WriteString("---\n")
-	sb.WriteString(fmt.Sprintf("id: %s\n", id))
-	sb.WriteString("type: exercise\n")
-	sb.WriteString(fmt.Sprintf("name: %s\n", name))
-	if context != "" {
-		sb.WriteString(fmt.Sprintf("context: %s\n", context))
-	}
-	if description != "" {
-		sb.WriteString(fmt.Sprintf("description: %s\n", description))
-	}
-	if goal != "" {
-		sb.WriteString(fmt.Sprintf("goal: %s\n", goal))
-	}
-	sb.WriteString("status: active\n")
-	sb.WriteString(fmt.Sprintf("created: %s\n", time.Now().Format(time.RFC3339)))
-	sb.WriteString("session_count: 0\n")
+	sb.Write(frontmatterYAML)
 	sb.WriteString("---\n\n")
 	sb.WriteString(fmt.Sprintf("# %s\n\n", name))
 	if description != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", description))
 	}
 	sb.WriteString("## Variants\n\n")
-	sb.WriteString("_Add exercise variants here_\n\n")
+	if len(variants) == 0 {
+		sb.WriteString("_Add exercise variants here_\n\n")
+	} else {
+		for i, variant := range variants {
+			if strings.TrimSpace(variant.Name) != "" {
+				sb.WriteString(fmt.Sprintf("### Variant %d: %s\n\n", i+1, variant.Name))
+			} else {
+				sb.WriteString(fmt.Sprintf("### Variant %d\n\n", i+1))
+			}
+
+			if strings.TrimSpace(variant.Description) != "" {
+				sb.WriteString(fmt.Sprintf("%s\n\n", variant.Description))
+			}
+
+			if len(variant.TrackingProperties) > 0 {
+				sb.WriteString("**Tracking Properties:**\n")
+				keys := make([]string, 0, len(variant.TrackingProperties))
+				for key := range variant.TrackingProperties {
+					keys = append(keys, key)
+				}
+				sort.Strings(keys)
+				for _, key := range keys {
+					sb.WriteString(fmt.Sprintf("- **%s**: %s\n", key, variant.TrackingProperties[key]))
+				}
+				sb.WriteString("\n")
+			}
+		}
+	}
 	sb.WriteString("## Notes\n\n")
 	sb.WriteString("_Add notes and observations here_\n")
 

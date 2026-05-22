@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -193,22 +194,17 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error creating journal directory: %w", err)
 	}
 
-	// Build exercise block
-	var block strings.Builder
-	block.WriteString(fmt.Sprintf("\n## Exercise: %s\n", exercise.Name))
-	block.WriteString(fmt.Sprintf("- exercise-id:: %s\n", exercise.ID))
-	if variantName != "" {
-		block.WriteString(fmt.Sprintf("- variant:: %s\n", variantName))
-	}
-	block.WriteString(fmt.Sprintf("- duration:: %d min\n", duration))
-
-	for key, value := range properties {
-		block.WriteString(fmt.Sprintf("- %s:: %v\n", key, value))
-	}
-
-	if notes != "" {
-		block.WriteString(fmt.Sprintf("- notes:: %s\n", notes))
-	}
+	entry := buildCompactExerciseEntry(
+		exercise.ID,
+		exercise.Name,
+		exercise.FilePath,
+		journalPath,
+		detection.Type,
+		variantName,
+		duration,
+		properties,
+		notes,
+	)
 
 	// Append or create journal file
 	var journalContent string
@@ -218,10 +214,10 @@ func runExerciseTrack(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("error reading journal: %w", err)
 		}
-		journalContent = string(data) + block.String()
+		journalContent = string(data) + entry
 	} else {
 		// File doesn't exist, create with minimal header
-		journalContent = generateMinimalJournalHeader(now, detection.Type) + block.String()
+		journalContent = generateMinimalJournalHeader(now, detection.Type) + entry
 	}
 
 	if err := os.WriteFile(journalPath, []byte(journalContent), 0644); err != nil {
@@ -245,4 +241,64 @@ func generateMinimalJournalHeader(date time.Time, brainType brain.BrainType) str
 	default:
 		return fmt.Sprintf("# %s, %s\n", weekday, dateStr)
 	}
+}
+
+func buildCompactExerciseEntry(exerciseID, exerciseName, exerciseFilePath, journalPath string, brainType brain.BrainType, variantName string, duration int, properties map[string]interface{}, notes string) string {
+	header := buildExerciseLinkHeader(exerciseID, exerciseName, exerciseFilePath, journalPath, brainType)
+	if duration > 0 {
+		header += fmt.Sprintf(" (%d min)", duration)
+	}
+
+	parts := []string{header}
+
+	if variantName != "" {
+		parts = append(parts, fmt.Sprintf("variant=%s", sanitizeCompactValue(variantName)))
+	}
+
+	// Add tracking properties (skip duration_min – already in header)
+	keys := make([]string, 0, len(properties))
+	for key := range properties {
+		if strings.ToLower(key) != "duration_min" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%s", key, sanitizeCompactValue(fmt.Sprintf("%v", properties[key]))))
+	}
+
+	if notes != "" {
+		parts = append(parts, fmt.Sprintf("notes=%s", sanitizeCompactValue(notes)))
+	}
+
+	return "\n- " + strings.Join(parts, " | ") + "\n"
+}
+
+func buildExerciseLinkHeader(exerciseID, exerciseName, exerciseFilePath, journalPath string, brainType brain.BrainType) string {
+	cleanName := sanitizeCompactValue(exerciseName)
+
+	switch brainType {
+	case brain.BrainTypeLogseq, brain.BrainTypeObsidian:
+		return fmt.Sprintf("[[%s]]", cleanName)
+	default:
+		targetPath := exerciseFilePath
+		if strings.TrimSpace(targetPath) == "" {
+			targetPath = filepath.Join(filepath.Dir(journalPath), "..", "exercises", fmt.Sprintf("%s.md", exerciseID))
+		}
+
+		relPath, err := filepath.Rel(filepath.Dir(journalPath), targetPath)
+		if err != nil || strings.TrimSpace(relPath) == "" {
+			relPath = filepath.Join("..", "exercises", fmt.Sprintf("%s.md", exerciseID))
+		}
+
+		return fmt.Sprintf("[%s](%s)", cleanName, filepath.ToSlash(relPath))
+	}
+}
+
+func sanitizeCompactValue(value string) string {
+	clean := strings.TrimSpace(value)
+	clean = strings.ReplaceAll(clean, "|", "/")
+	clean = strings.ReplaceAll(clean, "\n", " ")
+	clean = strings.Join(strings.Fields(clean), " ")
+	return clean
 }

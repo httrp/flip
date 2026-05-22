@@ -449,21 +449,32 @@ func (p *Parser) ParseJournalExerciseBlocks(filePath string) ([]*ExerciseSession
 
 	var sessions []*ExerciseSession
 	lines := strings.Split(string(content), "\n")
-	
+
 	var currentSession *ExerciseSession
 	var blockStart int
-	
-	for i, line := range lines {
-		// Check for exercise block header: "## Exercise: Name"
-		if strings.HasPrefix(line, "## Exercise:") {
-			// Save previous session if exists
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+
+		if compactSession := p.parseCompactExerciseLine(trimmed, journalDate, filePath, i); compactSession != nil {
+			sessions = append(sessions, compactSession)
+			continue
+		}
+
+		if legacySession, consumed := p.parseLegacyVSCodeExerciseEntry(lines, i, journalDate, filePath); legacySession != nil {
+			sessions = append(sessions, legacySession)
+			i += consumed
+			continue
+		}
+
+		// Legacy CLI block header: "## Exercise: Name"
+		if strings.HasPrefix(trimmed, "## Exercise:") {
 			if currentSession != nil {
 				currentSession.BlockEnd = i - 1
 				sessions = append(sessions, currentSession)
 			}
-			
-			// Start new session
-			_ = strings.TrimSpace(strings.TrimPrefix(line, "## Exercise:"))
+
 			currentSession = &ExerciseSession{
 				Date:        journalDate,
 				Properties:  make(map[string]interface{}),
@@ -474,62 +485,339 @@ func (p *Parser) ParseJournalExerciseBlocks(filePath string) ([]*ExerciseSession
 			blockStart = i
 			continue
 		}
-		
-		// Parse properties within exercise block
-		if currentSession != nil && strings.HasPrefix(strings.TrimSpace(line), "- ") {
-			// Property line format: "- key:: value"
-			propLine := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "- "))
-			
+
+		if currentSession != nil && strings.HasPrefix(trimmed, "- ") {
+			propLine := strings.TrimSpace(strings.TrimPrefix(trimmed, "- "))
 			if strings.Contains(propLine, "::") {
 				parts := strings.SplitN(propLine, "::", 2)
 				if len(parts) == 2 {
 					key := strings.TrimSpace(parts[0])
 					valueStr := strings.TrimSpace(parts[1])
-					
-					// Handle special keys
-					switch key {
-					case "exercise-id":
-						currentSession.ExerciseID = valueStr
-					case "variant":
-						currentSession.VariantName = valueStr
-					case "duration":
-						// Parse "30 min" format
-						durationStr := strings.TrimSuffix(valueStr, " min")
-						durationStr = strings.TrimSuffix(durationStr, "min")
-						if duration, err := strconv.Atoi(strings.TrimSpace(durationStr)); err == nil {
-							currentSession.Duration = duration
-						}
-					case "notes":
-						currentSession.Notes = valueStr
-					default:
-						// Store as property - try to parse as number
-						if intVal, err := strconv.Atoi(valueStr); err == nil {
-							currentSession.Properties[key] = intVal
-						} else if floatVal, err := strconv.ParseFloat(valueStr, 64); err == nil {
-							currentSession.Properties[key] = floatVal
-						} else {
-							currentSession.Properties[key] = valueStr
-						}
-					}
+					p.applySessionField(currentSession, key, valueStr)
 				}
 			}
 		}
-		
-		// Check if we've left the exercise block (empty line or new header)
-		if currentSession != nil && (line == "" || (strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "## Exercise:"))) {
-			if i > blockStart+1 { // At least some content after header
+
+		if currentSession != nil && (trimmed == "" || (strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "## Exercise:"))) {
+			if i > blockStart+1 {
 				currentSession.BlockEnd = i - 1
 				sessions = append(sessions, currentSession)
 				currentSession = nil
 			}
 		}
 	}
-	
-	// Save last session if exists
+
 	if currentSession != nil {
 		currentSession.BlockEnd = len(lines) - 1
 		sessions = append(sessions, currentSession)
 	}
-	
+
 	return sessions, nil
+}
+
+func (p *Parser) parseCompactExerciseLine(line string, journalDate time.Time, filePath string, lineNumber int) *ExerciseSession {
+	// New format: - [[Exercise Name]] (30 min) | key=val | ...
+	if strings.HasPrefix(line, "- [[") {
+		return p.parseWikilinkExerciseLine(line, journalDate, filePath, lineNumber)
+	}
+
+	// flip default format: - [Exercise Name](../exercises/id.md) (30 min) | key=val | ...
+	if strings.HasPrefix(line, "- [") {
+		return p.parseMarkdownLinkExerciseLine(line, journalDate, filePath, lineNumber)
+	}
+
+	if !strings.HasPrefix(line, "- exercise::") {
+		return nil
+	}
+
+	raw := strings.TrimSpace(strings.TrimPrefix(line, "- exercise::"))
+	if raw == "" {
+		return nil
+	}
+
+	session := &ExerciseSession{
+		Date:        journalDate,
+		Properties:  make(map[string]interface{}),
+		BlockStart:  lineNumber,
+		BlockEnd:    lineNumber,
+		JournalDate: journalDate.Format("2006-01-02"),
+		FilePath:    filePath,
+	}
+
+	parts := strings.Split(raw, "|")
+	for idx, part := range parts {
+		token := strings.TrimSpace(part)
+		if token == "" {
+			continue
+		}
+
+		if strings.Contains(token, "=") {
+			kv := strings.SplitN(token, "=", 2)
+			key := strings.TrimSpace(kv[0])
+			val := ""
+			if len(kv) > 1 {
+				val = strings.TrimSpace(kv[1])
+			}
+			p.applySessionField(session, key, val)
+			continue
+		}
+
+		if idx == 0 {
+			session.ExerciseID = token
+		}
+	}
+
+	if session.ExerciseID == "" {
+		return nil
+	}
+
+	return session
+}
+
+// parseWikilinkExerciseLine parses the new compact format:
+// - [[Exercise Name]] (30 min) | variant=X | distance_km=6.2 | notes=...
+func (p *Parser) parseWikilinkExerciseLine(line string, journalDate time.Time, filePath string, lineNumber int) *ExerciseSession {
+	// Strip leading "- "
+	raw := strings.TrimPrefix(line, "- ")
+
+	// Extract [[Name]]
+	if !strings.HasPrefix(raw, "[[") {
+		return nil
+	}
+	closeIdx := strings.Index(raw, "]]")
+	if closeIdx == -1 {
+		return nil
+	}
+	exerciseName := strings.TrimSpace(raw[2:closeIdx])
+	if exerciseName == "" {
+		return nil
+	}
+
+	session := &ExerciseSession{
+		Date:        journalDate,
+		Properties:  make(map[string]interface{}),
+		BlockStart:  lineNumber,
+		BlockEnd:    lineNumber,
+		JournalDate: journalDate.Format("2006-01-02"),
+		FilePath:    filePath,
+		ExerciseID:  p.normalizeExerciseID(exerciseName),
+	}
+
+	// Rest after "]]"
+	rest := strings.TrimSpace(raw[closeIdx+2:])
+
+	// Optional duration: (30 min)
+	if strings.HasPrefix(rest, "(") {
+		closeP := strings.Index(rest, ")")
+		if closeP != -1 {
+			durStr := strings.TrimSpace(rest[1:closeP])
+			// "30 min" → extract the number
+			durStr = strings.TrimSuffix(strings.TrimSpace(durStr), " min")
+			durStr = strings.TrimSuffix(durStr, "min")
+			p.applySessionField(session, "duration", strings.TrimSpace(durStr))
+			rest = strings.TrimSpace(rest[closeP+1:])
+		}
+	}
+
+	// Remaining key=value pairs separated by |
+	if strings.HasPrefix(rest, "|") {
+		rest = strings.TrimSpace(rest[1:])
+	}
+	for _, part := range strings.Split(rest, "|") {
+		token := strings.TrimSpace(part)
+		if token == "" {
+			continue
+		}
+		if strings.Contains(token, "=") {
+			kv := strings.SplitN(token, "=", 2)
+			key := strings.TrimSpace(kv[0])
+			val := ""
+			if len(kv) > 1 {
+				val = strings.TrimSpace(kv[1])
+			}
+			p.applySessionField(session, key, val)
+		}
+	}
+
+	return session
+}
+
+// parseMarkdownLinkExerciseLine parses compact format with markdown links:
+// - [Exercise Name](../exercises/exercise-id.md) (30 min) | variant=X | key=val
+func (p *Parser) parseMarkdownLinkExerciseLine(line string, journalDate time.Time, filePath string, lineNumber int) *ExerciseSession {
+	raw := strings.TrimSpace(strings.TrimPrefix(line, "- "))
+
+	openBracket := strings.Index(raw, "[")
+	labelEnd := strings.Index(raw, "](")
+	linkEnd := strings.Index(raw, ")")
+	if openBracket != 0 || labelEnd <= 1 || linkEnd <= labelEnd+2 {
+		return nil
+	}
+
+	linkLabel := strings.TrimSpace(raw[1:labelEnd])
+	linkTarget := strings.TrimSpace(raw[labelEnd+2 : linkEnd])
+	if linkLabel == "" || linkTarget == "" {
+		return nil
+	}
+
+	lowerTarget := strings.ToLower(filepath.ToSlash(linkTarget))
+	if !strings.Contains(lowerTarget, "/exercises/") && !strings.HasPrefix(lowerTarget, "exercises/") {
+		return nil
+	}
+
+	session := &ExerciseSession{
+		Date:        journalDate,
+		Properties:  make(map[string]interface{}),
+		BlockStart:  lineNumber,
+		BlockEnd:    lineNumber,
+		JournalDate: journalDate.Format("2006-01-02"),
+		FilePath:    filePath,
+	}
+
+	fileName := strings.TrimSpace(filepath.Base(linkTarget))
+	fileName = strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	if fileName != "" && fileName != "." && fileName != ".." {
+		session.ExerciseID = fileName
+	} else {
+		session.ExerciseID = p.normalizeExerciseID(linkLabel)
+	}
+
+	rest := strings.TrimSpace(raw[linkEnd+1:])
+
+	// Optional duration: (30 min)
+	if strings.HasPrefix(rest, "(") {
+		closeP := strings.Index(rest, ")")
+		if closeP != -1 {
+			durStr := strings.TrimSpace(rest[1:closeP])
+			durStr = strings.TrimSuffix(strings.TrimSpace(durStr), " min")
+			durStr = strings.TrimSuffix(durStr, "min")
+			p.applySessionField(session, "duration", strings.TrimSpace(durStr))
+			rest = strings.TrimSpace(rest[closeP+1:])
+		}
+	}
+
+	if strings.HasPrefix(rest, "|") {
+		rest = strings.TrimSpace(rest[1:])
+	}
+	for _, part := range strings.Split(rest, "|") {
+		token := strings.TrimSpace(part)
+		if token == "" {
+			continue
+		}
+		if strings.Contains(token, "=") {
+			kv := strings.SplitN(token, "=", 2)
+			key := strings.TrimSpace(kv[0])
+			val := ""
+			if len(kv) > 1 {
+				val = strings.TrimSpace(kv[1])
+			}
+			p.applySessionField(session, key, val)
+		}
+	}
+
+	if session.ExerciseID == "" {
+		return nil
+	}
+
+	return session
+}
+
+func (p *Parser) parseLegacyVSCodeExerciseEntry(lines []string, start int, journalDate time.Time, filePath string) (*ExerciseSession, int) {
+	line := strings.TrimSpace(lines[start])
+	if !strings.HasPrefix(line, "### 🏋️ [[") {
+		return nil, 0
+	}
+
+	begin := strings.Index(line, "[[")
+	end := strings.Index(line, "]]")
+	if begin == -1 || end == -1 || end <= begin+2 {
+		return nil, 0
+	}
+
+	name := strings.TrimSpace(line[begin+2 : end])
+	session := &ExerciseSession{
+		Date:        journalDate,
+		Properties:  make(map[string]interface{}),
+		BlockStart:  start,
+		JournalDate: journalDate.Format("2006-01-02"),
+		FilePath:    filePath,
+		ExerciseID:  p.normalizeExerciseID(name),
+	}
+
+	consumed := 0
+	for i := start + 1; i < len(lines); i++ {
+		current := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(current, "### ") || strings.HasPrefix(current, "## ") {
+			break
+		}
+		if current == "" {
+			consumed = i - start
+			break
+		}
+
+		if strings.HasPrefix(current, "**Variant:**") {
+			session.VariantName = strings.TrimSpace(strings.TrimPrefix(current, "**Variant:**"))
+		} else if strings.HasPrefix(current, "**Duration:**") {
+			value := strings.TrimSpace(strings.TrimPrefix(current, "**Duration:**"))
+			p.applySessionField(session, "duration", value)
+		} else {
+			if session.Notes == "" {
+				session.Notes = current
+			} else {
+				session.Notes += " " + current
+			}
+		}
+
+		consumed = i - start
+	}
+
+	session.BlockEnd = start + consumed
+	return session, consumed
+}
+
+func (p *Parser) applySessionField(session *ExerciseSession, key, valueStr string) {
+	clean := strings.TrimSpace(valueStr)
+	if clean == "" {
+		return
+	}
+
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "exercise", "exercise-id", "exercise_id", "id":
+		session.ExerciseID = clean
+	case "variant", "variant_name":
+		session.VariantName = clean
+	case "duration", "duration_min":
+		norm := strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(clean, " min"), "min"))
+		if duration, err := strconv.Atoi(norm); err == nil {
+			session.Duration = duration
+		}
+	case "notes", "note":
+		session.Notes = clean
+	case "name":
+		// name is optional metadata for compact entries; keep it out of Properties.
+	default:
+		session.Properties[key] = p.parseSessionValue(clean)
+	}
+}
+
+func (p *Parser) parseSessionValue(value string) interface{} {
+	if intVal, err := strconv.Atoi(value); err == nil {
+		return intVal
+	}
+	if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		return floatVal
+	}
+	return value
+}
+
+func (p *Parser) normalizeExerciseID(name string) string {
+	id := strings.ToLower(strings.TrimSpace(name))
+	id = strings.ReplaceAll(id, " ", "-")
+	id = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return -1
+	}, id)
+	return id
 }

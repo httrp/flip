@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getFlipClient, ExerciseItemResult, ExercisesListResult, ExerciseDetailResult, ExerciseTrackResult, ExerciseNewResult } from '../flip-client';
+import { getFlipClient, ExerciseItemResult, ExercisesListResult, ExerciseDetailResult, ExerciseTrackResult, ExerciseNewResult, ExerciseVariantResult } from '../flip-client';
 
 let exerciseOutput: vscode.OutputChannel | undefined;
 function getExerciseOutput(): vscode.OutputChannel {
@@ -67,6 +67,7 @@ export async function exerciseCommand(): Promise<void> {
     { label: '📝 Tracken', value: 'track' },
     { label: '👁️ Anzeigen', value: 'view' },
     { label: '📂 Datei öffnen', value: 'open' },
+    { label: '🧹 Sessions migrieren', value: 'migrate' },
   ], {
     placeHolder: `Aktion für "${selected.exercise.name}"`,
   });
@@ -86,13 +87,119 @@ export async function exerciseCommand(): Promise<void> {
       const doc = await vscode.workspace.openTextDocument(selected.exercise.file_path);
       await vscode.window.showTextDocument(doc);
       break;
+    case 'migrate':
+      await migrateExerciseSessionsCommand();
+      break;
   }
+}
+
+export async function migrateExerciseSessionsCommand(): Promise<void> {
+  const client = getFlipClient();
+
+  const mode = await vscode.window.showQuickPick([
+    { label: 'Nur prüfen (Dry-Run)', value: 'dry-run' },
+    { label: 'Migrieren & schreiben', value: 'apply' },
+  ], {
+    placeHolder: 'Exercise-Sessions migrieren',
+  });
+
+  if (!mode) {
+    return;
+  }
+
+  let days: number | undefined;
+  const daysInput = await vscode.window.showInputBox({
+    prompt: 'Nur letzte N Tage migrieren (leer = alle)',
+    placeHolder: 'z.B. 90',
+    validateInput: (value) => {
+      if (!value.trim()) {
+        return null;
+      }
+      if (Number.isNaN(Number(value)) || Number(value) < 1) {
+        return 'Bitte eine positive Zahl eingeben';
+      }
+      return null;
+    },
+  });
+
+  if (daysInput === undefined) {
+    return;
+  }
+  if (daysInput.trim()) {
+    days = Number(daysInput.trim());
+  }
+
+  const res = await client.migrateExerciseSessions({
+    apply: mode.value === 'apply',
+    backup: true,
+    days,
+  });
+
+  if (!res.success || !res.data) {
+    vscode.window.showErrorMessage(res.error || 'Migration fehlgeschlagen');
+    return;
+  }
+
+  const data = res.data;
+  const output = getExerciseOutput();
+  output.clear();
+  output.appendLine('Exercise Session Migration');
+  output.appendLine('');
+  output.appendLine(`Mode: ${data.dry_run ? 'Dry-Run' : 'Apply'}`);
+  output.appendLine(`Files scanned: ${data.files_scanned}`);
+  output.appendLine(`Files changed: ${data.files_changed}`);
+  output.appendLine(`Sessions migrated: ${data.sessions_migrated}`);
+  output.appendLine(`Legacy CLI sessions: ${data.legacy_cli_sessions}`);
+  output.appendLine(`Legacy VS Code sessions: ${data.legacy_vscode_sessions}`);
+  output.appendLine(`Already compact: ${data.already_compact}`);
+  output.appendLine(`Backups created: ${data.backups_created}`);
+  if (data.errors && data.errors.length > 0) {
+    output.appendLine('');
+    output.appendLine('Warnings:');
+    for (const e of data.errors) {
+      output.appendLine(`- ${e}`);
+    }
+  }
+  output.show();
+
+  const suffix = data.dry_run ? ' (Dry-Run)' : '';
+  vscode.window.showInformationMessage(`✅ Exercise-Migration abgeschlossen${suffix}: ${data.sessions_migrated} Session(s) verarbeitet`);
 }
 
 /**
  * Track an exercise session
  */
 async function trackExerciseSession(client: ReturnType<typeof getFlipClient>, exercise: ExerciseItemResult): Promise<void> {
+  let selectedVariant: string | undefined;
+  const trackedProperties: Record<string, string | number> = {};
+
+  const detailsResult = await client.showExercise(exercise.id);
+  if (detailsResult.success && detailsResult.data?.variants && detailsResult.data.variants.length > 0) {
+    const variants = detailsResult.data.variants;
+    if (variants.length > 1) {
+      const variantItems = variants.map((v) => ({
+        label: v.name || 'Standard',
+        description: v.description || '',
+        value: v,
+      }));
+      const selected = await vscode.window.showQuickPick(variantItems, {
+        placeHolder: 'Variante auswählen (optional)',
+        matchOnDescription: true,
+      });
+
+      if (selected === undefined) {
+        return;
+      }
+      selectedVariant = selected.value.name;
+
+      await promptTrackingProperties(selected.value.tracking_properties || {}, trackedProperties);
+    } else {
+      const onlyVariant = variants[0];
+      selectedVariant = onlyVariant.name;
+      await promptTrackingProperties(onlyVariant.tracking_properties || {}, trackedProperties);
+    }
+  }
+
   // Ask for duration
   const durationStr = await vscode.window.showInputBox({
     prompt: 'Dauer in Minuten (optional)',
@@ -125,7 +232,9 @@ async function trackExerciseSession(client: ReturnType<typeof getFlipClient>, ex
   const result = await client.trackExercise({
     exerciseId: exercise.id,
     duration,
+    variant: selectedVariant,
     notes,
+    properties: trackedProperties,
   });
 
   if (result.success && result.data) {
@@ -145,6 +254,35 @@ async function trackExerciseSession(client: ReturnType<typeof getFlipClient>, ex
     }
   } else {
     vscode.window.showErrorMessage(result.error || 'Tracking fehlgeschlagen');
+  }
+}
+
+async function promptTrackingProperties(
+  trackingProperties: Record<string, string>,
+  target: Record<string, string | number>
+): Promise<void> {
+  const propertyEntries = Object.entries(trackingProperties);
+  for (const [name, unit] of propertyEntries) {
+    if (name === 'duration_min') {
+      continue;
+    }
+
+    const input = await vscode.window.showInputBox({
+      prompt: `Wert für ${name} (${unit})`,
+      placeHolder: 'Optional',
+    });
+
+    if (input === undefined) {
+      continue;
+    }
+
+    const trimmed = input.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const asNumber = Number(trimmed);
+    target[name] = Number.isNaN(asNumber) ? trimmed : asNumber;
   }
 }
 
@@ -243,10 +381,15 @@ export async function newExerciseCommand(): Promise<void> {
   // Get goal
   const goal = await vscode.window.showInputBox({
     prompt: 'Ziel (optional)',
-    placeHolder: 'z.B. 50 Wiederholungen, Geschwindigkeit 120bpm',
+    placeHolder: 'z.B. Ausdauer verbessern',
   });
 
   if (goal === undefined) {
+    return;
+  }
+
+  const variants = await promptVariantsForNewExercise();
+  if (variants === undefined) {
     return;
   }
 
@@ -256,6 +399,7 @@ export async function newExerciseCommand(): Promise<void> {
     context: context || undefined,
     description: description || undefined,
     goal: goal || undefined,
+    variants,
   });
 
   if (result.success && result.data) {
@@ -271,6 +415,114 @@ export async function newExerciseCommand(): Promise<void> {
   } else {
     vscode.window.showErrorMessage(result.error || 'Erstellung fehlgeschlagen');
   }
+}
+
+async function promptVariantsForNewExercise(): Promise<ExerciseVariantResult[] | undefined> {
+  const addVariants = await vscode.window.showQuickPick(
+    [
+      { label: 'Ja', value: 'yes' },
+      { label: 'Nein', value: 'no' },
+    ],
+    {
+      placeHolder: 'Möchtest du direkt Varianten für diese Übung anlegen?',
+    }
+  );
+
+  if (!addVariants) {
+    return undefined;
+  }
+
+  if (addVariants.value === 'no') {
+    return [];
+  }
+
+  const variants: ExerciseVariantResult[] = [];
+
+  while (true) {
+    const variantName = await vscode.window.showInputBox({
+      prompt: `Variant-Name (optional)${variants.length > 0 ? ` #${variants.length + 1}` : ''}`,
+      placeHolder: 'z.B. Normales Laufen, Intervalllauf, Technikfokus',
+    });
+    if (variantName === undefined) {
+      return undefined;
+    }
+
+    const variantDescription = await vscode.window.showInputBox({
+      prompt: 'Variant-Beschreibung (optional)',
+      placeHolder: 'Was ist an dieser Variante speziell?',
+    });
+    if (variantDescription === undefined) {
+      return undefined;
+    }
+
+    const trackingProperties = await promptTrackingPropertiesForVariant();
+    if (trackingProperties === undefined) {
+      return undefined;
+    }
+
+    const variant: ExerciseVariantResult = {};
+    if (variantName.trim() !== '') {
+      variant.name = variantName.trim();
+    }
+    if (variantDescription.trim() !== '') {
+      variant.description = variantDescription.trim();
+    }
+    if (Object.keys(trackingProperties).length > 0) {
+      variant.tracking_properties = trackingProperties;
+    }
+    variants.push(variant);
+
+    const addMore = await vscode.window.showQuickPick(
+      [
+        { label: 'Ja', value: 'yes' },
+        { label: 'Nein', value: 'no' },
+      ],
+      { placeHolder: 'Noch eine Variante hinzufügen?' }
+    );
+
+    if (!addMore) {
+      return undefined;
+    }
+    if (addMore.value === 'no') {
+      break;
+    }
+  }
+
+  return variants;
+}
+
+async function promptTrackingPropertiesForVariant(): Promise<Record<string, string> | undefined> {
+  const properties: Record<string, string> = {};
+
+  while (true) {
+    const propName = await vscode.window.showInputBox({
+      prompt: 'Tracking-Property (optional)',
+      placeHolder: 'z.B. distance_km, reps, tempo_bpm (leer lassen zum Beenden)',
+    });
+
+    if (propName === undefined) {
+      return undefined;
+    }
+
+    const cleanName = propName.trim();
+    if (cleanName === '') {
+      break;
+    }
+
+    const unit = await vscode.window.showInputBox({
+      prompt: `Einheit für ${cleanName}`,
+      value: 'text',
+      placeHolder: 'z.B. km, min, kg, bpm, text',
+    });
+
+    if (unit === undefined) {
+      return undefined;
+    }
+
+    properties[cleanName] = unit.trim() || 'text';
+  }
+
+  return properties;
 }
 
 /**
