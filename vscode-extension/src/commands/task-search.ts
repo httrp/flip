@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { getFlipClient, TaskInfo } from '../flip-client';
 
 /**
@@ -136,16 +137,36 @@ function taskToQuickPickItem(task: TaskInfo): TaskQuickPickItem {
   }
   if (task.status === 'in-progress') {
     icons.push('🔄');
+  } else if (task.status === 'done') {
+    icons.push('✅');
   }
 
   const prefix = icons.length > 0 ? icons.join(' ') + ' ' : '';
+  const statusText = formatStatus(task.status);
   
   return {
     label: `${prefix}${task.description}`,
-    description: task.brain_name,
+    description: `${statusText} · ${task.brain_name}`,
     detail: `${task.rel_path}:${task.line}` + (task.tags?.length ? ` · ${task.tags.join(' ')}` : ''),
     task,
   };
+}
+
+function formatStatus(status: string): string {
+  switch (status) {
+    case 'open':
+      return '⬜ Open';
+    case 'in-progress':
+      return '🔄 In Progress';
+    case 'done':
+      return '✅ Done';
+    case 'deferred':
+      return '⏸ Deferred';
+    case 'cancelled':
+      return '❌ Cancelled';
+    default:
+      return `• ${status}`;
+  }
 }
 
 async function openTaskLocation(task: TaskInfo): Promise<void> {
@@ -171,6 +192,7 @@ async function openTaskLocation(task: TaskInfo): Promise<void> {
 async function showTaskActions(task: TaskInfo): Promise<void> {
   const actions = [
     { label: '$(file-text) Open task', value: 'open' },
+    { label: '$(book) Add to current journal', value: 'journal' },
     { label: '$(check) Mark as Done', value: 'done' },
     { label: '$(sync) Set In Progress', value: 'in-progress' },
     { label: '$(circle-outline) Set Open', value: 'open-status' },
@@ -188,6 +210,8 @@ async function showTaskActions(task: TaskInfo): Promise<void> {
 
   if (selected.value === 'open') {
     await openTaskLocation(task);
+  } else if (selected.value === 'journal') {
+    await addTaskToCurrentJournal(task);
   } else {
     // Update status
     const client = getFlipClient();
@@ -205,4 +229,42 @@ async function showTaskActions(task: TaskInfo): Promise<void> {
       vscode.window.showErrorMessage(`Failed to update task: ${result.error}`);
     }
   }
+}
+
+async function addTaskToCurrentJournal(task: TaskInfo): Promise<void> {
+  const client = getFlipClient();
+  const activeEditor = vscode.window.activeTextEditor;
+  let date: string | undefined;
+
+  // If a journal file is currently open, link into that journal date.
+  if (activeEditor) {
+    const fileName = activeEditor.document.fileName;
+    const basename = path.basename(fileName);
+    const dateFromFilename = basename.match(/(\d{4}-\d{2}-\d{2})/);
+    if (dateFromFilename) {
+      date = dateFromFilename[1];
+    } else {
+      const firstLine = activeEditor.document.lineAt(0).text;
+      const dateFromHeading = firstLine.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+      if (dateFromHeading) {
+        date = dateFromHeading[1];
+      }
+    }
+  }
+
+  const result = await client.addToJournal({
+    file: task.path,
+    title: task.description,
+    type: 'task',
+    brain: task.brain_name,
+    date,
+  });
+
+  if (!result.success) {
+    vscode.window.showWarningMessage(`Failed to add task to journal: ${result.error}`);
+    return;
+  }
+
+  const targetText = date ? `journal (${date})` : 'today\'s journal';
+  vscode.window.showInformationMessage(`✓ Task linked in ${targetText}`);
 }

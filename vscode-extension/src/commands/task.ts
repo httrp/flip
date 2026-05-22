@@ -42,7 +42,7 @@ export async function createTask(): Promise<void> {
   // Add cursor option if we have an active markdown editor
   if (editor && editor.document.languageId === 'markdown') {
     const relPath = vscode.workspace.asRelativePath(editor.document.uri);
-    locationOptions.unshift({
+    locationOptions.push({
       label: '$(edit) At cursor position',
       description: relPath,
       value: 'cursor',
