@@ -460,6 +460,37 @@ async function promptVariantsForNewExercise(): Promise<ExerciseVariantResult[] |
       return undefined;
     }
 
+    const hasVariantContent =
+      variantName.trim() !== '' ||
+      variantDescription.trim() !== '' ||
+      Object.keys(trackingProperties).length > 0;
+
+    if (!hasVariantContent) {
+      const emptyAction = await vscode.window.showQuickPick(
+        [
+          { label: 'Erneut eingeben', value: 'retry' },
+          { label: 'Ohne Variante fortfahren', value: 'skip' },
+        ],
+        {
+          placeHolder: 'Leere Variante wird nicht gespeichert. Was möchtest du tun?',
+        }
+      );
+
+      if (!emptyAction) {
+        return undefined;
+      }
+
+      if (emptyAction.value === 'retry') {
+        continue;
+      }
+
+      if (variants.length === 0) {
+        return [];
+      }
+
+      break;
+    }
+
     const variant: ExerciseVariantResult = {};
     if (variantName.trim() !== '') {
       variant.name = variantName.trim();
