@@ -165,11 +165,11 @@ func (p *Parser) WriteExercise(exercise *Exercise, filePath string) error {
 			} else {
 				content.WriteString(fmt.Sprintf("### Variant %d\n\n", i+1))
 			}
-			
+
 			if variant.Description != "" {
 				content.WriteString(variant.Description + "\n\n")
 			}
-			
+
 			if len(variant.TrackingProperties) > 0 {
 				content.WriteString("**Tracking Properties:**\n")
 				for key, value := range variant.TrackingProperties {
@@ -210,7 +210,7 @@ func (p *Parser) WriteSession(session *ExerciseSession, filePath string) error {
 	if session.Duration > 0 {
 		content.WriteString(fmt.Sprintf("**Duration**: %d min  \n", session.Duration))
 	}
-	
+
 	// Write custom properties
 	if len(session.Properties) > 0 {
 		for key, value := range session.Properties {
@@ -440,7 +440,7 @@ func (p *Parser) ParseJournalExerciseBlocks(filePath string) ([]*ExerciseSession
 	filename := filepath.Base(filePath)
 	dateStr := strings.TrimSuffix(filename, ".md")
 	dateStr = strings.ReplaceAll(dateStr, "_", "-")
-	
+
 	journalDate, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		// If we can't parse date from filename, use current date

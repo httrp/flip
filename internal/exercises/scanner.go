@@ -359,8 +359,8 @@ func (s *Scanner) isExerciseFile(filePath string) bool {
 
 	// Quick check for "type: exercise" in frontmatter
 	text := string(content)
-	return strings.Contains(text, "type: exercise") || 
-	       strings.Contains(text, "exercise_type:")
+	return strings.Contains(text, "type: exercise") ||
+		strings.Contains(text, "exercise_type:")
 }
 
 // isSessionFile checks if a file contains a session
@@ -372,7 +372,7 @@ func (s *Scanner) isSessionFile(filePath string) bool {
 
 	text := string(content)
 	return strings.Contains(text, "type: exercise-session") ||
-	       strings.Contains(text, "exercise_id:")
+		strings.Contains(text, "exercise_id:")
 }
 
 // isPlanFile checks if a file contains a plan
@@ -384,5 +384,5 @@ func (s *Scanner) isPlanFile(filePath string) bool {
 
 	text := string(content)
 	return strings.Contains(text, "type: exercise-plan") ||
-	       strings.Contains(text, "plan_id:")
+		strings.Contains(text, "plan_id:")
 }
