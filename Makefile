@@ -16,7 +16,7 @@ EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | 
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
 VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
 
-.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke public-check install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install
+.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke public-check install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install extension-deps
 
 # Default: show help
 help:
@@ -101,26 +101,31 @@ build-cli:
 	go build -o $(BINARY) ./cmd/flip
 	@echo "✓ CLI built: $(BINARY)"
 
+# Ensure extension dependencies are installed
+extension-deps:
+	@cd $(VSIX_DIR) && if [ ! -d node_modules ]; then \
+		echo "Installing extension dependencies..."; \
+		if ! npm ci; then \
+			echo "npm ci failed, retrying once..."; \
+			npm ci || (echo "❌ Could not install extension dependencies (network/registry issue)." && exit 1); \
+		fi; \
+	fi
+
 # Build Extension (compile TypeScript)
-build-extension:
+build-extension: extension-deps
 	@cd $(VSIX_DIR) && npm run compile
 	@echo "✓ Extension built"
 
 # Package Extension as .vsix file
 package-extension: build-extension
 	@echo "Building VSIX package (version $(EXTENSION_VERSION))..."
-	@cd $(VSIX_DIR) && ( \
-		TIMEOUT_CMD=$$(command -v timeout || command -v gtimeout || true); \
-		if [ -n "$$TIMEOUT_CMD" ]; then \
-			yes | "$$TIMEOUT_CMD" 30 npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true; \
-		else \
-			yes | npx vsce package --out flip-vscode-$(EXTENSION_VERSION).vsix 2>/dev/null || true; \
-		fi \
-	)
+	@rm -f "$(VSIX_FILE)"
+	@cd $(VSIX_DIR) && npx @vscode/vsce package --skip-license --out flip-vscode-$(EXTENSION_VERSION).vsix
 	@if [ -f "$(VSIX_FILE)" ]; then \
 		echo "✓ Extension packaged: $(VSIX_FILE)"; \
 	else \
-		echo "⚠️  Could not create new VSIX, using existing"; \
+		echo "❌ Could not create VSIX: $(VSIX_FILE)"; \
+		exit 1; \
 	fi
 
 # Install VS Code Extension (works with VS Code or VSCodium)
@@ -137,9 +142,9 @@ install-extension: package-extension
 		echo "❌ VS Code CLI not found. Install VS Code and ensure 'code' is in PATH."; \
 		exit 1; \
 	fi; \
-	VSIX=$$(ls -t $(VSIX_GLOB) 2>/dev/null | head -1); \
-	if [ -z "$$VSIX" ]; then \
-		echo "❌ No VSIX file found"; \
+	VSIX="$(VSIX_FILE)"; \
+	if [ ! -f "$$VSIX" ]; then \
+		echo "❌ VSIX file not found: $$VSIX"; \
 		exit 1; \
 	fi; \
 	echo "Installing $$VSIX..."; \
