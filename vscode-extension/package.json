@@ -2,7 +2,8 @@
   "name": "flip-vscode",
   "displayName": "Flip - Personal Knowledge Management",
   "description": "VS Code integration for flip - your intelligent 2nd brain assistant",
-  "version": "0.3.29",
+  "version": "0.3.30",
+  "license": "MIT",
   "publisher": "danorama",
   "engines": {
     "vscode": "^1.85.0"
@@ -19,6 +20,12 @@
   ],
   "activationEvents": [
     "onStartupFinished"
+  ],
+  "files": [
+    "out/**",
+    "package.json",
+    "README.md",
+    "LICENSE*"
   ],
   "main": "./out/extension.js",
   "contributes": {

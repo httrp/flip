@@ -186,6 +186,7 @@ func RegisterFeatureCommands(rootCmd *cobra.Command) {
 	// Always register core commands
 	rootCmd.AddCommand(NewMenuV2Command()) // Primary bubbletea-based menu
 	rootCmd.AddCommand(NewStatusCommand())
+	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(NewQuickstartCommand())
 	rootCmd.AddCommand(NewIntroCommand())
 	rootCmd.AddCommand(NewWorkspaceCommand())

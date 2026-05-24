@@ -11,6 +11,8 @@ endif
 GOPATH=$(shell go env GOPATH)
 INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS=-X github.com/httrp/flip/internal/commands.FlipVersion=$(VERSION)
 # Extract version dynamically from package.json
 EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
@@ -27,6 +29,7 @@ help:
 	@echo "  make ci                  Run exactly what CI runs"
 	@echo ""
 	@echo "  make build               Build everything (CLI + Extension)"
+	@echo "  make build VERSION=1.0.0 Build with explicit CLI version"
 	@echo "  make build-cli           Build flip CLI only"
 	@echo "  make build-extension     Build VS Code Extension only"
 	@echo "  make package-extension   Package Extension as .vsix"
@@ -98,7 +101,7 @@ bump-extension-install: bump-extension-patch build install-extension
 
 # Build CLI only
 build-cli:
-	go build -o $(BINARY) ./cmd/flip
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/flip
 	@echo "✓ CLI built: $(BINARY)"
 
 # Ensure extension dependencies are installed
@@ -170,7 +173,7 @@ uninstall-extension:
 
 # Install to GOPATH/bin (requires GOPATH/bin in PATH)
 install: build-cli
-	go install ./cmd/flip
+	go install -ldflags "$(LDFLAGS)" ./cmd/flip
 	@echo "✓ flip installed to $(INSTALL_PATH)"
 
 # Create symlink in /usr/local/bin (requires sudo, macOS/Linux only)

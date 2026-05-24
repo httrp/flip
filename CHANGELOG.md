@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CLI Version Command**: New `flip version` command to print CLI and bundled extension versions
+
+### Changed
+- **Build Version Injection**: `Makefile` now injects `FlipVersion` via `-ldflags` using `VERSION` (default: `git describe --tags --always --dirty`)
+- **Extension Packaging Metadata**: Added extension `files` whitelist and `LICENSE` to improve VSIX release hygiene
+
+### Fixed
+- **Extension Version Drift Guard**: `check-extension-version.sh` now verifies synchronization between `vscode-extension/package.json` and `internal/commands/vscode_extension.go`
+
+### Added
 - **Logseq Artifact Cleanup** (migration): Post-migration cleanup chain `CleanupLogseqArtifacts()`
   - Removes Logseq UI properties from body (collapsed, background-color, card-*, heading)
   - Converts `{{video URL}}` embeds to markdown links
@@ -61,6 +71,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `commands`: 0.3% → 2.3%
   - `tasks`: 1.6% → 7.0%
 - New test files: `config_test.go`, `errors_test.go`, `logger_test.go`, `lazy_test.go`, `checker_test.go`
+
+## [0.3.30] - 2026-05-24
+
+### Added
+- **Empty Variant Protection (VS Code)**: Exercise creation dialog no longer stores empty variants
+
+### Fixed
+- **Exercise Journal Links (Flip)**: New tracked entries now use flip-style markdown links (`[Name](../exercises/id.md)`) instead of wikilinks
+- **Session Parsing Compatibility**: Parser now supports compact markdown-link exercise entries while keeping backward compatibility
+- **Session Migration Compatibility**: Migration treats compact link-based entries as already compact and keeps brain-specific link formatting
+
+## [0.3.29] - 2026-05-24
+
+### Added
+- **Exercise Tracking Improvements**: New compact exercise entry format and migration command integration in CLI/VS Code flows
+
+### Changed
+- **Exercise Creation UX (VS Code)**: New exercise dialog now asks whether variants should be created immediately and supports direct tracking-property setup
+
+### Fixed
+- **Duplicate `duration_min`**: Prevented duplicate duration data in tracked exercise sessions from VS Code flow
 
 ## [0.3.12] - 2025-01-XX
 
