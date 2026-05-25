@@ -12,6 +12,7 @@ GOPATH=$(shell go env GOPATH)
 INSTALL_PATH=$(GOPATH)/bin
 VSIX_DIR=vscode-extension
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+ALLOW_1_0 ?= 0
 LDFLAGS=-X github.com/httrp/flip/internal/commands.FlipVersion=$(VERSION)
 # Extract version dynamically from package.json
 EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
@@ -29,7 +30,7 @@ help:
 	@echo "  make ci                  Run exactly what CI runs"
 	@echo ""
 	@echo "  make build               Build everything (CLI + Extension)"
-	@echo "  make build VERSION=1.0.0 Build with explicit CLI version"
+	@echo "  make build VERSION=0.4.0 Build with explicit CLI version"
 	@echo "  make build-cli           Build flip CLI only"
 	@echo "  make build-extension     Build VS Code Extension only"
 	@echo "  make package-extension   Package Extension as .vsix"
@@ -49,7 +50,7 @@ help:
 	@echo "  make bump-extension      Bump extension version (patch)"
 	@echo "  make bump-extension-patch Bump extension version (patch)"
 	@echo "  make bump-extension-minor Bump extension version (minor)"
-	@echo "  make bump-extension-major Bump extension version (major)"
+	@echo "  make bump-extension-major Bump extension version (major, requires ALLOW_1_0=1)"
 	@echo "  make bump-extension-install Bump (patch) + build + install extension"
 
 # Full setup: build + install CLI + install extension (for new machines)
@@ -93,6 +94,11 @@ bump-extension-minor:
 	@echo "✓ Extension version bumped (minor)"
 
 bump-extension-major:
+	@if [ "$(ALLOW_1_0)" != "1" ]; then \
+		echo "❌ Major bump blocked (pre-1.0 mode)."; \
+		echo "   Use patch/minor, or run: make bump-extension-major ALLOW_1_0=1"; \
+		exit 1; \
+	fi
 	@cd $(VSIX_DIR) && npm version major --no-git-tag-version
 	@$(MAKE) sync-version
 	@echo "✓ Extension version bumped (major)"

@@ -28,6 +28,11 @@ IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 BUMP_TYPE="${1:-patch}"
 case "$BUMP_TYPE" in
     major)
+        if [ "$MAJOR" -eq 0 ] && [ "${ALLOW_1_0:-0}" != "1" ]; then
+            echo "❌ Major bump blocked (pre-1.0 mode)."
+            echo "   Use patch/minor, or run with ALLOW_1_0=1 to allow 1.0.0."
+            exit 1
+        fi
         NEW_VERSION="$((MAJOR + 1)).0.0"
         ;;
     minor)
