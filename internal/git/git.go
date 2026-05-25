@@ -415,18 +415,94 @@ func PullWithOptions(repoPath string, opts PullOptions) error {
 
 	cmd := exec.Command("git", args...)
 	cmd.Dir = repoPath
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	output, err := cmd.CombinedOutput()
+	if err != nil {
 		// Check if it's a merge conflict
 		if HasMergeConflicts(repoPath) {
 			return fmt.Errorf("merge conflicts detected - please resolve them manually")
 		}
-		return fmt.Errorf("failed to pull: %w", err)
+		return formatGitCommandError(repoPath, "pull", err, output)
 	}
 
 	return nil
+}
+
+// Push pushes changes to the remote repository.
+func Push(repoPath string) error {
+	if !IsGitRepo(repoPath) {
+		return fmt.Errorf("not a git repository: %s", repoPath)
+	}
+
+	cmd := exec.Command("git", "push")
+	cmd.Dir = repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return formatGitCommandError(repoPath, "push", err, output)
+	}
+
+	return nil
+}
+
+func formatGitCommandError(repoPath, command string, err error, output []byte) error {
+	message := strings.TrimSpace(string(output))
+	lowerMessage := strings.ToLower(message)
+
+	if strings.Contains(lowerMessage, "could not read username for 'https://github.com'") || strings.Contains(lowerMessage, "authentication failed") {
+		if isGitHubCLIAuthenticated() && !hasGitCredentialHelperConfigured(repoPath) {
+			return fmt.Errorf(
+				"failed to %s: GitHub CLI is logged in, but Git is not configured to use those credentials for HTTPS remotes. Run 'gh auth setup-git', configure a git credential helper, or switch the remote to SSH. Git said: %s",
+				command,
+				message,
+			)
+		}
+
+		return fmt.Errorf(
+			"failed to %s: GitHub authentication required for HTTPS remote; run 'gh auth login' and 'gh auth setup-git', configure a git credential helper, or switch the remote to SSH. Git said: %s",
+			command,
+			message,
+		)
+	}
+
+	if message != "" {
+		return fmt.Errorf("failed to %s: %w: %s", command, err, message)
+	}
+
+	return fmt.Errorf("failed to %s: %w", command, err)
+}
+
+func isGitHubCLIAuthenticated() bool {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return false
+	}
+
+	cmd := exec.Command("gh", "auth", "status", "--hostname", "github.com")
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func hasGitCredentialHelperConfigured(repoPath string) bool {
+	checks := [][]string{
+		{"config", "--get-all", "credential.helper"},
+		{"config", "--get-all", "credential.https://github.com.helper"},
+	}
+
+	for _, args := range checks {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		output, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+
+		if strings.TrimSpace(string(output)) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // HasMergeConflicts checks if there are unresolved merge conflicts

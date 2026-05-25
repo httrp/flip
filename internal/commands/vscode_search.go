@@ -8,7 +8,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -377,7 +376,7 @@ func runVSCodeSync(brainName string) error {
 		}
 		brainResult.Pulled = true
 
-		err = gitPush(brain.Path)
+		err = git.Push(brain.Path)
 		if err != nil {
 			brainResult.Error = fmt.Sprintf("failed to push: %v", err)
 			result.Brains = append(result.Brains, brainResult)
@@ -390,12 +389,6 @@ func runVSCodeSync(brainName string) error {
 
 	OutputJSONSuccess("vscode-sync", result)
 	return nil
-}
-
-// gitPush pushes to remote
-func gitPush(repoPath string) error {
-	cmd := exec.Command("git", "-C", repoPath, "push")
-	return cmd.Run()
 }
 
 func searchBrain(brain Brain, query, tag, noteType string, limit int) ([]VSCodeSearchItem, error) {
