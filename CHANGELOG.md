@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-25
+
+Highlights:
+- Pandoc-based export workflow (PDF/HTML/DOCX) for CLI and VS Code
+- Exercise tracking v2: compact session format, variants flow, session migration
+- Sync UX: clearer auth-error guidance distinguishing `gh auth login` vs `gh auth setup-git`
+- Release hardening: pre-1.0 bump guard, extension/CLI version-drift check, ldflags-based version injection
+
 ### Added
 - **CLI Version Command**: New `flip version` command to print CLI and bundled extension versions
 

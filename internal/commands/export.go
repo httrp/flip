@@ -671,7 +671,7 @@ func installHintForXeLaTeX() string {
 	case "linux":
 		return "Install LaTeX engine: sudo apt-get install texlive-xetex"
 	case "windows":
-		return "Install LaTeX engine via MiKTeX or TeX Live"
+		return "Install LaTeX engine: winget install --id MiKTeX.MiKTeX (or TeX Live)"
 	default:
 		return "Install xelatex to support PDF rendering"
 	}
