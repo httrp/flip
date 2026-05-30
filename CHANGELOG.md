@@ -9,76 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.10.0] - 2026-05-25
 
-Highlights:
-- Pandoc-based export workflow (PDF/HTML/DOCX) for CLI and VS Code
-- Exercise tracking v2: compact session format, variants flow, session migration
-- Sync UX: clearer auth-error guidance distinguishing `gh auth login` vs `gh auth setup-git`
-- Release hardening: pre-1.0 bump guard, extension/CLI version-drift check, ldflags-based version injection
-
 ### Added
-- **CLI Version Command**: New `flip version` command to print CLI and bundled extension versions
+- `flip version` command, prints CLI and bundled extension versions.
+- Logseq artifact cleanup during migration (UI properties, `{{video}}` and `{{query}}` embeds, TODO/DONE markers).
+- Logseq artifact detection and auto-repair in `flip brain health`.
+- `ExercisesDir` field in `BrainStructure` and routing of `meeting-`/`exercise-` prefixed files during migration.
+- Feature module system: toggle modules via `FLIP_FEATURE_<NAME>=0/1`. New `flip features list|enable|disable` commands.
+- Structured logging (`FLIP_LOG_LEVEL`, `FLIP_LOG_FORMAT`, `--verbose`).
+- Centralized error type `FlipError` with codes and user-facing hints.
+- File cache and lazy directory reader for large brains.
 
 ### Changed
-- **Build Version Injection**: `Makefile` now injects `FlipVersion` via `-ldflags` using `VERSION` (default: `git describe --tags --always --dirty`)
-- **Extension Packaging Metadata**: Added extension `files` whitelist and `LICENSE` to improve VSIX release hygiene
+- Build: CLI version is injected via `-ldflags` using `VERSION` (defaults to `git describe`).
+- Extension packaging: added `files` whitelist and bundled `LICENSE`.
+- Replaced magic strings with constants (`DefaultWorkspaceName`, file extensions, directory names).
+- Menus respect feature flags and build their items dynamically.
 
 ### Fixed
-- **Extension Version Drift Guard**: `check-extension-version.sh` now verifies synchronization between `vscode-extension/package.json` and `internal/commands/vscode_extension.go`
-
-### Added
-- **Logseq Artifact Cleanup** (migration): Post-migration cleanup chain `CleanupLogseqArtifacts()`
-  - Removes Logseq UI properties from body (collapsed, background-color, card-*, heading)
-  - Converts `{{video URL}}` embeds to markdown links
-  - Removes `{{query ...}}` dynamic query blocks
-  - Converts Logseq task markers (TODO/DONE/LATER/CANCELLED) to standard checkboxes
-- **Exercises Directory Support**: `ExercisesDir` field in `BrainStructure` (set to `exercises` for Flip brains)
-- **Meeting/Exercise Routing**: Files prefixed `meeting-` or `exercise-` are automatically routed to `meetings/` or `exercises/` directories during migration, even when the source brain has no dedicated directories
-- **Logseq Artifact Detection** (health check): New `IssueTypeLogseqArtifact` detects leftover Logseq syntax in body (properties, video/query embeds, task markers)
-- **Logseq Artifact Repair** (health repair): Auto-fixes detected Logseq artifacts — extracts meaningful properties to frontmatter, converts embeds, cleans task markers
-
-### Fixed
-- **Logseq Bullet Properties**: `logseqToYAML()` now correctly handles Logseq's `- key:: value` bullet format (previously only matched bare `key:: value`)
-- **Logseq Discard Properties**: Filters out UI-only and spaced-repetition properties (collapsed, card-*, background-color, heading) during migration
-- **Logseq `created-at` Epoch**: Converts millisecond timestamps to `YYYY-MM-DD` date format during YAML conversion
-- **Query Regex**: Fixed `{{query ...}}` regex to handle nested parentheses
-
-### Added (previous)
-- **Feature Module System**: Toggle features via environment variables (`FLIP_FEATURE_<NAME>=0/1`)
-  - Core features: `core`, `git`, `health` (always enabled)
-  - Optional features: `tasks`, `exercises`, `templates`, `vscode`, `definitions`, `meetings`, `migration`
-- New command: `flip features` - List and manage feature modules
-- New command: `flip features list [--json]` - Show features with optional JSON output
-- New command: `flip features enable/disable <name>` - Toggle features (session only)
-- **Centralized Constants**: `constants.go` with `DefaultWorkspaceName`, file extensions, directory names
-- **Code Quality Standards**: Extended `CONTRIBUTING.md` with senior-level best practices
-- **Feature-Aware Menus**: Interactive menus now respect feature flags
-- **Structured Logging**: `logger.go` with levels, JSON/text formats, structured fields
-  - Environment config: `FLIP_LOG_LEVEL`, `FLIP_LOG_FORMAT`
-  - Global verbose flag: `flip -v` / `flip --verbose`
-- **Centralized Error Handling**: `errors.go` with `FlipError` type
-  - Error codes: CONFIG, BRAIN, WORKSPACE, FILE, GIT, PARSE, VALIDATION, etc.
-  - User-friendly hints with `WithHint()`
-  - Error chaining with `WithCause()`
-- **Lazy Loading & Caching**: `lazy.go` for improved performance
-  - `FileCache` with TTL and LRU eviction
-  - `LazyDirReader` with extension filtering and pagination
-  - Auto-excludes: `.git`, `node_modules`, `.obsidian`, `.trash`
-
-### Changed
-- Replaced magic strings with constants throughout codebase
-- Menu files refactored to use dynamic item lists based on enabled features
-- `main.go` now initializes features and logging from environment at startup
-- `config.go` uses new structured error types
+- Extension/CLI version drift is now caught by `scripts/check-extension-version.sh`.
+- Logseq `- key:: value` bullet properties are correctly parsed.
+- Logseq `created-at` millisecond epochs are converted to `YYYY-MM-DD`.
+- `{{query ...}}` regex handles nested parentheses.
+- UI-only Logseq properties (collapsed, card-*, background-color, heading) are no longer carried over during migration.
 
 ### Internal
-- `menu_brain.go` split into 3 files: `menu_brain.go`, `menu_brain_edit.go`, `menu_brain_actions.go`
-- Embedded JSON extracted from `health.go` to `brain_schema.json`
-- `vscode.go` split into `vscode.go` and `vscode_sync.go`
-- Platform-specific code extracted to `internal/platform/` package
-- Test coverage improved:
-  - `commands`: 0.3% → 2.3%
-  - `tasks`: 1.6% → 7.0%
-- New test files: `config_test.go`, `errors_test.go`, `logger_test.go`, `lazy_test.go`, `checker_test.go`
+- `menu_brain.go` split into three files; `vscode.go` split into `vscode.go` and `vscode_sync.go`.
+- Health-check JSON schema extracted from `health.go` to `brain_schema.json`.
+- Platform-specific code moved to `internal/platform/`.
+- Test coverage improved in `commands` and `tasks` packages.
 
 ## [0.3.30] - 2026-05-24
 
@@ -101,7 +59,7 @@ Highlights:
 ### Fixed
 - **Duplicate `duration_min`**: Prevented duplicate duration data in tracked exercise sessions from VS Code flow
 
-## [0.3.12] - 2025-01-XX
+## [0.3.12]
 
 ### Added
 - Meeting enhancements from code review session

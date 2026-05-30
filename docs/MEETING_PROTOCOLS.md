@@ -394,7 +394,7 @@ flip/
 - AI extraction (with mock LLM)
 
 ### Manual Testing
-- Generate protocols from real danobrain meetings
+- Generate protocols from real meeting notes
 - Test series detection with "Copilot Jour fixe"
 - Verify PDF quality
 
@@ -480,6 +480,4 @@ protocol:
 
 ---
 
-**Status**: Draft  
-**Last Updated**: 2026-01-19  
-**Author**: Dominik Hattrup, GitHub Copilot
+**Status**: Draft

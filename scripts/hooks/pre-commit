@@ -1,0 +1,13 @@
+#!/bin/bash
+# flip pre-commit hook
+# Installed by `make setup-hooks`.
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+if [ -x "$REPO_ROOT/scripts/check-extension-version.sh" ]; then
+    "$REPO_ROOT/scripts/check-extension-version.sh" || exit $?
+fi
+
+if [ -x "$REPO_ROOT/scripts/check-public-repo.sh" ]; then
+    "$REPO_ROOT/scripts/check-public-repo.sh" || exit $?
+fi

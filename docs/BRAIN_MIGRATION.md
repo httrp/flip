@@ -274,7 +274,7 @@ flip brain check
 
 **Output**:
 ```
-🔍 Brain Health Check: danobrain
+🔍 Brain Health Check: my-brain
 
 ✅ Links: 245 OK, 3 broken
    • note-a.md:15 → missing-note.md
@@ -289,7 +289,7 @@ flip brain check
 
 ### Phase 2: Migration Preparation (Dry-Run)
 ```bash
-flip brain migrate --from danobrain --to new-obsidian-brain --dry-run
+flip brain migrate --from my-brain --to new-obsidian-brain --dry-run
 ```
 
 **Was passiert**:
@@ -301,7 +301,7 @@ flip brain migrate --from danobrain --to new-obsidian-brain --dry-run
 
 **Migration Plan Output**:
 ```
-📋 Migration Plan: danobrain (flip) → obsidian-vault (obsidian)
+📋 Migration Plan: my-brain (flip) → obsidian-vault (obsidian)
 
 Files to migrate:
   ✓ 150 notes
@@ -331,7 +331,7 @@ Continue? [y/N]
 
 ### Phase 3: Actual Migration
 ```bash
-flip brain migrate --from danobrain --to new-obsidian-brain
+flip brain migrate --from my-brain --to new-obsidian-brain
 ```
 
 **Features**:
@@ -343,7 +343,7 @@ flip brain migrate --from danobrain --to new-obsidian-brain
 
 ### Phase 4: Post-Migration Validation
 ```bash
-flip brain validate-migration --source danobrain --target new-obsidian-brain
+flip brain validate-migration --source my-brain --target new-obsidian-brain
 ```
 
 **Checks**:
@@ -443,7 +443,7 @@ flip brain check --fix-auto    // Auto-fix simple issues
 
 // Migration
 flip brain migrate --source <brain> --target <brain> [--dry-run]
-flip brain migrate --source danobrain --target obsidian-vault --type obsidian
+flip brain migrate --source my-brain --target obsidian-vault --type obsidian
 flip brain migrate --interactive  // Guided wizard
 
 // Validation
@@ -457,7 +457,7 @@ flip brain validate-migration --source <brain> --target <brain>
 🔄 Brain Migration Wizard
 
 Step 1: Source Brain
-  → Select source brain: danobrain
+  → Select source brain: my-brain
   → Detected type: flip
   → Found: 150 notes, 45 journal entries, 234 assets
 

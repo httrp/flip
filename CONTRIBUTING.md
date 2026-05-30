@@ -1,356 +1,218 @@
 # Contributing to flip
 
-Thank you for considering contributing to flip! This document provides guidelines and information for contributors.
+Thanks for your interest in flip. This document covers development setup, the build/test workflow and the project conventions.
 
-## Code of Conduct
-
-Be respectful, constructive, and collaborative. We're all here to make flip better.
+If something here is wrong or missing, a PR or issue is welcome.
 
 ---
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-
-- Go 1.21 or later
+- Go 1.21+
+- Node.js 18+ (only needed if you build the VS Code extension)
 - Git
-- Make (optional but recommended)
+- Make (recommended)
 
-### Setup
+## Quick start
 
 ```bash
-# Clone the repository
 git clone https://github.com/httrp/flip.git
 cd flip
-
-# Install dependencies
-go mod download
-
-# Build
-make build
-
-# Run tests
-make test
-
-# Create dev symlink (optional)
-make dev-link
+make setup        # builds CLI + extension and installs both
 ```
 
-### Project Structure
+After `make setup`, reload your VS Code window and run `flip quickstart`.
 
-```
-flip/
-├── cmd/flip/main.go        # Entry point
-├── internal/
-│   ├── commands/           # CLI commands (cobra)
-│   │   ├── menu.go         # Interactive menu
-│   │   ├── task*.go        # Task commands
-│   │   ├── note.go         # Note commands
-│   │   └── ...
-│   ├── tasks/              # Task parsing/scanning
-│   ├── exercises/          # Exercise system
-│   ├── brain/              # Brain detection
-│   ├── health/             # Health checking
-│   ├── migration/          # Brain format migration
-│   ├── schema/             # Schema validation
-│   ├── lang/               # i18n strings
-│   └── templates/          # Embedded templates
-├── docs/                   # Documentation
-├── scripts/                # Build/test scripts
-└── vscode-extension/       # VS Code extension
-```
-
----
-
-## Development Workflow
-
-### 1. Create a Branch
+### Manual steps
 
 ```bash
-# Feature
-git checkout -b feat/my-feature
-
-# Bug fix
-git checkout -b fix/issue-description
-
-# Refactor
-git checkout -b refactor/area-name
+make build        # build CLI + extension
+make install      # install CLI into $GOPATH/bin
+make install-extension   # build and install the VS Code extension
 ```
 
-### 2. Make Changes
-
-Follow the coding standards below.
-
-### 3. Test
+Make sure `$GOPATH/bin` (typically `~/go/bin`) is on your `PATH`:
 
 ```bash
-# Run all tests
-make test
-
-# Run specific package tests
-go test ./internal/tasks/...
-
-# Run with verbose output
-go test -v ./...
+export PATH="$HOME/go/bin:$PATH"
 ```
 
-### 4. Commit
-
-Use conventional commits:
+Verify:
 
 ```bash
-# Features
-git commit -m "feat(tasks): add priority filtering"
-
-# Fixes
-git commit -m "fix(journal): handle timezone correctly"
-
-# Refactoring
-git commit -m "refactor(menu): extract helper functions"
-
-# Documentation
-git commit -m "docs: update command reference"
+which flip
+flip status
 ```
 
-### 5. Push & PR
+### Platform notes
+
+- **macOS / Linux** — `make dev-link` creates a `/usr/local/bin/flip` symlink so the binary is picked up after every `make build-cli` without re-running `make install`. Requires `sudo`.
+- **Windows (Git Bash)** — use Git Bash, not CMD or PowerShell. Add `export PATH="$HOME/go/bin:$PATH"` to `~/.bashrc`. `make dev-link` is not supported.
+
+If `flip` is not found from VS Code's terminal, it usually means the terminal does not see `$GOPATH/bin`. Reload the VS Code window after fixing your shell config.
+
+---
+
+## Project layout
+
+```
+cmd/flip/                  # CLI entry point
+internal/
+  commands/                # cobra commands (one file per command where practical)
+  brain/                   # brain detection and creation
+  tasks/                   # task parsing and scanning
+  exercises/               # exercise tracking
+  health/                  # brain validation and repair
+  ai/                      # AI provider integrations
+  migration/               # brain format migration
+  templates/               # embedded templates
+  platform/                # cross-platform helpers
+  ui/                      # interactive prompts
+  lang/                    # i18n strings
+vscode-extension/          # VS Code integration (TypeScript)
+docs/                      # user and design documentation
+scripts/                   # build, hooks and CI helpers
+test-brains/               # test fixtures
+```
+
+---
+
+## Development workflow
+
+### Branches
+
+- `feat/<short-name>` — features
+- `fix/<short-name>` — bug fixes
+- `refactor/<area>` — refactors
+- `docs/<area>` — documentation only
+
+### Commits
+
+Conventional commits are encouraged but not strictly enforced:
+
+```
+feat(tasks): add priority filtering
+fix(journal): handle timezone correctly
+docs: update command reference
+```
+
+### Build, test, lint
 
 ```bash
-git push origin feat/my-feature
-# Then create PR on GitHub
+make build         # build CLI + extension
+make build-cli     # CLI only
+make build-extension
+
+make test          # go test ./...
+make lint          # go vet ./...
+make smoke         # smoke tests (scripts/smoke.sh)
+
+make all           # public-check + build + lint + test + smoke
+make ci            # what CI runs
 ```
 
+After changing the CLI, the new binary is available immediately if `~/go/bin` is on your PATH (and you ran `make install`). After changing the extension, reload the VS Code window.
+
 ---
 
-## Coding Standards
+## Coding conventions
 
-### Go Code
+### Errors
+
+Return wrapped errors with context. Avoid `os.Exit` outside of `main`.
 
 ```go
-// Use meaningful names
-func scanTasksInBrain(brainPath string) ([]Task, error) { ... }
-
-// Return errors, don't panic
-if err != nil {
-    return nil, fmt.Errorf("failed to scan tasks: %w", err)
-}
-
-// Document exported functions
-// ScanTasks scans all markdown files in the brain for tasks.
-// It returns tasks sorted by priority (high first).
-func ScanTasks(brainPath string) ([]Task, error) { ... }
-```
-
-### Error Handling
-
-```go
-// ✅ Good: Return errors
-func doSomething() error {
-    if err != nil {
-        return fmt.Errorf("context: %w", err)
-    }
-    return nil
-}
-
-// ❌ Bad: Exit directly
-func doSomething() {
-    if err != nil {
-        fmt.Println("Error:", err)
-        os.Exit(1)  // Don't do this in library code
-    }
-}
-```
-
-### Output
-
-```go
-// Use localized strings where possible
-fmt.Println(lang.GetText("task.created"))
-
-// For user-facing output, consider icons
-fmt.Println("✅ Task created")
-
-// For JSON output, use the json_output helper
-outputJSON(result)
-```
-
-### File Organization
-
-- One command per file (e.g., `task_new.go`, `task_list.go`)
-- Keep files under 500 lines when practical
-- Extract shared code to helper files
-
----
-
-## Testing
-
-### Unit Tests
-
-```go
-func TestParseTask(t *testing.T) {
-    input := "- [ ] My task [priority: high]"
-    task, err := ParseTask(input)
-    
-    if err != nil {
-        t.Fatalf("unexpected error: %v", err)
-    }
-    
-    if task.Priority != PriorityHigh {
-        t.Errorf("expected high priority, got %v", task.Priority)
-    }
-}
-```
-
-### Test Files
-
-- Place tests in `*_test.go` files
-- Use table-driven tests for multiple cases
-- Mock external dependencies (file system, etc.)
-
----
-
-## Documentation
-
-### Code Comments
-
-```go
-// Package tasks provides task parsing, scanning, and management.
-package tasks
-
-// Task represents a todo item with optional metadata.
-type Task struct {
-    Description string
-    Priority    Priority
-    Due         *time.Time
-}
-```
-
-### User Documentation
-
-- Update `docs/COMMANDS.md` for new commands
-- Update `docs/FEATURES.md` for new features
-- Keep README.md concise (link to docs for details)
-
-### Public Repo Hygiene
-
-This repository is mirrored to a public profile. Keep internal working docs out of tracked files.
-
-Do not commit:
-- ad-hoc review docs (for example `CODE_REVIEW_*.md`)
-- AI handoff or planning notes (`docs/AI_*`, `docs/*_PLAN.md`, research scratch files)
-- archived internal notes under `docs/archive/`
-
-Allowed and expected:
-- user-facing docs (`README.md`, `docs/QUICKSTART.md`, `docs/COMMANDS.md`, etc.)
-- test fixtures under `test-brains/`
-- example content under `docs/example-brain/`
-
-Automated enforcement:
-- local: `make public-check`
-- CI: `Public Repo Guard` job step
-
----
-
-## Common Tasks
-
-### Adding a New Command
-
-1. Create `internal/commands/mycommand.go`
-2. Implement `NewMyCommand() *cobra.Command`
-3. Register in `cmd/flip/main.go`
-4. Add to `docs/COMMANDS.md`
-5. Add tests
-
-### Adding Localization
-
-1. Add key to `internal/lang/en.json`
-2. Use `lang.GetText("my.key")` in code
-
-### Adding a VS Code Task
-
-1. Edit `VSCodeTasksJSON` in `internal/commands/vscode.go`
-2. Bump `TasksVersion` constant
-3. Update `docs/VSCODE.md`
-
----
-
-## Release Process
-
-1. Update version in relevant files
-2. Update CHANGELOG.md
-3. Create release tag
-4. GitHub Actions builds releases
-
----
-
-## Getting Help
-
-- Open an issue for bugs or feature requests
-- Check existing issues before creating new ones
-- For questions, use GitHub Discussions
-
----
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
-
----
-
-## Code Quality Standards (Senior-Level Best Practices)
-
-### Error Handling
-
-**❌ DON'T: Print and continue**
-```go
-// BAD - Error is logged but not returned
-if err != nil {
-    fmt.Printf("Error: %v\n", err)
-}
-// code continues...
-```
-
-**✅ DO: Return errors with context**
-```go
-// GOOD - Error is wrapped and returned
 if err != nil {
     return fmt.Errorf("loading workspace config: %w", err)
 }
 ```
 
-**Exception**: In interactive menus, printing errors and continuing is acceptable.
+In interactive menus, printing an error and continuing is fine.
 
-### Constants over Magic Strings
+### Constants over magic strings
 
-**❌ DON'T:**
+Prefer named constants in `internal/commands/constants.go` over repeated literal strings (`"default"`, directory names, file extensions, …).
+
+### File size
+
+Aim to keep files under ~500 LOC. Split when they grow beyond that — for example, `menu_brain.go` was split into `menu_brain.go`, `menu_brain_edit.go` and `menu_brain_actions.go`.
+
+### Output
+
+Prefer localized strings:
+
 ```go
-if workspace.Name == "default" { ... }
+fmt.Println(lang.GetText("task.created"))
 ```
 
-**✅ DO:**
-```go
-const DefaultWorkspaceName = "default"
-if workspace.Name == DefaultWorkspaceName { ... }
-```
+For JSON output, use the existing `outputJSON` helper.
 
-### File Size Limits
+### Tests
 
-| Target | Hard Limit | Action |
-|--------|------------|--------|
-| < 500 LOC | 800 LOC | Split into focused modules |
+- Place tests in `*_test.go` next to the code they cover.
+- Use table-driven tests where it helps.
+- Don't depend on the user's real `~/.config/flip` — use temporary directories.
 
-### Required for New Code
+---
 
-- [ ] Unit tests (`*_test.go`)
-- [ ] GoDoc comments for exported functions
-- [ ] Error handling follows guidelines
-- [ ] No new magic strings
-- [ ] `go vet` passes
+## Adding things
 
-### Code Review Checklist
+### A new command
 
-Before submitting PR:
-```bash
-go test ./...      # All tests pass
-go vet ./...       # No warnings
-go build ./...     # Compiles
-```
+1. Create `internal/commands/<command>.go` exposing a `New<Command>Command() *cobra.Command`.
+2. Register it in `cmd/flip/main.go`.
+3. Add or update its entry in [docs/COMMANDS.md](docs/COMMANDS.md).
+4. Add tests where it's reasonable (parsing, business logic).
+
+### Localization
+
+1. Add a key to `internal/lang/en.json`.
+2. Use `lang.GetText("my.key")` in code.
+
+### A new VS Code task
+
+1. Edit `VSCodeTasksJSON` in `internal/commands/vscode.go`.
+2. Bump the `TasksVersion` constant.
+3. Update [docs/VSCODE.md](docs/VSCODE.md) if the user-visible behaviour changes.
+
+---
+
+## Public-repo hygiene
+
+This repo is mirrored to a public profile. Internal working notes must stay out of tracked files.
+
+Do not commit:
+
+- ad-hoc review docs (e.g. `CODE_REVIEW_*.md`)
+- AI handoff or planning notes (`docs/AI_*`, `docs/*_PLAN.md`)
+- private or scratch material under `docs/archive/`
+
+Allowed:
+
+- user-facing docs (`README.md`, `docs/QUICKSTART.md`, `docs/COMMANDS.md`, …)
+- test fixtures under `test-brains/`
+- example content under `docs/example-brain/`
+
+Enforced by `make public-check` locally and the **Public Repo Guard** step in CI.
+
+---
+
+## Release process
+
+1. Update affected version constants and `vscode-extension/package.json` (or use `make bump-extension-*`).
+2. Update [CHANGELOG.md](CHANGELOG.md).
+3. Tag the release.
+4. GitHub Actions builds release artifacts.
+
+---
+
+## Getting help
+
+- Bugs and feature requests: [GitHub Issues](https://github.com/httrp/flip/issues)
+- Questions: [GitHub Discussions](https://github.com/httrp/flip/discussions)
+
+---
+
+## License
+
+By contributing you agree that your contributions are licensed under the MIT License (see [LICENSE](LICENSE)).

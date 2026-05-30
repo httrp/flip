@@ -252,7 +252,7 @@ Your content here...
 
 **That's it!** You're ready to use flip. 
 
-Questions? Issues? → [GitHub Issues](https://github.com/your-org/flip/issues)
+Questions? Issues? → [GitHub Issues](https://github.com/httrp/flip/issues)
 
 ---
 

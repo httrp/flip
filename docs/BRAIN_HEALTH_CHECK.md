@@ -43,9 +43,9 @@ flip brain check health --json
 ```
 🧠 Brain Health Check
 ────────────────────────────────────────────────────────────
-  Brain:  danobrain
+  Brain:  my-brain
   Type:   Flip Brain
-  Path:   /home/user/danobrain
+  Path:   /home/user/my-brain
   Notes:  14 markdown files
   Assets: 0 files
 ────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ This is memory-efficient even for large brains (10k+ notes) as it only keeps fil
 ## Testing
 
 Tested on:
-- Flip Brain (danobrain) - 14 notes ✅
+- Flip Brain (my-brain) - 14 notes ✅
 - Logseq Graph - Coming soon
 - Obsidian Vault - Coming soon
 - Dendron Workspace - Coming soon

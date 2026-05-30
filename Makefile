@@ -1,5 +1,6 @@
 # Makefile for flip CLI and VS Code Extension
-# Works on macOS, Linux, and Windows (with Make installed)
+# Most targets work on macOS, Linux and Windows (Git Bash + GNU Make).
+# `dev-link` and the `sudo` paths in `uninstall-dev-link` are macOS/Linux only.
 
 # Detect OS and set binary name
 ifeq ($(OS),Windows_NT)
@@ -18,8 +19,10 @@ LDFLAGS=-X github.com/httrp/flip/internal/commands.FlipVersion=$(VERSION)
 EXTENSION_VERSION=$(shell grep '"version"' $(VSIX_DIR)/package.json | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
 VSIX_FILE=$(VSIX_DIR)/flip-vscode-$(EXTENSION_VERSION).vsix
 VSIX_GLOB=$(VSIX_DIR)/flip-vscode-*.vsix
+# Optional VS Code profile to also install the extension into (e.g. EXTENSION_PROFILE=work).
+EXTENSION_PROFILE ?=
 
-.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke public-check install uninstall dev-link package-extension install-extension uninstall-extension help setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install extension-deps
+.PHONY: all ci build build-cli build-extension clean clean-cli clean-extension test lint smoke public-check install uninstall uninstall-dev-link dev-link package-extension install-extension uninstall-extension help setup setup-hooks bump-extension-patch bump-extension-minor bump-extension-major bump-extension bump-extension-install extension-deps sync-version
 
 # Default: show help
 help:
@@ -46,7 +49,8 @@ help:
 	@echo "  make clean               Clean all build artifacts"
 	@echo "  make clean-cli           Clean CLI binary only"
 	@echo "  make clean-extension     Clean Extension build files"
-	@echo "  make uninstall           Remove installed flip"
+	@echo "  make uninstall           Remove flip from GOPATH/bin"
+	@echo "  make uninstall-dev-link  Remove /usr/local/bin/flip symlink (sudo, macOS/Linux)"
 	@echo "  make bump-extension      Bump extension version (patch)"
 	@echo "  make bump-extension-patch Bump extension version (patch)"
 	@echo "  make bump-extension-minor Bump extension version (minor)"
@@ -138,7 +142,7 @@ package-extension: build-extension
 	fi
 
 # Install VS Code Extension (works with VS Code or VSCodium)
-# Installs to both default profile AND "da" profile if it exists
+# Set EXTENSION_PROFILE=<name> to also install into a named profile.
 install-extension: package-extension
 	@CLI=$$(command -v code || true); \
 	if [ -z "$$CLI" ]; then \
@@ -148,17 +152,21 @@ install-extension: package-extension
 		CLI=$$(command -v code-insiders || true); \
 	fi; \
 	if [ -z "$$CLI" ]; then \
-		echo "❌ VS Code CLI not found. Install VS Code and ensure 'code' is in PATH."; \
+		echo "VS Code CLI not found. Install VS Code and ensure 'code' is in PATH."; \
 		exit 1; \
 	fi; \
 	VSIX="$(VSIX_FILE)"; \
 	if [ ! -f "$$VSIX" ]; then \
-		echo "❌ VSIX file not found: $$VSIX"; \
+		echo "VSIX file not found: $$VSIX"; \
 		exit 1; \
 	fi; \
 	echo "Installing $$VSIX..."; \
 	"$$CLI" --install-extension "$$VSIX" --force && echo "✓ Extension installed (default profile)"; \
-	"$$CLI" --install-extension "$$VSIX" --force --profile "da" 2>/dev/null && echo "✓ Extension installed (da profile)" || true
+	if [ -n "$(EXTENSION_PROFILE)" ]; then \
+		"$$CLI" --install-extension "$$VSIX" --force --profile "$(EXTENSION_PROFILE)" \
+			&& echo "✓ Extension installed (profile: $(EXTENSION_PROFILE))" \
+			|| echo "⚠ Could not install into profile: $(EXTENSION_PROFILE)"; \
+	fi
 
 # Uninstall the extension by identifier
 uninstall-extension:
@@ -217,19 +225,20 @@ clean-extension:
 
 uninstall:
 	rm -f $(INSTALL_PATH)/$(BINARY)
+	@echo "✓ flip uninstalled from $(INSTALL_PATH)"
+	@echo "  If you also created /usr/local/bin/flip via 'make dev-link', run 'make uninstall-dev-link'."
+
+# Remove the /usr/local/bin symlink created by `make dev-link` (macOS/Linux only).
+uninstall-dev-link:
 	sudo rm -f /usr/local/bin/$(BINARY)
-	@echo "✓ flip uninstalled"
+	@echo "✓ /usr/local/bin/$(BINARY) removed"
 
 # Setup git hooks
 setup-hooks:
-	@echo "Installing git hooks..."
-	@echo '#!/bin/bash' > .git/hooks/pre-commit
-	@echo 'REPO_ROOT="$$(git rev-parse --show-toplevel)"' >> .git/hooks/pre-commit
-	@echo 'if [ -x "$$REPO_ROOT/scripts/check-extension-version.sh" ]; then' >> .git/hooks/pre-commit
-	@echo '    "$$REPO_ROOT/scripts/check-extension-version.sh"' >> .git/hooks/pre-commit
-	@echo 'fi' >> .git/hooks/pre-commit
-	@echo 'if [ -x "$$REPO_ROOT/scripts/check-public-repo.sh" ]; then' >> .git/hooks/pre-commit
-	@echo '    "$$REPO_ROOT/scripts/check-public-repo.sh"' >> .git/hooks/pre-commit
-	@echo 'fi' >> .git/hooks/pre-commit
+	@if [ ! -d .git ]; then \
+		echo "Not a git checkout (no .git directory)."; \
+		exit 1; \
+	fi
+	@cp scripts/hooks/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
-	@echo "✓ Git hooks installed"
+	@echo "✓ Git hooks installed (scripts/hooks/pre-commit → .git/hooks/pre-commit)"

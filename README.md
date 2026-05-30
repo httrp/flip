@@ -1,19 +1,19 @@
 # flip
 
 > Steroids for your 2nd brain 🧠
-
-**flip** is a CLI tool for managing personal knowledge bases. It works with your existing markdown folders - Obsidian vaults, Logseq graphs, Dendron workspaces, or plain directories.
+>
+> *…or, more honestly: a CLI for working with markdown-based knowledge folders. flip runs alongside tools like Obsidian, Logseq, Dendron and Foam by reading their on-disk layout — it does not replace them.*
 
 ## Features
 
-- 📓 **Daily Journals** - One command to open today's entry
-- 📝 **Structured Notes** - Templates, frontmatter, search
-- ✅ **Task Management** - Markdown-based tasks with TUI browser
-- 🏋️ **Exercise Tracking** - Practice sessions, plans, progress
-- 🔗 **Multi-Brain** - Connect and switch between knowledge bases
-- 🎨 **VS Code Integration** - Tasks, commands, status bar
-- 🤖 **AI Assist** - Research, summaries, and improvements
-- 📤 **Markdown Export** - Convert notes to PDF/HTML/DOCX with template support
+- Daily journals — one command to open today's entry
+- Notes with templates, frontmatter and search
+- Markdown-based task management with a TUI browser
+- Exercise tracking (sessions, plans, progress)
+- Multiple "brains" (knowledge folders) with workspace switching
+- VS Code integration (tasks, commands, status bar)
+- Optional AI assist for research, summaries and edits
+- Pandoc-based export to PDF / HTML / DOCX
 
 ## Quick Start
 
@@ -28,29 +28,28 @@ cd flip && make build
 # Create your first brain
 flip brain init ~/my-brain
 
-# Open interactive menu
+# Open the interactive menu
 flip
 ```
 
 ## Screenshots
 
-### Interactive Menu
+### Interactive menu
 ![flip menu](assets/screenshots/flip-cli-menu.png)
 
-### VS Code Integration
+### VS Code integration
 ![VS Code tasks](assets/screenshots/flip-vsc-extension.png)
 
-## Common Commands
+## Common commands
 
 ```bash
-flip journal              # Today's journal
-flip note "My Idea"       # New note
-flip task new             # New task
-flip task browse          # Task browser (TUI)
-flip exercise new         # New exercise
+flip journal              # today's journal
+flip note "My Idea"       # new note
+flip task new             # new task
+flip task browse          # task browser (TUI)
+flip exercise new         # new exercise
 flip export convert notes/idea.md --format pdf
-flip export doctor
-flip status               # Overview
+flip status               # overview
 ```
 
 ## Documentation
@@ -61,149 +60,71 @@ flip status               # Overview
 | [COMMANDS](docs/COMMANDS.md) | Full command reference |
 | [VSCODE](docs/VSCODE.md) | VS Code integration guide |
 | [FEATURES](docs/FEATURES.md) | Feature overview |
+| [DEVELOPMENT](docs/DEVELOPMENT.md) | Architecture and internals |
 
-## Supported Brain Types
+## Brain compatibility
+
+flip can detect and work with several markdown-based knowledge systems. "Compatible" means flip can read the on-disk layout and operate on the files; it does **not** mean feature parity with the original tool.
 
 | Type | Detection | Status |
 |------|-----------|--------|
-| **Flip** | `.flip-brain.yaml` | ✅ Full support |
-| **Obsidian** | `.obsidian/` | ✅ Full support |
-| **Logseq** | `.logseq/` | ✅ Full support |
-| **Dendron** | `dendron.yml` | ✅ Full support |
-| **Foam** | `.foam/` | ✅ Full support |
-| **Plain Markdown** | Any folder | ✅ Full support |
+| **flip** (native) | `.flip-brain.yaml` | Full support |
+| **Obsidian** | `.obsidian/` | Compatible — vault layout, wikilinks, daily notes. Plugins, Canvas and Bases are not interpreted. |
+| **Logseq** | `.logseq/` | Read & migrate. Property bullets, queries and block refs are normalized, not preserved round-trip. |
+| **Dendron** | `dendron.yml` | Read & migrate. The hierarchical schema system is not enforced. |
+| **Foam** | `.foam/` | Compatible (treated similarly to Obsidian). |
+| **Plain Markdown** | any folder | Supported |
 
-## VS Code Integration
+For the full compatibility matrix and limitations, see [BRAIN_TYPES_REFERENCE](docs/BRAIN_TYPES_REFERENCE.md).
+
+## VS Code integration
 
 ```bash
-# Install VS Code tasks
+# Install the bundled VS Code tasks
 flip vscode install
 
 # Then: Cmd+Shift+P → "Tasks: Run Task" → "Flip: ..."
 ```
 
-## Getting Started
+## Getting started
 
-**First time?** Run the interactive quickstart:
+First time? Run the interactive quickstart:
 
 ```bash
 flip quickstart
 ```
 
-This walks you through:
-1. Creating or joining a workspace
-2. Creating a new brain or connecting an existing one
-3. Writing your first journal entry
+It walks you through creating or joining a workspace, creating a brain (or connecting an existing one) and writing your first journal entry. For a manual setup, see [QUICKSTART.md](docs/QUICKSTART.md).
 
-For manual setup, see [QUICKSTART.md](docs/QUICKSTART.md).
+## Concepts
+
+- **Brain** — a folder containing your knowledge base (notes, tasks, journals, meetings). flip works with plain markdown and detects supported brain formats automatically.
+- **Workspace** — a group of brains with one active brain. Configuration is local; there is no cloud sync.
+
+For the architecture overview and design notes, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/ARCHITECTURE_DIAGRAMS.md](docs/ARCHITECTURE_DIAGRAMS.md).
 
 ## Development
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Development setup & build instructions
-- Testing & lint
-- Adding new commands
-- VS Code extension development
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, build and test instructions.
 
 ```bash
-# Build
-make build
-
-# Test
-make test
-
-# Lint
-make lint
-
-# Install dev symlink
-make dev-link
+make build      # build CLI + extension
+make test       # run tests
+make lint       # go vet
+make dev-link   # symlink the binary for local dev (macOS/Linux)
 ```
-
-## Core Concepts
-
-### Brain
-A **brain** is a folder containing your knowledge base (notes, tasks, journals, meetings). Flip works with plain Markdown files and supports multiple brain formats:
-- **Flip** (`flip` native format with `.flip-brain.yaml`)
-- **Obsidian** (`.obsidian/` vaults)
-- **Logseq** (`.logseq/` graphs)
-- **Dendron** (`dendron.yml` workspaces)
-- **Foam** (`.foam/` setups)
-- **Plain Markdown** (any folder with `.md` files)
-
-### Workspace
-A **workspace** groups related brains together. Each workspace has:
-- An **active brain** (used for `flip journal`, `flip note`, etc.)
-- Multiple brains you can switch between
-- Independent configuration per workspace
-
-**Example:**
-```
-Workspace "work":
-  - brain: project-alpha (default)
-  - brain: project-beta
-  - brain: documentation
-
-Workspace "personal":
-  - brain: life (default)
-  - brain: learning
-```
-
-## Architecture
-
-```
-flip/
-├── cmd/flip/                # CLI entry point
-├── internal/
-│   ├── commands/            # Cobra CLI commands (brain, task, journal, etc.)
-│   ├── brain/               # Brain detection & creation
-│   │   ├── detector.go      # Identify brain types (Obsidian, Logseq, etc.)
-│   │   └── creator.go       # Create new brains
-│   ├── tasks/               # Task scanning & management
-│   ├── exercises/           # Exercise tracking
-│   ├── health/              # Brain validation & repair
-│   ├── ai/                  # AI integrations (OpenAI, Anthropic, etc.)
-│   ├── migration/           # Convert between brain formats
-│   ├── templates/           # Template loading & rendering
-│   ├── platform/            # Cross-platform utilities
-│   ├── ui/                  # Interactive prompts (TUI)
-│   └── lang/                # Multi-language support
-├── vscode-extension/        # VS Code integration (TypeScript)
-├── docs/                    # Documentation & specs
-└── test-brains/            # Test fixtures
-```
-
-### Key Design Patterns
-
-1. **Workspace Configuration** (`~/.config/flip/workspaces.yaml`)
-   - Manages workspace collections
-   - Tracks active workspace & default brain per workspace
-   - Persisted locally, no cloud sync
-
-2. **Brain Detection**
-   - Automatic brain type identification via marker files
-   - Backward compatible with existing Obsidian, Logseq, etc. setups
-   - Supports nested brain prevention
-
-3. **Health Checks**
-   - Validates path integrity across sync services (iCloud, Dropbox, OneDrive)
-   - Auto-repairs broken links
-   - Checks for duplicate files created by sync conflicts
 
 ## Acknowledgments
 
-Flip built on these excellent projects:
+flip is compatible with vaults and graphs from these projects, and owes a lot to the conventions they established:
 
-- **[Obsidian](https://obsidian.md/)** - Inspiring the vault concept and community
-- **[Logseq](https://logseq.com/)** - Graph-based knowledge organization
-- **[Dendron](https://www.dendron.so/)** - Hierarchical note-taking approach
-- **[Foam](https://foambubble.github.io/)** - Open-source note ecosystem
+- [Obsidian](https://obsidian.md/)
+- [Logseq](https://logseq.com/)
+- [Dendron](https://www.dendron.so/)
+- [Foam](https://foambubble.github.io/)
 
-And the amazing open-source communities behind them. We support these formats to help you work with the tools you love.
+If you already use one of these tools, flip is meant to sit next to it, not to take it over.
 
 ## License
 
-MIT - see LICENSE.
-
----
-
-*Built with ❤️ for knowledge workers who love plain text.*
+MIT — see [LICENSE](LICENSE).

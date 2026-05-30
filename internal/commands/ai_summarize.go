@@ -52,7 +52,7 @@ This command:
 
 Examples:
   flip ai summarize "project management"
-  flip ai summarize "golang best practices" --brains danobrain
+  flip ai summarize "golang best practices" --brains my-brain
   flip ai summarize "meeting notes Q1" -o summary.md`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

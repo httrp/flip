@@ -34,8 +34,8 @@ func TestDefaultRollingProtocolPathLogseq(t *testing.T) {
 }
 
 func TestSlugifySeriesName(t *testing.T) {
-	got := slugifySeriesName("(Neubau EFH Luhdorf) Regeltermin: Hattrup / Contreras")
-	want := "neubau-efh-luhdorf-regeltermin-hattrup-contreras"
+	got := slugifySeriesName("(Project Alpha) Sync: Smith / Jones")
+	want := "project-alpha-sync-smith-jones"
 	if got != want {
 		t.Fatalf("slugifySeriesName() = %q, want %q", got, want)
 	}

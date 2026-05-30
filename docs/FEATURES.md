@@ -13,7 +13,7 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 
 ---
 
-## 🧠 Brain Management
+## Brain Management
 
 | Command | Description |
 |---------|-------------|
@@ -39,7 +39,7 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 
 ---
 
-## 📁 Workspace Management
+## Workspace Management
 
 | Command | Description |
 |---------|-------------|
@@ -51,7 +51,7 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 
 ---
 
-## ✏️ Content Creation
+## Content Creation
 
 ### Notes
 | Command | Description |
@@ -75,7 +75,7 @@ Flip is a CLI tool for managing personal knowledge bases ("brains"). It works wi
 
 ---
 
-## 🤖 AI Assist
+## AI Assist
 
 Create research notes, summaries, and improvements with AI.
 
@@ -101,7 +101,7 @@ AI notes use short filenames based on the title (`<slug>-YYYY-MM-DD.md`) and inc
 
 ---
 
-## 🏋️ Exercise Tracking
+## Exercise Tracking
 
 Track repeatable practice sessions (music, languages, skills).
 
@@ -115,7 +115,7 @@ Track repeatable practice sessions (music, languages, skills).
 
 ---
 
-## 🔄 Migration
+## Migration
 
 Convert between brain formats while preserving content.
 
@@ -127,17 +127,17 @@ flip brain migrate --source ~/obsidian-vault --target ~/new-flip-brain
 flip brain migrate --source ~/obsidian-vault --target ~/new-flip-brain --execute
 ```
 
-### Migration Features
-- ✅ Wikilinks → Markdown links (and vice versa)
-- ✅ Asset relocation
-- ✅ Folder structure mapping
-- ✅ Conflict detection
-- ✅ Rollback support
-- ✅ Progress tracking
+### Migration features
+- Wikilinks ↔ markdown links conversion
+- Asset relocation
+- Folder-structure mapping
+- Conflict detection
+- Rollback support
+- Progress tracking
 
 ---
 
-## 📦 Git Integration
+## Git Integration
 
 Automatic git operations for brains.
 
@@ -155,7 +155,7 @@ Automatic git operations for brains.
 
 ---
 
-## 🎨 Interactive Menu
+## Interactive Menu
 
 ```bash
 flip menu
@@ -169,7 +169,7 @@ Full-featured TUI menu with:
 
 ---
 
-## 📋 Definitions
+## Definitions
 
 Manage reusable metadata for tasks and notes.
 
@@ -182,7 +182,7 @@ Manage reusable metadata for tasks and notes.
 
 ---
 
-## 🔧 Templates
+## Templates
 
 | Command | Description |
 |---------|-------------|
@@ -200,7 +200,7 @@ Manage reusable metadata for tasks and notes.
 
 ---
 
-## 📤 Markdown Export
+## Markdown Export
 
 Export markdown notes to shareable document formats with pandoc.
 
@@ -219,20 +219,20 @@ Export markdown notes to shareable document formats with pandoc.
 
 ---
 
-## 🏥 Health Check
+## Health Check
 
 Automatic brain health monitoring:
 
-- ✅ Path existence validation
-- ✅ Required folder structure
-- ✅ Git repository status
-- ✅ Sync service detection (iCloud, Dropbox, etc.)
-- ✅ Conflict file detection
-- ⚠️ Warning aggregation in status
+- Path existence validation
+- Required folder structure
+- Git repository status
+- Sync service detection (iCloud, Dropbox, etc.)
+- Conflict file detection
+- Warning aggregation in status
 
 ---
 
-## 🌐 Internationalization
+## Internationalization
 
 Built-in language support:
 - English (default)
@@ -242,7 +242,7 @@ All UI text externalized in `lang/` folder.
 
 ---
 
-## 📊 Status Overview
+## Status Overview
 
 ```bash
 flip status
@@ -258,7 +258,7 @@ Shows:
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # 1. Start interactive menu
